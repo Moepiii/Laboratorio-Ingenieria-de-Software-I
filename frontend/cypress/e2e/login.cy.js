@@ -1,6 +1,6 @@
 describe('Login Flow - React + Go', () => {
   beforeEach(() => {
-    cy.visit('http://localhost:3000'); // Usa baseUrl en config para evitar repetir
+    cy.visit('http://localhost:3000'); 
   });
 
   it('✅ Login exitoso con intercept y token', () => {
@@ -14,8 +14,6 @@ describe('Login Flow - React + Go', () => {
     cy.get('button[type="submit"]').click();
 
     cy.wait('@loginRequest');
-    // Solucionado: La aplicación no cambia la URL, solo el contenido (renderizado condicional).
-    // Se elimina la aserción de cy.url().should('include', '/dashboard');
     cy.contains('Bienvenido').should('exist');
   });
 
@@ -30,7 +28,6 @@ describe('Login Flow - React + Go', () => {
     cy.get('button[type="submit"]').click();
 
     cy.wait('@loginFail');
-    // 💡 Solucionado: La aplicación traduce el error a "Usuario o contraseña incorrectos."
     cy.contains('Usuario o contraseña incorrectos.').should('exist');
   });
 
