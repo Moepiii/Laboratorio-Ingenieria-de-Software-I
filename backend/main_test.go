@@ -2,26 +2,22 @@ package main
 
 import (
 	"bytes"
-	"database/sql" // ¡AGREGAR! Paquete estándar de DB
+	"database/sql"
 	"encoding/json"
 	"io"
-	"log" // ¡AGREGAR! Para log.Fatalf
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
-	// ¡OJO! No necesitamos importar modernc.org/sqlite aquí, pero la función
-	// setupTestDB llama a sql.Open("sqlite", ...), que requiere el
-	// driver importado con "_" en main.go.
 )
-// setupTestDB inicializa la base de datos para pruebas.
-// Esto sobrescribe la conexión global DB con una DB en memoria.
+
 func setupTestDB() {
-	// Reemplazar la inicialización de DB con una DB temporal en memoria
+
 	var err error
-	// Abrir la base de datos en memoria para pruebas
+
 	DB, err = sql.Open("sqlite", ":memory:")
 	if err != nil {
 		log.Fatalf("Error al abrir la base de datos en memoria: %v", err)
@@ -81,8 +77,8 @@ func TestCheckAdminRole(t *testing.T) {
 		want     bool
 		wantErr  bool
 	}{
-		{"admin", true, false},    // Usuario administrador por defecto
-		{"testuser", false, false}, // Usuario normal
+		{"admin", true, false},        // Usuario administrador por defecto
+		{"testuser", false, false},    // Usuario normal
 		{"nonexistent", false, false}, // Usuario inexistente
 	}
 
