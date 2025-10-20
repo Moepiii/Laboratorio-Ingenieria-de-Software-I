@@ -21,6 +21,8 @@ var DB *sql.DB
 type User struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Nombre   string `json:"nombre"`   // NUEVO
+	Apellido string `json:"apellido"` // NUEVO
 }
 
 type UserDB struct {
@@ -28,12 +30,16 @@ type UserDB struct {
 	Username       string
 	HashedPassword string
 	Role           string
+	Nombre         string // NUEVO
+	Apellido       string // NUEVO
 }
 
 type UserListResponse struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	Nombre   string `json:"nombre"`   // NUEVO
+	Apellido string `json:"apellido"` // NUEVO
 }
 
 type UpdateRoleRequest struct {
@@ -46,6 +52,7 @@ type AdminActionRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
+// AHORA AddUserRequest incrusta la struct User actualizada
 type AddUserRequest struct {
 	User
 	AdminUsername string `json:"admin_username"`
@@ -61,21 +68,21 @@ type DeleteUserRequest struct {
 // initDB inicializa la conexión a la base de datos SQLite y crea la tabla 'users'.
 func initDB() {
 	var err error
-	// ⭐️ ¡CAMBIO AQUÍ!
-	// Usamos `../` para subir al directorio padre (Laboratorio-Ingenieria-de-Software-I)
-	// y luego acceder a "Base de datos/users.db"
 	DB, err = sql.Open("sqlite", "../Base de datos/users.db")
 	if err != nil {
 		log.Fatalf("Error al abrir la base de datos: %v", err)
 	}
 
-	// 1. SQL para crear la tabla con el campo 'role'
+	// 1. SQL para crear la tabla con los nuevos campos 'nombre' y 'apellido'
+	// Usamos NOT NULL DEFAULT '' para que las cuentas antiguas no den error.
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT NOT NULL UNIQUE,
 		password TEXT NOT NULL,
-		role TEXT NOT NULL DEFAULT 'user' -- ROL AÑADIDO con valor por defecto 'user'
+		role TEXT NOT NULL DEFAULT 'user',
+		nombre TEXT NOT NULL DEFAULT '', 
+		apellido TEXT NOT NULL DEFAULT ''
 	);`
 
 	_, err = DB.Exec(createTableSQL)
@@ -83,14 +90,17 @@ func initDB() {
 		log.Fatalf("Error al crear la tabla 'users': %v", err)
 	}
 
-	// ⭐️ INICIO LÓGICA DE MIGRACIÓN ROBUSTA
+	// ⭐️ INICIO LÓGICA DE MIGRACIÓN ROBUSTA (ACTUALIZADA)
 	rows, err := DB.Query("PRAGMA table_info(users)")
 	if err != nil {
 		log.Fatalf("Error al leer la información del esquema (PRAGMA): %v", err)
 	}
 	defer rows.Close()
 
-	columnExists := false
+	columnExistsRole := false
+	columnExistsNombre := false
+	columnExistsApellido := false
+
 	for rows.Next() {
 		var (
 			cid        int
@@ -105,18 +115,44 @@ func initDB() {
 			log.Fatalf("Error al escanear información de columna: %v", err)
 		}
 		if name == "role" {
-			columnExists = true
-			break
+			columnExistsRole = true
+		}
+		if name == "nombre" {
+			columnExistsNombre = true
+		}
+		if name == "apellido" {
+			columnExistsApellido = true
 		}
 	}
+	rows.Close() // Cerramos rows aquí para poder ejecutar los ALTER
 
-	if !columnExists {
+	if !columnExistsRole {
 		log.Println("⚠️ Columna 'role' ausente. Ejecutando migración...")
 		_, migrateErr := DB.Exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
 		if migrateErr != nil {
 			log.Fatalf("Error crítico al migrar la tabla: %v", migrateErr)
 		}
 		log.Println("✅ Columna 'role' agregada exitosamente.")
+	}
+
+	// NUEVA MIGRACIÓN para 'nombre'
+	if !columnExistsNombre {
+		log.Println("⚠️ Columna 'nombre' ausente. Ejecutando migración...")
+		_, migrateErr := DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
+		if migrateErr != nil {
+			log.Fatalf("Error crítico al migrar 'nombre': %v", migrateErr)
+		}
+		log.Println("✅ Columna 'nombre' agregada exitosamente.")
+	}
+
+	// NUEVA MIGRACIÓN para 'apellido'
+	if !columnExistsApellido {
+		log.Println("⚠️ Columna 'apellido' ausente. Ejecutando migración...")
+		_, migrateErr := DB.Exec("ALTER TABLE users ADD COLUMN apellido TEXT NOT NULL DEFAULT ''")
+		if migrateErr != nil {
+			log.Fatalf("Error crítico al migrar 'apellido': %v", migrateErr)
+		}
+		log.Println("✅ Columna 'apellido' agregada exitosamente.")
 	}
 	// ⭐️ FIN LÓGICA DE MIGRACIÓN
 
@@ -134,8 +170,9 @@ func initDB() {
 			log.Fatalf("Error al hashear contraseña de admin: %v", err)
 		}
 
-		insertAdminSQL := "INSERT INTO users(username, password, role) VALUES(?, ?, ?)"
-		_, err = DB.Exec(insertAdminSQL, "admin", string(hashedPassword), "admin")
+		// ACTUALIZADO: Insertamos nombre y apellido para el admin
+		insertAdminSQL := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
+		_, err = DB.Exec(insertAdminSQL, "admin", string(hashedPassword), "admin", "Admin", "User")
 		if err != nil {
 			log.Fatalf("Error al insertar usuario admin por defecto: %v", err)
 		}
@@ -163,7 +200,7 @@ func checkAdminRole(username string) (bool, error) {
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var user User
+	var user User // user ahora contiene nombre y apellido
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
 		return
@@ -171,6 +208,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(user.Password) < 6 {
 		http.Error(w, `{"error": "La contraseña debe tener al menos 6 caracteres."}`, http.StatusBadRequest)
+		return
+	}
+	// Podríamos añadir validación para nombre y apellido si quisiéramos
+	if user.Nombre == "" || user.Apellido == "" {
+		http.Error(w, `{"error": "El nombre y el apellido son obligatorios."}`, http.StatusBadRequest)
 		return
 	}
 
@@ -181,9 +223,9 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insertamos con el rol por defecto 'user'
-	query := "INSERT INTO users(username, password, role) VALUES(?, ?, ?)"
-	_, err = DB.Exec(query, user.Username, string(hashedPassword), "user")
+	// ACTUALIZADO: Insertamos los nuevos campos
+	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
+	_, err = DB.Exec(query, user.Username, string(hashedPassword), "user", user.Nombre, user.Apellido)
 	if err != nil {
 		// Detectar error de usuario duplicado (UNIQUE constraint)
 		http.Error(w, `{"error": "El nombre de usuario ya existe. Intenta otro."}`, http.StatusConflict)
@@ -204,6 +246,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var userDB UserDB
+	// No necesitamos traer nombre/apellido en el login, solo el rol
 	query := "SELECT id, username, password, role FROM users WHERE username = ?"
 	row := DB.QueryRow(query, userReq.Username)
 	err := row.Scan(&userDB.ID, &userDB.Username, &userDB.HashedPassword, &userDB.Role)
@@ -249,7 +292,8 @@ func adminUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := DB.Query("SELECT id, username, role FROM users ORDER BY id ASC")
+	// ACTUALIZADO: Seleccionamos nombre y apellido
+	rows, err := DB.Query("SELECT id, username, role, nombre, apellido FROM users ORDER BY id ASC")
 	if err != nil {
 		log.Printf("Error al consultar usuarios: %v", err)
 		http.Error(w, `{"error": "Error interno al consultar usuarios."}`, http.StatusInternalServerError)
@@ -260,7 +304,8 @@ func adminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	users := []UserListResponse{}
 	for rows.Next() {
 		var u UserListResponse
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role); err != nil {
+		// ACTUALIZADO: Escaneamos nombre y apellido
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Nombre, &u.Apellido); err != nil {
 			log.Printf("Error al escanear usuario: %v", err)
 			continue
 		}
@@ -273,7 +318,7 @@ func adminUsersHandler(w http.ResponseWriter, r *http.Request) {
 func adminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var req AddUserRequest
+	var req AddUserRequest // req.User ahora tiene nombre y apellido
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
 		return
@@ -285,8 +330,8 @@ func adminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.User.Username) == 0 || len(req.User.Password) < 6 {
-		http.Error(w, `{"error": "Nombre de usuario o contraseña (mínimo 6 caracteres) no válidos."}`, http.StatusBadRequest)
+	if len(req.User.Username) == 0 || len(req.User.Password) < 6 || req.User.Nombre == "" || req.User.Apellido == "" {
+		http.Error(w, `{"error": "Todos los campos (usuario, pass > 6, nombre, apellido) son requeridos."}`, http.StatusBadRequest)
 		return
 	}
 
@@ -297,8 +342,9 @@ func adminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "INSERT INTO users(username, password, role) VALUES(?, ?, ?)"
-	_, err = DB.Exec(query, req.User.Username, string(hashedPassword), "user")
+	// ACTUALIZADO: Insertamos los nuevos campos
+	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
+	_, err = DB.Exec(query, req.User.Username, string(hashedPassword), "user", req.User.Nombre, req.User.Apellido)
 	if err != nil {
 		http.Error(w, `{"error": "El nombre de usuario ya existe. Intenta otro."}`, http.StatusConflict)
 		return

@@ -117,9 +117,13 @@ const AuthForm = ({
   username,
   password,
   confirmPassword,
+  nombre, // NUEVO
+  apellido, // NUEVO
   setUsername,
   setPassword,
   setConfirmPassword,
+  setNombre, // NUEVO
+  setApellido, // NUEVO
   handleRegister,
   handleLogin,
   handleSwitchMode
@@ -152,6 +156,44 @@ const AuthForm = ({
           />
         </div>
       </div>
+
+      {/* --- NUEVOS CAMPOS DE NOMBRE Y APELLIDO (SOLO REGISTRO) --- */}
+      {isRegisterMode && (
+        <>
+          <div style={styles.inputGroup}>
+            <label htmlFor="nombre" style={styles.label}>
+              Nombre
+            </label>
+            <input
+              id="nombre"
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Tu nombre"
+              style={styles.input}
+              required
+              disabled={loading}
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label htmlFor="apellido" style={styles.label}>
+              Apellido
+            </label>
+            <input
+              id="apellido"
+              type="text"
+              value={apellido}
+              onChange={(e) => setApellido(e.target.value)}
+              placeholder="Tu apellido"
+              style={styles.input}
+              required
+              disabled={loading}
+            />
+          </div>
+        </>
+      )}
+      {/* --- FIN DE NUEVOS CAMPOS --- */}
+
 
       {/* Campo de Contraseña */}
       <div style={styles.inputGroup}>
@@ -284,6 +326,8 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
   // NUEVOS ESTADOS para el formulario de Añadir Usuario
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newNombre, setNewNombre] = useState(''); // NUEVO
+  const [newApellido, setNewApellido] = useState(''); // NUEVO
   const [loadingAdd, setLoadingAdd] = useState(false);
 
 
@@ -298,6 +342,7 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
         const filteredUsers = (result.data.users || []).filter(u => u.username !== currentUser);
         const selfUser = (result.data.users || []).find(u => u.username === currentUser);
 
+        // Los usuarios ahora tienen .nombre y .apellido
         setUsers(selfUser ? [selfUser, ...filteredUsers] : filteredUsers);
       } else {
         setAdminError('No se pudo cargar la lista de usuarios: ' + (result.data.error || 'Desconocido'));
@@ -314,7 +359,7 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
   }, [fetchUsers]);
 
 
-  // --- NUEVA FUNCIÓN: Añadir Usuario ---
+  // --- FUNCIÓN: Añadir Usuario (ACTUALIZADA) ---
   const handleAdminAddUser = async (e) => {
     e.preventDefault();
     setAdminError('');
@@ -328,9 +373,12 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
     }
 
     try {
+      // ACTUALIZADO: Enviamos nombre y apellido
       const result = await apiCall('admin/add-user', {
         username: newUsername,
         password: newPassword,
+        nombre: newNombre,
+        apellido: newApellido,
         admin_username: currentUser
       }, 'POST');
 
@@ -338,6 +386,8 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
         setAdminSuccess(result.data.mensaje);
         setNewUsername('');
         setNewPassword('');
+        setNewNombre(''); // Limpiamos
+        setNewApellido(''); // Limpiamos
         fetchUsers(); // Volver a cargar la lista
       } else {
         setAdminError(result.data.error || 'Fallo al añadir el usuario.');
@@ -350,7 +400,7 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
   };
 
 
-  // --- NUEVA FUNCIÓN: Borrar Usuario ---
+  // --- FUNCIÓN: Borrar Usuario ---
   const handleAdminDeleteUser = async (userId, username) => {
     setAdminError('');
     setAdminSuccess('');
@@ -377,7 +427,7 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
   };
 
 
-  // Función para cambiar el rol de un usuario (Función ya existente, ligeramente refactorizada)
+  // Función para cambiar el rol de un usuario
   const handleAdminUpdateRole = async (userId, username, currentRole) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     setAdminError('');
@@ -416,10 +466,12 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
       {adminSuccess && <p style={{ ...styles.success, marginBottom: '1rem' }}>{adminSuccess}</p>}
       {adminError && <p style={{ ...styles.error, marginBottom: '1rem' }}>{adminError}</p>}
 
-      {/* --- Formulario para Añadir Usuario --- */}
+      {/* --- Formulario para Añadir Usuario (ACTUALIZADO) --- */}
       <div style={styles.adminFormContainer}>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>➕ Crear Nuevo Usuario</h3>
         <form onSubmit={handleAdminAddUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+          {/* Fila 1: Usuario y Contraseña */}
           <div style={{ display: 'flex', flexDirection: window.innerWidth > 600 ? 'row' : 'column', gap: '1rem' }}>
             <input
               type="text"
@@ -439,20 +491,44 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
               style={{ ...styles.input, flex: 1 }}
               disabled={loadingAdd}
             />
-            <button
-              type="submit"
-              style={{ ...styles.button, width: window.innerWidth > 600 ? '200px' : '100%', backgroundColor: '#10b981' }} // emerald-500
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'} // emerald-600
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
-              disabled={loadingAdd}
-            >
-              {loadingAdd ? 'Creando...' : 'Crear Usuario'}
-            </button>
           </div>
+
+          {/* Fila 2: Nombre y Apellido (NUEVO) */}
+          <div style={{ display: 'flex', flexDirection: window.innerWidth > 600 ? 'row' : 'column', gap: '1rem' }}>
+            <input
+              type="text"
+              placeholder="Nombre"
+              value={newNombre}
+              onChange={(e) => setNewNombre(e.target.value)}
+              required
+              style={{ ...styles.input, flex: 1 }}
+              disabled={loadingAdd}
+            />
+            <input
+              type="text"
+              placeholder="Apellido"
+              value={newApellido}
+              onChange={(e) => setNewApellido(e.target.value)}
+              required
+              style={{ ...styles.input, flex: 1 }}
+              disabled={loadingAdd}
+            />
+          </div>
+
+          {/* Fila 3: Botón */}
+          <button
+            type="submit"
+            style={{ ...styles.button, width: '100%', backgroundColor: '#10b981' }} // emerald-500
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'} // emerald-600
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+            disabled={loadingAdd}
+          >
+            {loadingAdd ? 'Creando...' : 'Crear Usuario'}
+          </button>
         </form>
       </div>
 
-      {/* --- Tabla de Usuarios --- */}
+      {/* --- Tabla de Usuarios (ACTUALIZADA) --- */}
       <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
         Lista de Usuarios (Total: {users.length})
       </h3>
@@ -466,6 +542,8 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
               <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>ID</th>
                 <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Usuario</th>
+                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Nombre</th>{/* NUEVO */}
+                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Apellido</th>{/* NUEVO */}
                 <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Rol Actual</th>
                 <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280', textAlign: 'center' }}>Acciones</th>
               </tr>
@@ -477,6 +555,8 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
                   <tr key={user.id} style={{ borderBottom: index < users.length - 1 ? '1px solid #f3f4f6' : 'none', backgroundColor: isSelf ? '#fffbeb' : (user.role === 'admin' ? '#f5f3ff' : 'white') }}>
                     <td style={{ padding: '0.75rem', fontWeight: '500' }}>{user.id}</td>
                     <td style={{ padding: '0.75rem', fontWeight: '600' }}>{user.username} {isSelf && <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>(Tú)</span>}</td>
+                    <td style={{ padding: '0.75rem' }}>{user.nombre}</td>{/* NUEVO */}
+                    <td style={{ padding: '0.75rem' }}>{user.apellido}</td>{/* NUEVO */}
                     <td style={{ padding: '0.75rem' }}>
                       <span style={{
                         padding: '0.25rem 0.75rem',
@@ -540,7 +620,8 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
                 )
               })}
               {users.length === 0 && !loadingUsers && (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '1rem', color: '#6b7280' }}>No hay usuarios para mostrar.</td></tr>
+                /* ACTUALIZADO: colspan es 6 ahora */
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '1rem', color: '#6b7280' }}>No hay usuarios para mostrar.</td></tr>
               )}
             </tbody>
           </table>
@@ -575,6 +656,8 @@ const App = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState(''); // Para el registro
+  const [nombre, setNombre] = useState(''); // NUEVO
+  const [apellido, setApellido] = useState(''); // NUEVO
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -585,6 +668,8 @@ const App = () => {
     setSuccessMessage('');
     setPassword('');
     setConfirmPassword('');
+    setNombre(''); // Limpiamos
+    setApellido(''); // Limpiamos
   };
 
   // FIX: Usamos useCallback para estabilizar apiCall, ya que es usada en otras funciones con useCallback.
@@ -695,7 +780,7 @@ const App = () => {
   };
 
   /**
-   * Maneja la lógica de registro de usuario.
+   * Maneja la lógica de registro de usuario. (ACTUALIZADO)
    */
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -715,8 +800,16 @@ const App = () => {
       return;
     }
 
+    // NUEVA VALIDACIÓN
+    if (!nombre || !apellido) {
+      setError('El nombre y el apellido son obligatorios.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await apiCall('register', { username, password });
+      // ACTUALIZADO: Enviamos nombre y apellido
+      const result = await apiCall('register', { username, password, nombre, apellido });
 
       if (result.success) {
         setSuccessMessage(result.data.mensaje + ". ¡Ya puedes iniciar sesión!");
@@ -739,6 +832,8 @@ const App = () => {
     setUsername('');
     setPassword('');
     setConfirmPassword('');
+    setNombre(''); // Limpiamos
+    setApellido(''); // Limpiamos
     setError('');
     setSuccessMessage('');
     setCurrentUser('');
@@ -769,7 +864,7 @@ const App = () => {
           />
         )
       ) : (
-        // Vista de Login/Registro
+        // Vista de Login/Registro (ACTUALIZADO)
         <AuthForm
           isRegisterMode={isRegisterMode}
           successMessage={successMessage}
@@ -778,9 +873,13 @@ const App = () => {
           username={username}
           password={password}
           confirmPassword={confirmPassword}
+          nombre={nombre}           // NUEVO
+          apellido={apellido}     // NUEVO
           setUsername={setUsername}
           setPassword={setPassword}
           setConfirmPassword={setConfirmPassword}
+          setNombre={setNombre}       // NUEVO
+          setApellido={setApellido}   // NUEVO
           handleRegister={handleRegister}
           handleLogin={handleLogin}
           handleSwitchMode={handleSwitchMode}
