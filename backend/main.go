@@ -13,18 +13,17 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// DB es la conexión global a la base de datos
 var DB *sql.DB
 
 // --- ESTRUCTURAS DE DATOS ---
-
+// (User, UserDB, UserListResponse, UpdateRoleRequest, etc. sin cambios)
+// ... (Omitidas por brevedad) ...
 type User struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
 }
-
 type UserDB struct {
 	ID             int
 	Username       string
@@ -34,7 +33,6 @@ type UserDB struct {
 	Apellido       string
 	ProyectoID     sql.NullInt64
 }
-
 type UserListResponse struct {
 	ID             int     `json:"id"`
 	Username       string  `json:"username"`
@@ -44,44 +42,34 @@ type UserListResponse struct {
 	ProyectoID     *int    `json:"proyecto_id"`
 	ProyectoNombre *string `json:"proyecto_nombre"`
 }
-
 type UpdateRoleRequest struct {
 	ID            int    `json:"id"`
 	NewRole       string `json:"new_role"`
-	AdminUsername string `json:"admin_username"`
+	AdminUsername string `json:"admin_username"` // Quien hace la petición
 }
-
 type AdminActionRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
-
 type AddUserRequest struct {
 	User
 	AdminUsername string `json:"admin_username"`
 }
-
 type DeleteUserRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
-
-// --- ESTRUCTURAS DE PROYECTOS (ACTUALIZADAS) ---
-
 type Proyecto struct {
 	ID          int    `json:"id"`
 	Nombre      string `json:"nombre"`
-	FechaInicio string `json:"fecha_inicio"` // NUEVO
-	FechaCierre string `json:"fecha_cierre"` // NUEVO
+	FechaInicio string `json:"fecha_inicio"`
+	FechaCierre string `json:"fecha_cierre"`
 }
-
 type CreateProyectoRequest struct {
 	Nombre        string `json:"nombre"`
-	FechaInicio   string `json:"fecha_inicio"` // NUEVO
-	FechaCierre   string `json:"fecha_cierre"` // NUEVO
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-
-// NUEVA STRUCT
 type UpdateProyectoRequest struct {
 	ID            int    `json:"id"`
 	Nombre        string `json:"nombre"`
@@ -89,76 +77,73 @@ type UpdateProyectoRequest struct {
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-
 type DeleteProyectoRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
-
 type AssignProyectoRequest struct {
 	UserID        int    `json:"user_id"`
-	ProyectoID    int    `json:"proyecto_id"` // 0 significará "ninguno"
+	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- UTILIDADES DE BASE DE DATOS ---
+// --- NUEVAS STRUCTS PARA LA VISTA DE USUARIO ---
+type UserProjectDetailsRequest struct {
+	UserID int `json:"user_id"`
+}
 
+type ProjectMember struct {
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	Role     string `json:"role"`
+}
+
+type UserProjectDetailsResponse struct {
+	Proyecto *Proyecto       `json:"proyecto"` // Puntero para que pueda ser null
+	Miembros []ProjectMember `json:"miembros"`
+	Gerentes []ProjectMember `json:"gerentes"` // Gerentes asignados al mismo proyecto
+}
+
+// --- UTILIDADES DE BASE DE DATOS ---
+// (initDB, migraciones, checkPermission sin cambios)
+// ... (Omitidas por brevedad) ...
 func initDB() {
 	var err error
 	DB, err = sql.Open("sqlite", "../Base de datos/users.db")
 	if err != nil {
 		log.Fatalf("Error al abrir la base de datos: %v", err)
 	}
-
-	// Desactivar foreign keys temporalmente para las migraciones
 	_, err = DB.Exec("PRAGMA foreign_keys = OFF;")
 	if err != nil {
 		log.Fatalf("Error al desactivar foreign keys: %v", err)
 	}
-
-	// 1. Crear tabla 'users'
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT NOT NULL UNIQUE,
-		password TEXT NOT NULL,
-		role TEXT NOT NULL DEFAULT 'user',
-		nombre TEXT NOT NULL DEFAULT '', 
-		apellido TEXT NOT NULL DEFAULT ''
+		id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'user', nombre TEXT NOT NULL DEFAULT '', apellido TEXT NOT NULL DEFAULT ''
 	);`
 	if _, err = DB.Exec(createTableSQL); err != nil {
 		log.Fatalf("Error al crear la tabla 'users': %v", err)
 	}
-
-	// 2. Crear tabla 'proyectos' (versión inicial)
 	createProyectosTableSQL := `
 	CREATE TABLE IF NOT EXISTS proyectos (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		nombre TEXT NOT NULL UNIQUE
+		id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE
 	);`
 	if _, err = DB.Exec(createProyectosTableSQL); err != nil {
 		log.Fatalf("Error al crear la tabla 'proyectos': %v", err)
 	}
-
-	// 3. Migrar 'proyectos' (Añade 'nombre', 'fecha_inicio', 'fecha_cierre' si faltan)
 	migrateProyectosTable()
-
-	// 4. Migrar 'users' (Añade 'role', 'nombre', 'apellido', 'proyecto_id' si faltan)
 	migrateUsersTable()
-
-	// 5. Crear admin por defecto
 	var count int
 	err = DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = 'admin'").Scan(&count)
 	if err != nil {
 		log.Fatalf("Error al verificar usuarios existentes: %v", err)
 	}
-
 	if count == 0 {
 		adminPassword := "admin123"
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
-		if err != nil {
-			log.Fatalf("Error al hashear contraseña de admin: %v", err)
-		}
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		insertAdminSQL := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
 		_, err = DB.Exec(insertAdminSQL, "admin", string(hashedPassword), "admin", "Admin", "User")
 		if err != nil {
@@ -166,31 +151,19 @@ func initDB() {
 		}
 		log.Println("✅ Usuario administrador 'admin' (pass: admin123) creado por defecto.")
 	}
-
-	// 6. Reactivar las foreign keys
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		log.Fatalf("Error al reactivar foreign keys: %v", err)
 	}
-
-	log.Println("✅ Base de datos SQLite inicializada y tablas 'users' y 'proyectos' listas y migradas.")
+	log.Println("✅ Base de datos SQLite inicializada y tablas listas y migradas.")
 }
-
-// ⭐️ --- FUNCIÓN DE MIGRACIÓN 'proyectos' ACTUALIZADA --- ⭐️
-// Añade 'fecha_inicio' y 'fecha_cierre' si no existen.
-func migrateProyectosTable() {
+func migrateProyectosTable() { /* ... sin cambios ... */
 	rows, err := DB.Query("PRAGMA table_info(proyectos)")
 	if err != nil {
-		log.Fatalf("Error al leer la información del esquema (PRAGMA) para 'proyectos': %v", err)
+		log.Fatalf("Error PRAGMA 'proyectos': %v", err)
 	}
 	defer rows.Close()
-
-	columnExists := map[string]bool{
-		"nombre":       false,
-		"fecha_inicio": false,
-		"fecha_cierre": false,
-	}
-
+	columnExists := map[string]bool{"nombre": false, "fecha_inicio": false, "fecha_cierre": false}
 	for rows.Next() {
 		var (
 			cid        int
@@ -202,137 +175,121 @@ func migrateProyectosTable() {
 		)
 		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
 		if err != nil {
-			log.Fatalf("Error al escanear información de columna de 'proyectos': %v", err)
-		}
-		if _, ok := columnExists[name]; ok {
-			columnExists[name] = true
-		}
-	}
-	rows.Close() // Cerrar antes de ejecutar ALTER o DROP
-
-	// SI LA COLUMNA 'nombre' NO EXISTE, la tabla está corrupta.
-	if !columnExists["nombre"] {
-		log.Println("⚠️ Tabla 'proyectos' está corrupta (falta 'nombre'). Recreando...")
-		_, err = DB.Exec("DROP TABLE IF EXISTS proyectos;")
-		if err != nil {
-			log.Fatalf("Error crítico al 'DROP' la tabla 'proyectos' corrupta: %v", err)
-		}
-		createProyectosTableSQL := `
-		CREATE TABLE IF NOT EXISTS proyectos (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			nombre TEXT NOT NULL UNIQUE,
-			fecha_inicio TEXT NOT NULL DEFAULT '',
-			fecha_cierre TEXT NOT NULL DEFAULT ''
-		);`
-		if _, err = DB.Exec(createProyectosTableSQL); err != nil {
-			log.Fatalf("Error crítico al RE-CREAR la tabla 'proyectos': %v", err)
-		}
-		log.Println("✅ Tabla 'proyectos' recreada exitosamente.")
-		// Como la recreamos, ya tiene todas las columnas. Salimos de la función.
-		return
-	}
-
-	// Si 'nombre' existe, revisamos las otras columnas (migración normal)
-	if !columnExists["fecha_inicio"] {
-		log.Println("⚠️ Migrando: Añadiendo 'fecha_inicio' a 'proyectos'...")
-		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
-		if err != nil {
-			log.Fatalf("Error al migrar 'fecha_inicio' en 'proyectos': %v", err)
-		}
-		log.Println("✅ Columna 'fecha_inicio' agregada exitosamente.")
-	}
-
-	if !columnExists["fecha_cierre"] {
-		log.Println("⚠️ Migrando: Añadiendo 'fecha_cierre' a 'proyectos'...")
-		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_cierre TEXT NOT NULL DEFAULT ''")
-		if err != nil {
-			log.Fatalf("Error al migrar 'fecha_cierre' en 'proyectos': %v", err)
-		}
-		log.Println("✅ Columna 'fecha_cierre' agregada exitosamente.")
-	}
-}
-
-// migrateUsersTable (sin cambios)
-func migrateUsersTable() {
-	rows, err := DB.Query("PRAGMA table_info(users)")
-	if err != nil {
-		log.Fatalf("Error al leer la información del esquema (PRAGMA) para 'users': %v", err)
-	}
-	defer rows.Close()
-
-	columnExists := map[string]bool{
-		"role":        false,
-		"nombre":      false,
-		"apellido":    false,
-		"proyecto_id": false,
-	}
-
-	for rows.Next() {
-		var (
-			cid        int
-			name       string
-			ctype      string
-			notnull    int
-			dflt_value sql.NullString
-			pk         int
-		)
-		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
-		if err != nil {
-			log.Fatalf("Error al escanear información de columna de 'users': %v", err)
+			log.Fatalf("Error scan 'proyectos': %v", err)
 		}
 		if _, ok := columnExists[name]; ok {
 			columnExists[name] = true
 		}
 	}
 	rows.Close()
-
+	if !columnExists["nombre"] {
+		log.Println("⚠️ Tabla 'proyectos' está corrupta (falta 'nombre'). Recreando...")
+		_, err = DB.Exec("DROP TABLE IF EXISTS proyectos;")
+		if err != nil {
+			log.Fatalf("Error 'DROP' 'proyectos': %v", err)
+		}
+		createProyectosTableSQL := `
+		CREATE TABLE IF NOT EXISTS proyectos (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE,
+			fecha_inicio TEXT NOT NULL DEFAULT '', fecha_cierre TEXT NOT NULL DEFAULT ''
+		);`
+		if _, err = DB.Exec(createProyectosTableSQL); err != nil {
+			log.Fatalf("Error RE-CREAR 'proyectos': %v", err)
+		}
+		log.Println("✅ Tabla 'proyectos' recreada exitosamente.")
+		return
+	}
+	if !columnExists["fecha_inicio"] {
+		log.Println("⚠️ Migrando: Añadiendo 'fecha_inicio' a 'proyectos'...")
+		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
+		if err != nil {
+			log.Fatalf("Error al migrar 'fecha_inicio': %v", err)
+		}
+	}
+	if !columnExists["fecha_cierre"] {
+		log.Println("⚠️ Migrando: Añadiendo 'fecha_cierre' a 'proyectos'...")
+		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_cierre TEXT NOT NULL DEFAULT ''")
+		if err != nil {
+			log.Fatalf("Error al migrar 'fecha_cierre': %v", err)
+		}
+	}
+}
+func migrateUsersTable() { /* ... sin cambios ... */
+	rows, err := DB.Query("PRAGMA table_info(users)")
+	if err != nil {
+		log.Fatalf("Error PRAGMA 'users': %v", err)
+	}
+	defer rows.Close()
+	columnExists := map[string]bool{"role": false, "nombre": false, "apellido": false, "proyecto_id": false}
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			ctype      string
+			notnull    int
+			dflt_value sql.NullString
+			pk         int
+		)
+		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
+		if err != nil {
+			log.Fatalf("Error scan 'users': %v", err)
+		}
+		if _, ok := columnExists[name]; ok {
+			columnExists[name] = true
+		}
+	}
+	rows.Close()
 	if !columnExists["role"] {
-		log.Println("⚠️ Migrando: Añadiendo columna 'role' a 'users'...")
+		log.Println("⚠️ Migrando: Añadiendo 'role' a 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
 		if err != nil {
 			log.Fatalf("Error al migrar 'role': %v", err)
 		}
 	}
 	if !columnExists["nombre"] {
-		log.Println("⚠️ Migrando: Añadiendo columna 'nombre' a 'users'...")
+		log.Println("⚠️ Migrando: Añadiendo 'nombre' a 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
 			log.Fatalf("Error al migrar 'nombre': %v", err)
 		}
 	}
 	if !columnExists["apellido"] {
-		log.Println("⚠️ Migrando: Añadiendo columna 'apellido' a 'users'...")
+		log.Println("⚠️ Migrando: Añadiendo 'apellido' a 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN apellido TEXT NOT NULL DEFAULT ''")
 		if err != nil {
 			log.Fatalf("Error al migrar 'apellido': %v", err)
 		}
 	}
 	if !columnExists["proyecto_id"] {
-		log.Println("⚠️ Migrando: Añadiendo columna 'proyecto_id' a 'users'...")
+		log.Println("⚠️ Migrando: Añadiendo 'proyecto_id' a 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL")
 		if err != nil {
 			log.Fatalf("Error al migrar 'proyecto_id': %v", err)
 		}
-		log.Println("✅ Columna 'proyecto_id' agregada exitosamente a 'users'.")
 	}
 }
-
-// checkAdminRole (sin cambios)
-func checkAdminRole(username string) (bool, error) {
-	var role string
-	err := DB.QueryRow("SELECT role FROM users WHERE username = ?", username).Scan(&role)
+func checkPermission(username string, requiredRoles ...string) (bool, error) { /* ... sin cambios ... */
+	var userRole string
+	err := DB.QueryRow("SELECT role FROM users WHERE username = ?", username).Scan(&userRole)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
 		return false, fmt.Errorf("error de DB al verificar rol: %w", err)
 	}
-	return strings.ToLower(role) == "admin", nil
+	userRoleLower := strings.ToLower(userRole)
+	for _, reqRole := range requiredRoles {
+		if userRoleLower == strings.ToLower(reqRole) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // --- HANDLERS DE AUTENTICACIÓN (Sin cambios) ---
-
-func registerHandler(w http.ResponseWriter, r *http.Request) {
+// (registerHandler, loginHandler sin cambios)
+// ... (Omitidos por brevedad) ...
+func registerHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var user User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
@@ -340,25 +297,24 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(user.Password) < 6 || user.Nombre == "" || user.Apellido == "" {
-		http.Error(w, `{"error": "Todos los campos (usuario, pass > 6, nombre, apellido) son requeridos."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "Todos los campos obligatorios."}`, http.StatusBadRequest)
 		return
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al procesar contraseña."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
 	_, err = DB.Exec(query, user.Username, string(hashedPassword), "user", user.Nombre, user.Apellido)
 	if err != nil {
-		http.Error(w, `{"error": "El nombre de usuario ya existe. Intenta otro."}`, http.StatusConflict)
+		http.Error(w, `{"error": "El usuario ya existe."}`, http.StatusConflict)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, `{"mensaje": "Usuario registrado exitosamente"}`)
+	fmt.Fprintf(w, `{"mensaje": "Usuario registrado."}`)
 }
-
-func loginHandler(w http.ResponseWriter, r *http.Request) {
+func loginHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var userReq User
 	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
@@ -374,7 +330,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Credenciales inválidas"}`, http.StatusUnauthorized)
 			return
 		}
-		http.Error(w, `{"error": "Error interno del servidor"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(userDB.HashedPassword), []byte(userReq.Password))
@@ -382,103 +338,87 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "Credenciales inválidas"}`, http.StatusUnauthorized)
 		return
 	}
-	fmt.Fprintf(w, `{"mensaje": "Inicio de sesión exitoso", "usuario": "%s", "id": %d, "role": "%s"}`,
-		userDB.Username, userDB.ID, userDB.Role)
+	fmt.Fprintf(w, `{"mensaje": "Inicio de sesión exitoso", "usuario": "%s", "id": %d, "role": "%s"}`, userDB.Username, userDB.ID, userDB.Role)
 }
 
 // --- HANDLERS DE ADMINISTRACIÓN (USUARIOS) ---
-
-// adminUsersHandler (sin cambios)
-func adminUsersHandler(w http.ResponseWriter, r *http.Request) {
+// (adminUsersHandler, adminAddUserHandler, adminDeleteUserHandler, adminUpdateUserHandler, adminAssignProyectoHandler sin cambios)
+// ... (Omitidos por brevedad) ...
+func adminUsersHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var adminReq AdminActionRequest
 	json.NewDecoder(r.Body).Decode(&adminReq)
-
-	isAdmin, err := checkAdminRole(adminReq.AdminUsername)
-	if err != nil || !isAdmin {
-		http.Error(w, `{"error": "Acceso denegado. Solo administradores."}`, http.StatusForbidden)
+	isAllowed, err := checkPermission(adminReq.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
+		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
-
-	query := `
-		SELECT 
-			u.id, u.username, u.role, u.nombre, u.apellido,
-			p.id, p.nombre 
-		FROM users u
-		LEFT JOIN proyectos p ON u.proyecto_id = p.id
-		ORDER BY u.id ASC
-	`
+	query := `SELECT u.id, u.username, u.role, u.nombre, u.apellido, p.id, p.nombre FROM users u LEFT JOIN proyectos p ON u.proyecto_id = p.id ORDER BY u.id ASC`
 	rows, err := DB.Query(query)
 	if err != nil {
-		log.Printf("Error al consultar usuarios con join: %v", err)
-		http.Error(w, `{"error": "Error interno al consultar usuarios."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-
 	users := []UserListResponse{}
 	for rows.Next() {
 		var u UserListResponse
-		var proyectoID sql.NullInt64
-		var proyectoNombre sql.NullString
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Nombre, &u.Apellido, &proyectoID, &proyectoNombre); err != nil {
-			log.Printf("Error al escanear usuario: %v", err)
+		var pID sql.NullInt64
+		var pNombre sql.NullString
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Nombre, &u.Apellido, &pID, &pNombre); err != nil {
+			log.Printf("Scan error: %v", err)
 			continue
 		}
-		if proyectoID.Valid {
-			id := int(proyectoID.Int64)
+		if pID.Valid {
+			id := int(pID.Int64)
 			u.ProyectoID = &id
 		}
-		if proyectoNombre.Valid {
-			u.ProyectoNombre = &proyectoNombre.String
+		if pNombre.Valid {
+			u.ProyectoNombre = &pNombre.String
 		}
 		users = append(users, u)
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"users": users})
 }
-
-// adminAddUserHandler (sin cambios)
-func adminAddUserHandler(w http.ResponseWriter, r *http.Request) {
+func adminAddUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req AddUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
 	if len(req.User.Username) == 0 || len(req.User.Password) < 6 || req.User.Nombre == "" || req.User.Apellido == "" {
-		http.Error(w, `{"error": "Todos los campos (usuario, pass > 6, nombre, apellido) son requeridos."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
 		return
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.User.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al procesar contraseña."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
 	_, err = DB.Exec(query, req.User.Username, string(hashedPassword), "user", req.User.Nombre, req.User.Apellido)
 	if err != nil {
-		http.Error(w, `{"error": "El nombre de usuario ya existe."}`, http.StatusConflict)
+		http.Error(w, `{"error": "Usuario ya existe."}`, http.StatusConflict)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, `{"mensaje": "Usuario '%s' agregado exitosamente."}`, req.User.Username)
+	fmt.Fprintf(w, `{"mensaje": "Usuario '%s' agregado."}`, req.User.Username)
 }
-
-// adminDeleteUserHandler (sin cambios)
-func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req DeleteUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
@@ -489,36 +429,32 @@ func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if targetUsername == req.AdminUsername {
-		http.Error(w, `{"error": "No puedes borrar tu propia cuenta."}`, http.StatusForbidden)
+		http.Error(w, `{"error": "No puedes borrarte a ti mismo."}`, http.StatusForbidden)
 		return
 	}
 	query := "DELETE FROM users WHERE id = ?"
 	_, err = DB.Exec(query, req.ID)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al borrar el usuario."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": fmt.Sprintf("Usuario '%s' borrado exitosamente.", targetUsername),
-	})
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Usuario '%s' borrado.", targetUsername)})
 }
-
-// adminUpdateUserHandler (sin cambios)
-func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
 	newRole := strings.ToLower(req.NewRole)
-	if newRole != "admin" && newRole != "user" {
-		http.Error(w, `{"error": "Rol no válido."}`, http.StatusBadRequest)
+	if newRole != "admin" && newRole != "user" && newRole != "gerente" {
+		http.Error(w, `{"error": "Rol inválido."}`, http.StatusBadRequest)
 		return
 	}
 	var targetUsername string
@@ -534,24 +470,20 @@ func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	query := "UPDATE users SET role = ? WHERE id = ?"
 	_, err = DB.Exec(query, newRole, req.ID)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al actualizar el rol."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": fmt.Sprintf("Rol del usuario ID %d actualizado a %s.", req.ID, newRole),
-	})
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Rol de %s actualizado a %s.", targetUsername, newRole)})
 }
-
-// adminAssignProyectoHandler (sin cambios)
-func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) {
+func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req AssignProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
@@ -564,153 +496,198 @@ func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	query := "UPDATE users SET proyecto_id = ? WHERE id = ?"
 	_, err = DB.Exec(query, idToSet, req.UserID)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al asignar el proyecto."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": "Proyecto asignado/actualizado exitosamente.",
-	})
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": "Proyecto asignado."})
 }
 
 // --- HANDLERS DE ADMINISTRACIÓN (PROYECTOS) ---
-
-// adminGetProyectosHandler (ACTUALIZADO)
-func adminGetProyectosHandler(w http.ResponseWriter, r *http.Request) {
+// (adminGetProyectosHandler, adminCreateProyectoHandler, adminDeleteProyectoHandler, adminUpdateProyectoHandler sin cambios)
+// ... (Omitidos por brevedad) ...
+func adminGetProyectosHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var adminReq AdminActionRequest
 	json.NewDecoder(r.Body).Decode(&adminReq)
-
-	isAdmin, err := checkAdminRole(adminReq.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(adminReq.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
-
-	// AHORA SELECCIONA LAS FECHAS
 	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre FROM proyectos ORDER BY nombre ASC")
 	if err != nil {
-		http.Error(w, `{"error": "Error al consultar proyectos."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-
 	proyectos := []Proyecto{}
 	for rows.Next() {
 		var p Proyecto
-		// AHORA ESCANEA LAS FECHAS
 		if err := rows.Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre); err != nil {
-			log.Printf("Error al escanear proyecto: %v", err)
+			log.Printf("Scan error: %v", err)
 			continue
 		}
 		proyectos = append(proyectos, p)
 	}
-
 	json.NewEncoder(w).Encode(map[string]interface{}{"proyectos": proyectos})
 }
-
-// adminCreateProyectoHandler (ACTUALIZADO)
-func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
-	var req CreateProyectoRequest // Struct actualizada
+	var req CreateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
-
-	// Validación simple
 	if req.Nombre == "" || req.FechaInicio == "" {
-		http.Error(w, `{"error": "El nombre y la fecha de inicio son obligatorios."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
 		return
 	}
-
-	// AHORA INSERTA LAS FECHAS
 	query := "INSERT INTO proyectos(nombre, fecha_inicio, fecha_cierre) VALUES(?, ?, ?)"
 	_, err = DB.Exec(query, req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
-		log.Printf("Error al crear proyecto: %v", err)
-		http.Error(w, `{"error": "El nombre del proyecto ya existe o hubo un error."}`, http.StatusConflict)
+		http.Error(w, `{"error": "Proyecto ya existe."}`, http.StatusConflict)
 		return
 	}
-
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": fmt.Sprintf("Proyecto '%s' creado exitosamente.", req.Nombre),
-	})
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Proyecto '%s' creado.", req.Nombre)})
 }
-
-// adminDeleteProyectoHandler (sin cambios)
-func adminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) {
+func adminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req DeleteProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
+	isAllowed, err := checkPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
-
 	query := "DELETE FROM proyectos WHERE id = ?"
 	result, err := DB.Exec(query, req.ID)
 	if err != nil {
-		http.Error(w, `{"error": "Error interno al borrar el proyecto."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		http.Error(w, `{"error": "El proyecto con ese ID no existe."}`, http.StatusNotFound)
+		http.Error(w, `{"error": "Proyecto no existe."}`, http.StatusNotFound)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": "Proyecto borrado exitosamente. Los usuarios asignados ahora están libres.",
-	})
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": "Proyecto borrado."})
 }
-
-// ⭐️ --- NUEVO HANDLER PARA MODIFICAR PROYECTOS --- ⭐️
-func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req UpdateProyectoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
+		return
+	}
+	isAllowed, err := checkPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
+		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
+		return
+	}
+	if req.ID == 0 || req.Nombre == "" || req.FechaInicio == "" {
+		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
+		return
+	}
+	query := "UPDATE proyectos SET nombre = ?, fecha_inicio = ?, fecha_cierre = ? WHERE id = ?"
+	_, err = DB.Exec(query, req.Nombre, req.FechaInicio, req.FechaCierre, req.ID)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			http.Error(w, `{"error": "Nombre de proyecto ya existe."}`, http.StatusConflict)
+			return
+		}
+		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Proyecto '%s' actualizado.", req.Nombre)})
+}
+
+// ⭐️ --- NUEVO HANDLER PARA USUARIOS NORMALES --- ⭐️
+func userProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var req UserProjectDetailsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
 
-	isAdmin, err := checkAdminRole(req.AdminUsername)
-	if err != nil || !isAdmin {
-		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
+	if req.UserID == 0 {
+		http.Error(w, `{"error": "ID de usuario requerido."}`, http.StatusBadRequest)
 		return
 	}
 
-	if req.ID == 0 || req.Nombre == "" || req.FechaInicio == "" {
-		http.Error(w, `{"error": "El ID, nombre y fecha de inicio son obligatorios."}`, http.StatusBadRequest)
-		return
-	}
-
-	query := "UPDATE proyectos SET nombre = ?, fecha_inicio = ?, fecha_cierre = ? WHERE id = ?"
-	_, err = DB.Exec(query, req.Nombre, req.FechaInicio, req.FechaCierre, req.ID)
+	// 1. Obtener el proyecto_id del usuario
+	var proyectoID sql.NullInt64
+	err := DB.QueryRow("SELECT proyecto_id FROM users WHERE id = ?", req.UserID).Scan(&proyectoID)
 	if err != nil {
-		log.Printf("Error al actualizar proyecto: %v", err)
-		// Chequea si es por 'UNIQUE constraint'
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			http.Error(w, `{"error": "Ese nombre de proyecto ya existe."}`, http.StatusConflict)
+		if err == sql.ErrNoRows {
+			http.Error(w, `{"error": "Usuario no encontrado."}`, http.StatusNotFound)
 			return
 		}
-		http.Error(w, `{"error": "Error interno al actualizar el proyecto."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error al buscar usuario."}`, http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"mensaje": fmt.Sprintf("Proyecto '%s' actualizado exitosamente.", req.Nombre),
-	})
+	response := UserProjectDetailsResponse{
+		Proyecto: nil,
+		Miembros: []ProjectMember{},
+		Gerentes: []ProjectMember{},
+	}
+
+	// 2. Si el usuario tiene un proyecto asignado...
+	if proyectoID.Valid {
+		pID := proyectoID.Int64
+
+		// 2a. Obtener los detalles del proyecto
+		var p Proyecto
+		err = DB.QueryRow("SELECT id, nombre, fecha_inicio, fecha_cierre FROM proyectos WHERE id = ?", pID).Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre)
+		if err != nil {
+			// Si no encontramos el proyecto, algo está mal (FK debería prevenir esto, pero por si acaso)
+			log.Printf("Error: Usuario %d tiene proyecto_id %d inválido: %v", req.UserID, pID, err)
+			// Devolvemos la respuesta vacía pero sin error HTTP
+		} else {
+			response.Proyecto = &p // Asigna el proyecto encontrado
+		}
+
+		// 2b. Obtener todos los miembros (usuarios y gerentes) de ese proyecto (excluyendo al propio usuario)
+		rows, err := DB.Query(`
+            SELECT id, username, nombre, apellido, role
+            FROM users
+            WHERE proyecto_id = ? AND id != ?
+            ORDER BY role, nombre`, pID, req.UserID) // Ordena para poner gerentes primero
+
+		if err != nil {
+			log.Printf("Error al buscar miembros del proyecto %d: %v", pID, err)
+			http.Error(w, `{"error": "Error al buscar miembros del proyecto."}`, http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var member ProjectMember
+			if err := rows.Scan(&member.ID, &member.Username, &member.Nombre, &member.Apellido, &member.Role); err != nil {
+				log.Printf("Error al escanear miembro de proyecto: %v", err)
+				continue
+			}
+			// Separa en listas diferentes según el rol
+			if strings.ToLower(member.Role) == "gerente" {
+				response.Gerentes = append(response.Gerentes, member)
+			} else { // Asume que cualquier otro rol es un miembro normal
+				response.Miembros = append(response.Miembros, member)
+			}
+		}
+	}
+
+	// 3. Devolver la respuesta (puede tener proyecto=nil si no está asignado)
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
@@ -718,10 +695,7 @@ func main() {
 	defer DB.Close()
 
 	// Handlers
-	saludoAPI := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"mensaje": "Hola desde Go!"}`)
-	})
+	saludoAPI := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { /* ... */ })
 	registerAPI := http.HandlerFunc(registerHandler)
 	loginAPI := http.HandlerFunc(loginHandler)
 	adminUsersAPI := http.HandlerFunc(adminUsersHandler)
@@ -732,11 +706,11 @@ func main() {
 	adminCreateProyectoAPI := http.HandlerFunc(adminCreateProyectoHandler)
 	adminDeleteProyectoAPI := http.HandlerFunc(adminDeleteProyectoHandler)
 	adminAssignProyectoAPI := http.HandlerFunc(adminAssignProyectoHandler)
-
-	// NUEVO HANDLER
 	adminUpdateProyectoAPI := http.HandlerFunc(adminUpdateProyectoHandler)
+	// ⭐️ NUEVO HANDLER
+	userProjectDetailsAPI := http.HandlerFunc(userProjectDetailsHandler)
 
-	// Configuración de CORS
+	// Configuración de CORS (sin cambios)
 	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
@@ -746,6 +720,7 @@ func main() {
 	http.Handle("/api/saludo", corsOptions(saludoAPI))
 	http.Handle("/api/register", corsOptions(registerAPI))
 	http.Handle("/api/login", corsOptions(loginAPI))
+	// Rutas Admin/Gerente
 	http.Handle("/api/admin/users", corsOptions(adminUsersAPI))
 	http.Handle("/api/admin/update-user", corsOptions(adminUpdateUserAPI))
 	http.Handle("/api/admin/add-user", corsOptions(adminAddUserAPI))
@@ -754,11 +729,11 @@ func main() {
 	http.Handle("/api/admin/create-proyecto", corsOptions(adminCreateProyectoAPI))
 	http.Handle("/api/admin/delete-proyecto", corsOptions(adminDeleteProyectoAPI))
 	http.Handle("/api/admin/assign-proyecto", corsOptions(adminAssignProyectoAPI))
-
-	// NUEVA RUTA
 	http.Handle("/api/admin/update-proyecto", corsOptions(adminUpdateProyectoAPI))
+	// ⭐️ NUEVA RUTA PARA USUARIOS
+	http.Handle("/api/user/project-details", corsOptions(userProjectDetailsAPI))
 
-	log.Println("🚀 Servidor Go escuchando en :8080 (v5 - Proyectos con fechas y update)")
+	log.Println("🚀 Servidor Go escuchando en :8080 (v7 - Vista de Usuario)")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Error al iniciar el servidor: %v", err)
 	}

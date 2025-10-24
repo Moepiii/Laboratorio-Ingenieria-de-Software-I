@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AdminDashboard from './AdminDashboard';
+import UserDashboard from './UserDashboard'; // ⭐️ 1. Importa el nuevo componente
 
 // Base URL para tu backend de Go
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -99,7 +100,6 @@ const styles = {
     textDecoration: 'underline',
     fontWeight: '600',
   },
-  // Nuevos estilos para el dashboard
   adminFormContainer: {
     padding: '1.5rem',
     backgroundColor: '#f9fafb', // gray-50
@@ -109,7 +109,7 @@ const styles = {
   }
 };
 
-// --- Componente de Formulario de Login/Registro ---
+// --- Componente de Formulario de Login/Registro (AuthForm) ---
 const AuthForm = ({
   isRegisterMode,
   successMessage,
@@ -118,13 +118,13 @@ const AuthForm = ({
   username,
   password,
   confirmPassword,
-  nombre, // NUEVO
-  apellido, // NUEVO
+  nombre,
+  apellido,
   setUsername,
   setPassword,
   setConfirmPassword,
-  setNombre, // NUEVO
-  setApellido, // NUEVO
+  setNombre,
+  setApellido,
   handleRegister,
   handleLogin,
   handleSwitchMode
@@ -158,7 +158,6 @@ const AuthForm = ({
         </div>
       </div>
 
-      {/* --- NUEVOS CAMPOS DE NOMBRE Y APELLIDO (SOLO REGISTRO) --- */}
       {isRegisterMode && (
         <>
           <div style={styles.inputGroup}>
@@ -193,8 +192,6 @@ const AuthForm = ({
           </div>
         </>
       )}
-      {/* --- FIN DE NUEVOS CAMPOS --- */}
-
 
       {/* Campo de Contraseña */}
       <div style={styles.inputGroup}>
@@ -216,7 +213,6 @@ const AuthForm = ({
         </div>
       </div>
 
-      {/* Campo de Confirmar Contraseña (Solo en modo Registro) */}
       {isRegisterMode && (
         <div style={styles.inputGroup}>
           <label htmlFor="confirmPassword" style={styles.label}>
@@ -238,14 +234,12 @@ const AuthForm = ({
         </div>
       )}
 
-      {/* Mensaje de Error */}
       {error && (
         <p style={styles.error}>
           {error}
         </p>
       )}
 
-      {/* Botón Principal */}
       <button
         type="submit"
         style={styles.button}
@@ -263,7 +257,6 @@ const AuthForm = ({
         )}
       </button>
 
-      {/* Cambiar modo (Login/Registro) */}
       <p
         style={styles.switchText}
         onClick={handleSwitchMode}
@@ -274,84 +267,38 @@ const AuthForm = ({
   </div>
 );
 
-// --- Componente de Bienvenida para Usuarios Normales ---
-const WelcomeMessage = ({ currentUser, handleLogout, loading, fetchError, backendMessage, fetchGoGreeting }) => {
-  useEffect(() => {
-    fetchGoGreeting();
-  }, [fetchGoGreeting]);
-
-  return (
-    <div style={{ ...styles.card, maxWidth: '500px', textAlign: 'center', padding: '2.5rem' }}>
-      <span style={{ fontSize: '3rem', color: '#10b981', display: 'block', margin: '0 auto 1rem' }}>✅</span>
-      <h2 style={{ fontSize: '2.25rem', fontWeight: '800', color: '#047857', marginBottom: '1rem' }}>
-        ¡Bienvenido, Usuario!
-      </h2>
-      <p style={{ fontSize: '1.125rem', color: '#4b5563', marginBottom: '1.5rem' }}>
-        Has iniciado sesión como **{currentUser}**. Eres un usuario normal.
-      </p>
-
-      {/* Sección del Mensaje del Backend de Go */}
-      <div style={{ padding: '1rem', border: '1px solid #6366f1', borderRadius: '8px', marginBottom: '1.5rem', backgroundColor: '#eef2ff' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#4f46e5', marginBottom: '0.5rem' }}>
-          Mensaje del Endpoint de Saludo de Go:
-        </h3>
-        {loading ? (
-          <p style={{ color: '#4f46e5' }}>Cargando...</p>
-        ) : fetchError ? (
-          <p style={{ color: '#dc2626', fontWeight: 'bold' }}>❌ Error: {backendMessage}</p>
-        ) : (
-          <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#1f2937' }}>{backendMessage}</p>
-        )}
-      </div>
-
-      <button
-        onClick={handleLogout}
-        style={styles.welcomeButton}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-      >
-        <span style={{ marginRight: '0.5rem', fontSize: '1rem' }}>🚪</span>
-        Cerrar Sesión
-      </button>
-    </div>
-  );
-};
-
-// --- Componente de Dashboard para Administradores ---
-
-
 
 // Componente principal de la aplicación
 const App = () => {
   // === ESTADOS CLAVE ===
-  const [userRole, setUserRole] = useState(''); // 'user' o 'admin'
+  const [userRole, setUserRole] = useState(''); // 'user', 'admin', o 'gerente'
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(''); // Almacena el usuario autenticado
+  const [currentUser, setCurrentUser] = useState('');
+  const [userId, setUserId] = useState(null); // ⭐️ 2. Añade estado para userId
   // ======================
-  const [backendMessage, setBackendMessage] = useState('Cargando mensaje de Go...');
+  // (Estados existentes - sin cambios)
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState(''); // Para el registro
-  const [nombre, setNombre] = useState(''); // NUEVO
-  const [apellido, setApellido] = useState(''); // NUEVO
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Función de utilidad para alternar entre Login y Registro y limpiar estados de error/éxito
+  // (handleSwitchMode sin cambios)
   const handleSwitchMode = () => {
     setIsRegisterMode(prev => !prev);
     setError('');
     setSuccessMessage('');
     setPassword('');
     setConfirmPassword('');
-    setNombre(''); // Limpiamos
-    setApellido(''); // Limpiamos
+    setNombre('');
+    setApellido('');
   };
 
-  // FIX: Usamos useCallback para estabilizar apiCall, ya que es usada en otras funciones con useCallback.
+  // (apiCall sin cambios)
   const apiCall = useCallback(async (endpoint, data, method = 'POST') => {
     let attempts = 0;
     const maxAttempts = 3;
@@ -380,7 +327,6 @@ const App = () => {
         if (response.ok) {
           return { success: true, data: responseData };
         } else {
-          // Si el servidor responde con un error HTTP (4xx, 5xx), lo lanzamos
           throw new Error(responseData.error || `Error HTTP ${response.status}: ${response.statusText}`);
         }
 
@@ -393,60 +339,31 @@ const App = () => {
       }
     }
     throw new Error('Máximo de reintentos alcanzado sin éxito.');
-  }, []); // apiCall no depende de ningún estado o prop, así que se define una sola vez.
+  }, []);
 
 
-  /**
-   * FIX: Usamos useCallback para estabilizar fetchGoGreeting.
-   */
-  const fetchGoGreeting = useCallback(async () => {
-    setLoading(true);
-    setFetchError(null);
-    try {
-      // Usamos el método GET para el saludo simple
-      const response = await fetch(`${API_BASE_URL}/saludo`);
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setBackendMessage(data.mensaje);
-
-    } catch (error) {
-      console.error("Error al obtener saludo de Go:", error);
-      setBackendMessage('No se pudo conectar con el backend de Go. Revisa la consola y CORS.');
-      setFetchError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []); // No tiene dependencias internas, se crea una vez.
-
-  /**
-   * Maneja la lógica de inicio de sesión.
-   */
+  // ⭐️ 3. handleLogin AHORA GUARDA EL userId
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
     setLoading(true);
-
     if (!username || !password) {
       setError('Por favor, ingresa usuario y contraseña.');
       setLoading(false);
       return;
     }
-
     try {
       const result = await apiCall('login', { username, password });
-
       if (result.success) {
-        // Go devuelve el rol en el login
+        // Go devuelve el rol y el id en el login
         const role = result.data.role || 'user';
+        const fetchedUserId = result.data.id; // Obtiene el ID del backend
 
         setIsLoggedIn(true);
         setCurrentUser(result.data.usuario);
         setUserRole(role);
+        setUserId(fetchedUserId); // Guarda el ID en el estado
         setError('');
         setPassword('');
       }
@@ -458,9 +375,7 @@ const App = () => {
     }
   };
 
-  /**
-   * Maneja la lógica de registro de usuario. (ACTUALIZADO)
-   */
+  // (handleRegister sin cambios)
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
@@ -472,14 +387,11 @@ const App = () => {
       setLoading(false);
       return;
     }
-
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.');
       setLoading(false);
       return;
     }
-
-    // NUEVA VALIDACIÓN
     if (!nombre || !apellido) {
       setError('El nombre y el apellido son obligatorios.');
       setLoading(false);
@@ -487,12 +399,10 @@ const App = () => {
     }
 
     try {
-      // ACTUALIZADO: Enviamos nombre y apellido
       const result = await apiCall('register', { username, password, nombre, apellido });
-
       if (result.success) {
         setSuccessMessage(result.data.mensaje + ". ¡Ya puedes iniciar sesión!");
-        handleSwitchMode(); // Vuelve a la vista de login y limpia los campos
+        handleSwitchMode();
       }
     } catch (e) {
       setError(e.message.includes('El nombre de usuario ya existe') ? 'Ese nombre de usuario ya está registrado.' : e.message);
@@ -503,47 +413,44 @@ const App = () => {
     }
   };
 
-  /**
-   * Cierra la sesión del usuario.
-   */
+  // ⭐️ 4. handleLogout AHORA LIMPIA userId
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUsername('');
     setPassword('');
     setConfirmPassword('');
-    setNombre(''); // Limpiamos
-    setApellido(''); // Limpiamos
+    setNombre('');
+    setApellido('');
     setError('');
     setSuccessMessage('');
     setCurrentUser('');
-    setUserRole(''); // Limpiamos el rol
+    setUserRole('');
+    setUserId(null); // Limpia el ID
   };
 
 
-  // Condicional Renderizado basado en el Rol
+  // ⭐️ 5. --- CONDICIONAL DE RENDERIZADO ACTUALIZADO ---
   return (
     <div style={styles.container}>
       {isLoggedIn ? (
-        userRole === 'admin' ? (
-          // Vista para Administradores
+        // Si es admin o gerente -> AdminDashboard
+        (userRole === 'admin' || userRole === 'gerente') ? (
           <AdminDashboard
             currentUser={currentUser}
+            userRole={userRole} // Pasa el rol
             handleLogout={handleLogout}
-            apiCall={apiCall} // apiCall es estable gracias a useCallback
+            apiCall={apiCall}
           />
-        ) : (
-          // Vista para Usuarios Normales
-          <WelcomeMessage
+        ) : ( // Si es 'user' -> UserDashboard
+          <UserDashboard
             currentUser={currentUser}
+            userId={userId} // Pasa el ID del usuario
+            apiCall={apiCall}
             handleLogout={handleLogout}
-            loading={loading}
-            fetchError={fetchError}
-            backendMessage={backendMessage}
-            fetchGoGreeting={fetchGoGreeting} // fetchGoGreeting es estable gracias a useCallback
           />
         )
       ) : (
-        // Vista de Login/Registro (ACTUALIZADO)
+        // Si no está logueado -> AuthForm
         <AuthForm
           isRegisterMode={isRegisterMode}
           successMessage={successMessage}
@@ -552,13 +459,13 @@ const App = () => {
           username={username}
           password={password}
           confirmPassword={confirmPassword}
-          nombre={nombre}           // NUEVO
-          apellido={apellido}     // NUEVO
+          nombre={nombre}
+          apellido={apellido}
           setUsername={setUsername}
           setPassword={setPassword}
           setConfirmPassword={setConfirmPassword}
-          setNombre={setNombre}       // NUEVO
-          setApellido={setApellido}   // NUEVO
+          setNombre={setNombre}
+          setApellido={setApellido}
           handleRegister={handleRegister}
           handleLogin={handleLogin}
           handleSwitchMode={handleSwitchMode}

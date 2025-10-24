@@ -1,26 +1,26 @@
 import React, { useState } from 'react';
-import Sidebar from './Sidebar'; // Importamos el menú lateral
-import PortafolioProyectos from './PortafolioProyectos'; // Importamos la vista de Proyectos
-import PerfilesUsuarios from './PerfilesUsuarios'; // Importamos la vista de Usuarios
-import LoggerEventos from './LoggerEventos'; // Importamos la vista de Logs
-import './AdminDashboard.css'; // Importaremos los estilos para el layout
+import Sidebar from './Sidebar';
+import PortafolioProyectos from './PortafolioProyectos';
+import PerfilesUsuarios from './PerfilesUsuarios';
+import LoggerEventos from './LoggerEventos';
+import './AdminDashboard.css';
 
-const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
-  // 'currentView' controla qué componente se muestra en el área principal
+// ⭐️ Recibe 'userRole' de App.js
+const AdminDashboard = ({ currentUser, userRole, handleLogout, apiCall }) => {
+
   const [currentView, setCurrentView] = useState('proyectos');
 
   // Función para renderizar el componente de la vista actual
   const renderView = () => {
     switch (currentView) {
       case 'proyectos':
-        // ⭐️ AQUÍ ESTABA EL ERROR: Faltaba pasar currentUser
         return <PortafolioProyectos apiCall={apiCall} currentUser={currentUser} />;
       case 'usuarios':
-        return <PerfilesUsuarios apiCall={apiCall} currentUser={currentUser} />;
+        // ⭐️ Pasa 'userRole' a PerfilesUsuarios
+        return <PerfilesUsuarios apiCall={apiCall} currentUser={currentUser} userRole={userRole} />;
       case 'logs':
-        return <LoggerEventos apiCall={apiCall} />;
+        return userRole === 'admin' ? <LoggerEventos apiCall={apiCall} /> : <PortafolioProyectos apiCall={apiCall} currentUser={currentUser} />;
       default:
-        // ⭐️ Y LO AÑADIMOS AQUÍ TAMBIÉN (en el 'default')
         return <PortafolioProyectos apiCall={apiCall} currentUser={currentUser} />;
     }
   };
@@ -32,13 +32,11 @@ const AdminDashboard = ({ currentUser, handleLogout, apiCall }) => {
         onNavigate={setCurrentView}
         handleLogout={handleLogout}
         currentView={currentView}
+        userRole={userRole} // ⭐️ Pasa 'userRole' al Sidebar
       />
 
       {/* El contenido principal que cambia dinámicamente */}
       <main className="main-content">
-        {/* Aquí puedes añadir un header si quieres */}
-        {/* <header className="main-header">...</header> */}
-
         <div className="view-wrapper">
           {renderView()}
         </div>
