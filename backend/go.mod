@@ -4,8 +4,8 @@ go 1.25.1
 
 require (
 	github.com/gorilla/handlers v1.5.2
-	github.com/mattn/go-sqlite3 v1.14.32
 	golang.org/x/crypto v0.42.0
+	modernc.org/sqlite v1.39.0
 )
 
 require (
@@ -20,5 +20,4 @@ require (
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.39.0 // indirect
 )
