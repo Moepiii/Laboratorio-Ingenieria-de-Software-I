@@ -116,6 +116,37 @@ const styles = {
     border: '1px solid #e5e7eb',
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
   },
+  modalBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Fondo oscuro semitransparente
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  // NUEVO: Contenedor del modal
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    padding: '2rem',
+    width: '100%',
+    maxWidth: '500px',
+    boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    zIndex: 1001,
+  },
+  // MEJORA: Sombra para el formulario (si decides no usar el modal)
+  adminFormContainer: {
+    padding: '1.5rem',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+    marginBottom: '2rem',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', // Sombra añadida
+  },
   // Tabla
   table: {
     width: '100%',
@@ -160,6 +191,21 @@ const styles = {
     borderRadius: '9999px',
     fontSize: '0.875rem',
     fontWeight: '500',
+  },
+  // ⭐️ 1. NUEVO: Estilo para el botón de icono en la tabla
+  tableIconButton: {
+    padding: '0.5rem',
+    backgroundColor: '#ffffff',
+    border: '1px solid #d1d5db', // gray-300
+    borderRadius: '6px',
+    cursor: 'pointer',
+    color: '#4f46e5', // indigo-600
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.9rem',
+    lineHeight: 1,
+    transition: 'background-color 0.2s, color 0.2s',
   },
 };
 
@@ -284,6 +330,7 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
             <th style={styles.th}>Fecha Inicio</th>
             <th style={styles.th}>Fecha Cierre</th>
             <th style={styles.th}>Estado</th>
+            <th style={styles.th}>Generar</th> {/* ⭐️ 2. NUEVO ENCABEZADO DE COLUMNA */}
           </tr>
         </thead>
         <tbody>
@@ -306,12 +353,34 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
                     <span style={styles.badgeError}>Cerrado</span>
                   )}
                 </td>
+                {/* ⭐️ 3. NUEVA CELDA CON BOTÓN DE LUPA */}
+                <td style={styles.td}>
+                  <button
+                    style={styles.tableIconButton}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Evita que se seleccione la fila
+                      alert(`Mostrar detalles del proyecto ID: ${proyecto.id}`);
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = '#eef2ff'; // indigo-50
+                      e.currentTarget.style.color = '#4338ca'; // indigo-700
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.color = '#4f46e5'; // indigo-600
+                    }}
+                    title="Ver detalles"
+                  >
+                    <i className="fas fa-search"></i> {/* Icono de lupa */}
+                  </button>
+                </td>
               </tr>
             )
           })}
           {filteredProyectos.length === 0 && (
             <tr>
-              <td colSpan="5" style={{ ...styles.td, textAlign: 'center', color: '#6b7280', padding: '1.5rem' }}>
+              {/* ⭐️ 4. COLSPAN ACTUALIZADO A 6 */}
+              <td colSpan="6" style={{ ...styles.td, textAlign: 'center', color: '#6b7280', padding: '1.5rem' }}>
                 {searchTerm ? 'No se encontraron proyectos con ese nombre.' : 'No hay proyectos creados.'}
               </td>
             </tr>
@@ -552,6 +621,7 @@ const PortafolioProyectos = ({ apiCall, currentUser }) => { // Recibe currentUse
               <i className="fas fa-pencil-alt" style={{ marginRight: '8px' }}></i>
               Modificar
             </button>
+
             <button
               onClick={handleDelete}
               disabled={!selectedProyecto}
@@ -603,6 +673,30 @@ const PortafolioProyectos = ({ apiCall, currentUser }) => { // Recibe currentUse
             >
               <i className="fas fa-lock" style={{ marginRight: '8px' }}></i>
               Cerrar
+            </button>
+                        <button
+              onClick={() => alert('Función de imprimir no implementada aún.')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.5rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                borderRadius: '8px',
+                color: 'white',
+                backgroundColor: '#4f46e5', // Color índigo (igual que el de login)
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                marginTop: '0rem', // Añade un margen para separarlo
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4338ca'} // Efecto hover
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'} // Vuelve al color original
+            >
+              
+              Imprimir Proyecto
             </button>
             <input
               type="text"
