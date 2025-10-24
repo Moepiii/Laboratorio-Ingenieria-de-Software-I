@@ -110,6 +110,7 @@ const PerfilesUsuarios = ({ apiCall, currentUser, userRole }) => {
       }
       const proyectosResult = await apiCall('admin/get-proyectos', { admin_username: currentUser }, 'POST');
       if (proyectosResult.success) {
+        // ⭐️ NOTA: Aquí traemos TODOS los proyectos, el filtrado se hace al renderizar.
         setProyectosList(proyectosResult.data.proyectos || []);
       } else {
         setAdminError('No se pudo cargar la lista de proyectos.');
@@ -315,9 +316,19 @@ const PerfilesUsuarios = ({ apiCall, currentUser, userRole }) => {
                             onChange={(e) => handleSelectProyectoChange(user.id, e.target.value)}
                           >
                             <option value="0">-- No asignado --</option>
-                            {proyectosList.map(p => (
-                              <option key={p.id} value={p.id}>{p.nombre}</option>
+                            
+                            {/* ⭐️ 1. Aplicamos el filtro aquí.
+                                Mostramos proyectos que NO estén cerrados,
+                                O que sean el proyecto actual de este usuario (incluso si está cerrado).
+                            */}
+                            {proyectosList
+                              .filter(p => p.estado !== 'cerrado' || p.id === user.proyecto_id)
+                              .map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nombre} {p.estado === 'cerrado' ? '(Cerrado)' : ''} {/* ⭐️ 2. Añadimos una etiqueta visual */}
+                                </option>
                             ))}
+
                           </select>
                           <button
                             style={styles.buttonAssign}
