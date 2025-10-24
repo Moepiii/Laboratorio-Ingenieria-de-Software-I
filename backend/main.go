@@ -16,8 +16,7 @@ import (
 var DB *sql.DB
 
 // --- ESTRUCTURAS DE DATOS ---
-// (User, UserDB, UserListResponse, UpdateRoleRequest, etc. sin cambios)
-// ... (Omitidas por brevedad) ...
+// (User, UserDB, UserListResponse, etc. sin cambios)
 type User struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -45,7 +44,7 @@ type UserListResponse struct {
 type UpdateRoleRequest struct {
 	ID            int    `json:"id"`
 	NewRole       string `json:"new_role"`
-	AdminUsername string `json:"admin_username"` // Quien hace la petición
+	AdminUsername string `json:"admin_username"`
 }
 type AdminActionRequest struct {
 	AdminUsername string `json:"admin_username"`
@@ -58,40 +57,49 @@ type DeleteUserRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
-type Proyecto struct {
-	ID          int    `json:"id"`
-	Nombre      string `json:"nombre"`
-	FechaInicio string `json:"fecha_inicio"`
-	FechaCierre string `json:"fecha_cierre"`
-}
-type CreateProyectoRequest struct {
-	Nombre        string `json:"nombre"`
-	FechaInicio   string `json:"fecha_inicio"`
-	FechaCierre   string `json:"fecha_cierre"`
-	AdminUsername string `json:"admin_username"`
-}
-type UpdateProyectoRequest struct {
-	ID            int    `json:"id"`
-	Nombre        string `json:"nombre"`
-	FechaInicio   string `json:"fecha_inicio"`
-	FechaCierre   string `json:"fecha_cierre"`
-	AdminUsername string `json:"admin_username"`
-}
-type DeleteProyectoRequest struct {
-	ID            int    `json:"id"`
-	AdminUsername string `json:"admin_username"`
-}
 type AssignProyectoRequest struct {
 	UserID        int    `json:"user_id"`
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- NUEVAS STRUCTS PARA LA VISTA DE USUARIO ---
+// Estructuras de Proyectos (ACTUALIZADAS)
+type Proyecto struct {
+	ID          int    `json:"id"`
+	Nombre      string `json:"nombre"`
+	FechaInicio string `json:"fecha_inicio"`
+	FechaCierre string `json:"fecha_cierre"`
+	Estado      string `json:"estado"` // NUEVO
+}
+type CreateProyectoRequest struct { // (Sin cambios, el estado es default)
+	Nombre        string `json:"nombre"`
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
+	AdminUsername string `json:"admin_username"`
+}
+type UpdateProyectoRequest struct { // (Sin cambios, no se actualiza estado aquí)
+	ID            int    `json:"id"`
+	Nombre        string `json:"nombre"`
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
+	AdminUsername string `json:"admin_username"`
+}
+type DeleteProyectoRequest struct { // (Sin cambios)
+	ID            int    `json:"id"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// NUEVA STRUCT para cambiar estado
+type SetProyectoEstadoRequest struct {
+	ID            int    `json:"id"`
+	Estado        string `json:"estado"` // 'habilitado' o 'cerrado'
+	AdminUsername string `json:"admin_username"`
+}
+
+// (UserProjectDetailsRequest, ProjectMember, UserProjectDetailsResponse sin cambios)
 type UserProjectDetailsRequest struct {
 	UserID int `json:"user_id"`
 }
-
 type ProjectMember struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
@@ -99,47 +107,56 @@ type ProjectMember struct {
 	Apellido string `json:"apellido"`
 	Role     string `json:"role"`
 }
-
 type UserProjectDetailsResponse struct {
-	Proyecto *Proyecto       `json:"proyecto"` // Puntero para que pueda ser null
+	Proyecto *Proyecto       `json:"proyecto"`
 	Miembros []ProjectMember `json:"miembros"`
-	Gerentes []ProjectMember `json:"gerentes"` // Gerentes asignados al mismo proyecto
+	Gerentes []ProjectMember `json:"gerentes"`
 }
 
 // --- UTILIDADES DE BASE DE DATOS ---
-// (initDB, migraciones, checkPermission sin cambios)
-// ... (Omitidas por brevedad) ...
+
 func initDB() {
 	var err error
 	DB, err = sql.Open("sqlite", "../Base de datos/users.db")
 	if err != nil {
-		log.Fatalf("Error al abrir la base de datos: %v", err)
+		log.Fatalf("Error al abrir DB: %v", err)
 	}
 	_, err = DB.Exec("PRAGMA foreign_keys = OFF;")
 	if err != nil {
-		log.Fatalf("Error al desactivar foreign keys: %v", err)
+		log.Fatalf("Error PRAGMA OFF: %v", err)
 	}
+
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
 		role TEXT NOT NULL DEFAULT 'user', nombre TEXT NOT NULL DEFAULT '', apellido TEXT NOT NULL DEFAULT ''
 	);`
 	if _, err = DB.Exec(createTableSQL); err != nil {
-		log.Fatalf("Error al crear la tabla 'users': %v", err)
+		log.Fatalf("Error crear 'users': %v", err)
 	}
+
+	// Crear 'proyectos' - AHORA CON ESTADO
 	createProyectosTableSQL := `
 	CREATE TABLE IF NOT EXISTS proyectos (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		nombre TEXT NOT NULL UNIQUE,
+		fecha_inicio TEXT NOT NULL DEFAULT '',
+		fecha_cierre TEXT NOT NULL DEFAULT '',
+		estado TEXT NOT NULL DEFAULT 'habilitado' -- NUEVO
 	);`
 	if _, err = DB.Exec(createProyectosTableSQL); err != nil {
-		log.Fatalf("Error al crear la tabla 'proyectos': %v", err)
+		log.Fatalf("Error crear 'proyectos': %v", err)
 	}
+
+	// Migraciones (migrateProyectosTable ahora incluye 'estado')
 	migrateProyectosTable()
 	migrateUsersTable()
+
+	// Crear admin (sin cambios)
 	var count int
 	err = DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = 'admin'").Scan(&count)
 	if err != nil {
-		log.Fatalf("Error al verificar usuarios existentes: %v", err)
+		log.Fatalf("Error check admin: %v", err)
 	}
 	if count == 0 {
 		adminPassword := "admin123"
@@ -147,23 +164,26 @@ func initDB() {
 		insertAdminSQL := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
 		_, err = DB.Exec(insertAdminSQL, "admin", string(hashedPassword), "admin", "Admin", "User")
 		if err != nil {
-			log.Fatalf("Error al insertar usuario admin por defecto: %v", err)
+			log.Fatalf("Error insert admin: %v", err)
 		}
-		log.Println("✅ Usuario administrador 'admin' (pass: admin123) creado por defecto.")
+		log.Println("✅ Usuario admin creado.")
 	}
+
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
-		log.Fatalf("Error al reactivar foreign keys: %v", err)
+		log.Fatalf("Error PRAGMA ON: %v", err)
 	}
-	log.Println("✅ Base de datos SQLite inicializada y tablas listas y migradas.")
+	log.Println("✅ DB inicializada.")
 }
-func migrateProyectosTable() { /* ... sin cambios ... */
+
+// migrateProyectosTable (ACTUALIZADO para incluir 'estado')
+func migrateProyectosTable() {
 	rows, err := DB.Query("PRAGMA table_info(proyectos)")
 	if err != nil {
 		log.Fatalf("Error PRAGMA 'proyectos': %v", err)
 	}
 	defer rows.Close()
-	columnExists := map[string]bool{"nombre": false, "fecha_inicio": false, "fecha_cierre": false}
+	columnExists := map[string]bool{"nombre": false, "fecha_inicio": false, "fecha_cierre": false, "estado": false}
 	for rows.Next() {
 		var (
 			cid        int
@@ -182,39 +202,51 @@ func migrateProyectosTable() { /* ... sin cambios ... */
 		}
 	}
 	rows.Close()
-	if !columnExists["nombre"] {
-		log.Println("⚠️ Tabla 'proyectos' está corrupta (falta 'nombre'). Recreando...")
+
+	if !columnExists["nombre"] { // Si falta 'nombre', recreamos todo
+		log.Println("⚠️ Recreando 'proyectos' por falta de 'nombre'...")
 		_, err = DB.Exec("DROP TABLE IF EXISTS proyectos;")
 		if err != nil {
-			log.Fatalf("Error 'DROP' 'proyectos': %v", err)
+			log.Fatalf("Error DROP 'proyectos': %v", err)
 		}
 		createProyectosTableSQL := `
-		CREATE TABLE IF NOT EXISTS proyectos (
+		CREATE TABLE proyectos (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE,
-			fecha_inicio TEXT NOT NULL DEFAULT '', fecha_cierre TEXT NOT NULL DEFAULT ''
+			fecha_inicio TEXT NOT NULL DEFAULT '', fecha_cierre TEXT NOT NULL DEFAULT '',
+			estado TEXT NOT NULL DEFAULT 'habilitado'
 		);`
 		if _, err = DB.Exec(createProyectosTableSQL); err != nil {
 			log.Fatalf("Error RE-CREAR 'proyectos': %v", err)
 		}
-		log.Println("✅ Tabla 'proyectos' recreada exitosamente.")
+		log.Println("✅ Tabla 'proyectos' recreada.")
 		return
 	}
+	// Migraciones individuales si 'nombre' existe
 	if !columnExists["fecha_inicio"] {
-		log.Println("⚠️ Migrando: Añadiendo 'fecha_inicio' a 'proyectos'...")
+		log.Println("⚠️ Migrando 'fecha_inicio' en 'proyectos'...")
 		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error al migrar 'fecha_inicio': %v", err)
+			log.Fatalf("Error migrar 'fecha_inicio': %v", err)
 		}
 	}
 	if !columnExists["fecha_cierre"] {
-		log.Println("⚠️ Migrando: Añadiendo 'fecha_cierre' a 'proyectos'...")
+		log.Println("⚠️ Migrando 'fecha_cierre' en 'proyectos'...")
 		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_cierre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error al migrar 'fecha_cierre': %v", err)
+			log.Fatalf("Error migrar 'fecha_cierre': %v", err)
+		}
+	}
+	if !columnExists["estado"] {
+		log.Println("⚠️ Migrando 'estado' en 'proyectos'...")
+		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN estado TEXT NOT NULL DEFAULT 'habilitado'")
+		if err != nil {
+			log.Fatalf("Error migrar 'estado': %v", err)
 		}
 	}
 }
-func migrateUsersTable() { /* ... sin cambios ... */
+
+// migrateUsersTable (sin cambios)
+func migrateUsersTable() {
 	rows, err := DB.Query("PRAGMA table_info(users)")
 	if err != nil {
 		log.Fatalf("Error PRAGMA 'users': %v", err)
@@ -240,42 +272,44 @@ func migrateUsersTable() { /* ... sin cambios ... */
 	}
 	rows.Close()
 	if !columnExists["role"] {
-		log.Println("⚠️ Migrando: Añadiendo 'role' a 'users'...")
+		log.Println("⚠️ Migrando 'role' en 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
 		if err != nil {
-			log.Fatalf("Error al migrar 'role': %v", err)
+			log.Fatalf("Error migrar 'role': %v", err)
 		}
 	}
 	if !columnExists["nombre"] {
-		log.Println("⚠️ Migrando: Añadiendo 'nombre' a 'users'...")
+		log.Println("⚠️ Migrando 'nombre' en 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error al migrar 'nombre': %v", err)
+			log.Fatalf("Error migrar 'nombre': %v", err)
 		}
 	}
 	if !columnExists["apellido"] {
-		log.Println("⚠️ Migrando: Añadiendo 'apellido' a 'users'...")
+		log.Println("⚠️ Migrando 'apellido' en 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN apellido TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error al migrar 'apellido': %v", err)
+			log.Fatalf("Error migrar 'apellido': %v", err)
 		}
 	}
 	if !columnExists["proyecto_id"] {
-		log.Println("⚠️ Migrando: Añadiendo 'proyecto_id' a 'users'...")
+		log.Println("⚠️ Migrando 'proyecto_id' en 'users'...")
 		_, err = DB.Exec("ALTER TABLE users ADD COLUMN proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL")
 		if err != nil {
-			log.Fatalf("Error al migrar 'proyecto_id': %v", err)
+			log.Fatalf("Error migrar 'proyecto_id': %v", err)
 		}
 	}
 }
-func checkPermission(username string, requiredRoles ...string) (bool, error) { /* ... sin cambios ... */
+
+// checkPermission (sin cambios)
+func checkPermission(username string, requiredRoles ...string) (bool, error) {
 	var userRole string
 	err := DB.QueryRow("SELECT role FROM users WHERE username = ?", username).Scan(&userRole)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
-		return false, fmt.Errorf("error de DB al verificar rol: %w", err)
+		return false, fmt.Errorf("DB error check role: %w", err)
 	}
 	userRoleLower := strings.ToLower(userRole)
 	for _, reqRole := range requiredRoles {
@@ -286,18 +320,16 @@ func checkPermission(username string, requiredRoles ...string) (bool, error) { /
 	return false, nil
 }
 
-// --- HANDLERS DE AUTENTICACIÓN (Sin cambios) ---
-// (registerHandler, loginHandler sin cambios)
-// ... (Omitidos por brevedad) ...
-func registerHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+// --- HANDLERS AUTENTICACIÓN (Sin cambios) ---
+func registerHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var user User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
 	if len(user.Password) < 6 || user.Nombre == "" || user.Apellido == "" {
-		http.Error(w, `{"error": "Todos los campos obligatorios."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
 		return
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -308,17 +340,17 @@ func registerHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambio
 	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
 	_, err = DB.Exec(query, user.Username, string(hashedPassword), "user", user.Nombre, user.Apellido)
 	if err != nil {
-		http.Error(w, `{"error": "El usuario ya existe."}`, http.StatusConflict)
+		http.Error(w, `{"error": "Usuario ya existe."}`, http.StatusConflict)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, `{"mensaje": "Usuario registrado."}`)
 }
-func loginHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+func loginHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var userReq User
 	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
 	var userDB UserDB
@@ -338,13 +370,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios .
 		http.Error(w, `{"error": "Credenciales inválidas"}`, http.StatusUnauthorized)
 		return
 	}
-	fmt.Fprintf(w, `{"mensaje": "Inicio de sesión exitoso", "usuario": "%s", "id": %d, "role": "%s"}`, userDB.Username, userDB.ID, userDB.Role)
+	fmt.Fprintf(w, `{"mensaje": "Login exitoso", "usuario": "%s", "id": %d, "role": "%s"}`, userDB.Username, userDB.ID, userDB.Role)
 }
 
-// --- HANDLERS DE ADMINISTRACIÓN (USUARIOS) ---
-// (adminUsersHandler, adminAddUserHandler, adminDeleteUserHandler, adminUpdateUserHandler, adminAssignProyectoHandler sin cambios)
-// ... (Omitidos por brevedad) ...
-func adminUsersHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+// --- HANDLERS ADMIN (USUARIOS) (Sin cambios) ---
+func adminUsersHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var adminReq AdminActionRequest
 	json.NewDecoder(r.Body).Decode(&adminReq)
@@ -380,7 +410,7 @@ func adminUsersHandler(w http.ResponseWriter, r *http.Request) { /* ... sin camb
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"users": users})
 }
-func adminAddUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+func adminAddUserHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req AddUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -410,7 +440,7 @@ func adminAddUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin ca
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, `{"mensaje": "Usuario '%s' agregado."}`, req.User.Username)
 }
-func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req DeleteUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -440,7 +470,7 @@ func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin
 	}
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Usuario '%s' borrado.", targetUsername)})
 }
-func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -475,7 +505,7 @@ func adminUpdateUserHandler(w http.ResponseWriter, r *http.Request) { /* ... sin
 	}
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Rol de %s actualizado a %s.", targetUsername, newRole)})
 }
-func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req AssignProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -502,10 +532,10 @@ func adminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": "Proyecto asignado."})
 }
 
-// --- HANDLERS DE ADMINISTRACIÓN (PROYECTOS) ---
-// (adminGetProyectosHandler, adminCreateProyectoHandler, adminDeleteProyectoHandler, adminUpdateProyectoHandler sin cambios)
-// ... (Omitidos por brevedad) ...
-func adminGetProyectosHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+// --- HANDLERS ADMIN (PROYECTOS) ---
+
+// adminGetProyectosHandler (ACTUALIZADO para devolver estado)
+func adminGetProyectosHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var adminReq AdminActionRequest
 	json.NewDecoder(r.Body).Decode(&adminReq)
@@ -514,24 +544,30 @@ func adminGetProyectosHandler(w http.ResponseWriter, r *http.Request) { /* ... s
 		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
 		return
 	}
-	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre FROM proyectos ORDER BY nombre ASC")
+
+	// Selecciona el estado
+	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos ORDER BY nombre ASC")
 	if err != nil {
 		http.Error(w, `{"error": "Error interno."}`, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
+
 	proyectos := []Proyecto{}
 	for rows.Next() {
 		var p Proyecto
-		if err := rows.Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre); err != nil {
-			log.Printf("Scan error: %v", err)
+		// Escanea el estado
+		if err := rows.Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre, &p.Estado); err != nil {
+			log.Printf("Scan error proyecto: %v", err)
 			continue
 		}
 		proyectos = append(proyectos, p)
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"proyectos": proyectos})
 }
-func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+
+// adminCreateProyectoHandler (ACTUALIZADO para insertar estado default)
+func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var req CreateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -547,6 +583,8 @@ func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
 		return
 	}
+
+	// El estado se inserta con el DEFAULT 'habilitado'
 	query := "INSERT INTO proyectos(nombre, fecha_inicio, fecha_cierre) VALUES(?, ?, ?)"
 	_, err = DB.Exec(query, req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
@@ -556,7 +594,9 @@ func adminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Proyecto '%s' creado.", req.Nombre)})
 }
-func adminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+
+// adminDeleteProyectoHandler (Sin cambios)
+func adminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req DeleteProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -581,7 +621,9 @@ func adminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 	}
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": "Proyecto borrado."})
 }
-func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ... sin cambios ... */
+
+// adminUpdateProyectoHandler (ACTUALIZADO para prevenir edición si está cerrado)
+func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var req UpdateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -597,6 +639,23 @@ func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 		http.Error(w, `{"error": "Campos requeridos."}`, http.StatusBadRequest)
 		return
 	}
+
+	// ⭐️ VERIFICACIÓN DE ESTADO ANTES DE ACTUALIZAR
+	var currentState string
+	err = DB.QueryRow("SELECT estado FROM proyectos WHERE id = ?", req.ID).Scan(&currentState)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, `{"error": "Proyecto no encontrado."}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error": "Error al verificar estado."}`, http.StatusInternalServerError)
+		return
+	}
+	if strings.ToLower(currentState) == "cerrado" {
+		http.Error(w, `{"error": "No se puede modificar un proyecto cerrado."}`, http.StatusForbidden)
+		return
+	}
+
 	query := "UPDATE proyectos SET nombre = ?, fecha_inicio = ?, fecha_cierre = ? WHERE id = ?"
 	_, err = DB.Exec(query, req.Nombre, req.FechaInicio, req.FechaCierre, req.ID)
 	if err != nil {
@@ -610,21 +669,60 @@ func adminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) { /* ...
 	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Proyecto '%s' actualizado.", req.Nombre)})
 }
 
-// ⭐️ --- NUEVO HANDLER PARA USUARIOS NORMALES --- ⭐️
-func userProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
+// ⭐️ --- NUEVO HANDLER PARA CAMBIAR ESTADO DEL PROYECTO --- ⭐️
+func adminSetProyectoEstadoHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var req SetProyectoEstadoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
+		return
+	}
+
+	// Permiso: Admin y Gerente
+	isAllowed, err := checkPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !isAllowed {
+		http.Error(w, `{"error": "Acceso denegado."}`, http.StatusForbidden)
+		return
+	}
+
+	newState := strings.ToLower(req.Estado)
+	if newState != "habilitado" && newState != "cerrado" {
+		http.Error(w, `{"error": "Estado inválido. Debe ser 'habilitado' o 'cerrado'."}`, http.StatusBadRequest)
+		return
+	}
+	if req.ID == 0 {
+		http.Error(w, `{"error": "ID de proyecto requerido."}`, http.StatusBadRequest)
+		return
+	}
+
+	query := "UPDATE proyectos SET estado = ? WHERE id = ?"
+	result, err := DB.Exec(query, newState, req.ID)
+	if err != nil {
+		http.Error(w, `{"error": "Error interno al actualizar estado."}`, http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, `{"error": "Proyecto no encontrado."}`, http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"mensaje": fmt.Sprintf("Estado del proyecto actualizado a '%s'.", newState)})
+}
+
+// --- HANDLER USUARIO (Sin cambios) ---
+func userProjectDetailsHandler(w http.ResponseWriter, r *http.Request) { /* ... */
 	w.Header().Set("Content-Type", "application/json")
 	var req UserProjectDetailsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Formato JSON inválido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "JSON inválido."}`, http.StatusBadRequest)
 		return
 	}
-
 	if req.UserID == 0 {
-		http.Error(w, `{"error": "ID de usuario requerido."}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "ID Usuario requerido."}`, http.StatusBadRequest)
 		return
 	}
-
-	// 1. Obtener el proyecto_id del usuario
 	var proyectoID sql.NullInt64
 	err := DB.QueryRow("SELECT proyecto_id FROM users WHERE id = ?", req.UserID).Scan(&proyectoID)
 	if err != nil {
@@ -632,68 +730,45 @@ func userProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Usuario no encontrado."}`, http.StatusNotFound)
 			return
 		}
-		http.Error(w, `{"error": "Error al buscar usuario."}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "Error buscar usuario."}`, http.StatusInternalServerError)
 		return
 	}
-
-	response := UserProjectDetailsResponse{
-		Proyecto: nil,
-		Miembros: []ProjectMember{},
-		Gerentes: []ProjectMember{},
-	}
-
-	// 2. Si el usuario tiene un proyecto asignado...
+	response := UserProjectDetailsResponse{Proyecto: nil, Miembros: []ProjectMember{}, Gerentes: []ProjectMember{}}
 	if proyectoID.Valid {
 		pID := proyectoID.Int64
-
-		// 2a. Obtener los detalles del proyecto
 		var p Proyecto
-		err = DB.QueryRow("SELECT id, nombre, fecha_inicio, fecha_cierre FROM proyectos WHERE id = ?", pID).Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre)
+		err = DB.QueryRow("SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos WHERE id = ?", pID).Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre, &p.Estado)
 		if err != nil {
-			// Si no encontramos el proyecto, algo está mal (FK debería prevenir esto, pero por si acaso)
 			log.Printf("Error: Usuario %d tiene proyecto_id %d inválido: %v", req.UserID, pID, err)
-			// Devolvemos la respuesta vacía pero sin error HTTP
 		} else {
-			response.Proyecto = &p // Asigna el proyecto encontrado
+			response.Proyecto = &p
 		}
-
-		// 2b. Obtener todos los miembros (usuarios y gerentes) de ese proyecto (excluyendo al propio usuario)
-		rows, err := DB.Query(`
-            SELECT id, username, nombre, apellido, role
-            FROM users
-            WHERE proyecto_id = ? AND id != ?
-            ORDER BY role, nombre`, pID, req.UserID) // Ordena para poner gerentes primero
-
+		rows, err := DB.Query(`SELECT id, username, nombre, apellido, role FROM users WHERE proyecto_id = ? AND id != ? ORDER BY role, nombre`, pID, req.UserID)
 		if err != nil {
-			log.Printf("Error al buscar miembros del proyecto %d: %v", pID, err)
-			http.Error(w, `{"error": "Error al buscar miembros del proyecto."}`, http.StatusInternalServerError)
+			log.Printf("Error buscar miembros proyecto %d: %v", pID, err)
+			http.Error(w, `{"error": "Error buscar miembros."}`, http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
-
 		for rows.Next() {
 			var member ProjectMember
 			if err := rows.Scan(&member.ID, &member.Username, &member.Nombre, &member.Apellido, &member.Role); err != nil {
-				log.Printf("Error al escanear miembro de proyecto: %v", err)
+				log.Printf("Error scan miembro: %v", err)
 				continue
 			}
-			// Separa en listas diferentes según el rol
 			if strings.ToLower(member.Role) == "gerente" {
 				response.Gerentes = append(response.Gerentes, member)
-			} else { // Asume que cualquier otro rol es un miembro normal
+			} else {
 				response.Miembros = append(response.Miembros, member)
 			}
 		}
 	}
-
-	// 3. Devolver la respuesta (puede tener proyecto=nil si no está asignado)
 	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
 	initDB()
 	defer DB.Close()
-
 	// Handlers
 	saludoAPI := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { /* ... */ })
 	registerAPI := http.HandlerFunc(registerHandler)
@@ -707,10 +782,11 @@ func main() {
 	adminDeleteProyectoAPI := http.HandlerFunc(adminDeleteProyectoHandler)
 	adminAssignProyectoAPI := http.HandlerFunc(adminAssignProyectoHandler)
 	adminUpdateProyectoAPI := http.HandlerFunc(adminUpdateProyectoHandler)
-	// ⭐️ NUEVO HANDLER
 	userProjectDetailsAPI := http.HandlerFunc(userProjectDetailsHandler)
+	// NUEVO HANDLER DE ESTADO
+	adminSetProyectoEstadoAPI := http.HandlerFunc(adminSetProyectoEstadoHandler)
 
-	// Configuración de CORS (sin cambios)
+	// CORS (sin cambios)
 	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
@@ -720,7 +796,6 @@ func main() {
 	http.Handle("/api/saludo", corsOptions(saludoAPI))
 	http.Handle("/api/register", corsOptions(registerAPI))
 	http.Handle("/api/login", corsOptions(loginAPI))
-	// Rutas Admin/Gerente
 	http.Handle("/api/admin/users", corsOptions(adminUsersAPI))
 	http.Handle("/api/admin/update-user", corsOptions(adminUpdateUserAPI))
 	http.Handle("/api/admin/add-user", corsOptions(adminAddUserAPI))
@@ -730,11 +805,12 @@ func main() {
 	http.Handle("/api/admin/delete-proyecto", corsOptions(adminDeleteProyectoAPI))
 	http.Handle("/api/admin/assign-proyecto", corsOptions(adminAssignProyectoAPI))
 	http.Handle("/api/admin/update-proyecto", corsOptions(adminUpdateProyectoAPI))
-	// ⭐️ NUEVA RUTA PARA USUARIOS
 	http.Handle("/api/user/project-details", corsOptions(userProjectDetailsAPI))
+	// NUEVA RUTA DE ESTADO
+	http.Handle("/api/admin/set-proyecto-estado", corsOptions(adminSetProyectoEstadoAPI))
 
-	log.Println("🚀 Servidor Go escuchando en :8080 (v7 - Vista de Usuario)")
+	log.Println("🚀 Servidor Go v8 (Estado Proyecto) en :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Error al iniciar el servidor: %v", err)
+		log.Fatalf("Error server: %v", err)
 	}
 }

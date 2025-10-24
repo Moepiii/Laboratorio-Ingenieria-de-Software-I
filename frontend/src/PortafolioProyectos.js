@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
-// OBJETO DE ESTILOS (NECESARIO EN ESTE ARCHIVO)
+// OBJETO DE ESTILOS (ACTUALIZADO CON NUEVOS ESTILOS)
 const styles = {
   // Contenedor del formulario
   adminFormContainer: {
@@ -34,416 +34,596 @@ const styles = {
     borderRadius: '8px',
     fontSize: '1rem',
     minWidth: '250px',
-    marginLeft: 'auto', // Mueve la búsqueda a la derecha
+    marginLeft: 'auto', // Mueve el input al final
   },
-  // Estilo para botones genéricos
-  button: {
-    padding: '0.75rem 1rem',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    borderRadius: '8px',
-    color: 'white',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
+  // Contenedor para un grupo de input + label
+  inputGroup: {
+    marginBottom: '1.25rem',
   },
-  // Estilo para mensajes de error
-  error: {
-    fontSize: '0.875rem',
-    color: '#dc2626', // red-600
-    fontWeight: '500',
-    backgroundColor: '#fef2f2', // red-50
-    padding: '0.75rem',
-    borderRadius: '8px',
-    border: '1px solid #fecaca', // red-200
-  },
-  // Estilo para mensajes de éxito
-  success: {
-    fontSize: '0.875rem',
-    color: '#059669', // emerald-600
-    fontWeight: '500',
-    backgroundColor: '#ecfdf5', // emerald-50
-    padding: '0.75rem',
-    borderRadius: '8px',
-    border: '1px solid #a7f3d0', // emerald-200
-  },
-  // Contenedor para los campos del formulario
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr', // 2 columnas
-    gap: '1rem',
-  },
-  formField: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
+  // Estilo para labels
   label: {
     display: 'block',
+    marginBottom: '0.5rem',
     fontSize: '0.875rem',
     fontWeight: '500',
+    color: '#374151', // gray-700
+  },
+  // Botón Primario (Crear, Guardar)
+  buttonPrimary: {
+    padding: '0.6rem 1.25rem',
+    backgroundColor: '#4f46e5', // indigo-600
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.9rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'backgroundColor 0.2s',
+  },
+  // Botón Secundario (Modificar, Cancelar, etc.)
+  buttonSecondary: {
+    padding: '0.6rem 1.25rem',
+    backgroundColor: '#ffffff',
+    color: '#374151', // gray-700
+    border: '1px solid #d1d5db', // gray-300
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.9rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'backgroundColor 0.2s, borderColor 0.2s',
+  },
+  // Botón de Peligro (Borrar)
+  buttonDanger: {
+    padding: '0.6rem 1.25rem',
+    backgroundColor: '#ef4444', // red-500
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.9rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'backgroundColor 0.2s',
+  },
+  // NUEVO: Botón de Advertencia (Cerrar)
+  buttonWarning: {
+    padding: '0.6rem 1.25rem',
+    backgroundColor: '#f59e0b', // amber-500
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '0.9rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    transition: 'backgroundColor 0.2s',
+  },
+  // Contenedor de la tabla
+  tableContainer: {
+    overflowX: 'auto',
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+  },
+  // Tabla
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.9rem',
+  },
+  // Encabezado de la tabla
+  th: {
+    padding: '0.75rem 1rem',
+    textAlign: 'left',
+    borderBottom: '2px solid #e5e7eb',
+    backgroundColor: '#f9fafb',
+    color: '#6b7280',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  // Celda de la tabla
+  td: {
+    padding: '0.75rem 1rem',
+    borderBottom: '1px solid #e5e7eb',
     color: '#374151',
-    marginBottom: '0.25rem',
   },
-  formFullWidth: {
-    gridColumn: '1 / -1', // Ocupa todo el ancho
+  // Fila seleccionada
+  selectedRow: {
+    backgroundColor: '#eef2ff', // indigo-50
   },
-  formActions: {
-    gridColumn: '1 / -1',
-    display: 'flex',
-    gap: '1rem',
-    marginTop: '1rem',
-  }
+  // NUEVO: Pastilla de estado Habilitado
+  badgeSuccess: {
+    backgroundColor: '#d1fae5', // green-100
+    color: '#065f46', // green-800
+    padding: '0.25rem 0.75rem',
+    borderRadius: '9999px',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+  },
+  // NUEVO: Pastilla de estado Cerrado
+  badgeError: {
+    backgroundColor: '#fee2e2', // red-100
+    color: '#991b1b', // red-800
+    padding: '0.25rem 0.75rem',
+    borderRadius: '9999px',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+  },
+};
+
+// Componente de Formulario (ACTUALIZADO)
+const ProyectoForm = ({ mode, formData, setFormData, handleSubmit, handleCancel, selectedProyecto }) => {
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <div style={styles.adminFormContainer}>
+      <h3 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: '600' }}>
+        {mode === 'create' ? 'Crear Nuevo Proyecto' : 'Modificar Proyecto'}
+      </h3>
+      <form onSubmit={handleSubmit}>
+        <div style={styles.inputGroup}>
+          <label htmlFor="nombre" style={styles.label}>Nombre del Proyecto</label>
+          <input
+            type="text"
+            id="nombre"
+            name="nombre"
+            value={formData.nombre}
+            onChange={handleChange}
+            required
+            style={styles.input}
+            placeholder="Ej: Proyecto Titán"
+          />
+        </div>
+        <div style={styles.inputGroup}>
+          <label htmlFor="fecha_inicio" style={styles.label}>Fecha de Inicio</label>
+          <input
+            type="date"
+            id="fecha_inicio"
+            name="fecha_inicio"
+            value={formData.fecha_inicio}
+            onChange={handleChange}
+            required
+            style={styles.input}
+          />
+        </div>
+        <div style={styles.inputGroup}>
+          <label htmlFor="fecha_cierre" style={styles.label}>Fecha de Cierre (Opcional)</label>
+          <input
+            type="date"
+            id="fecha_cierre"
+            name="fecha_cierre"
+            value={formData.fecha_cierre}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {mode === 'edit' && selectedProyecto && (
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Estado Actual</label>
+            <input
+              type="text"
+              value={selectedProyecto.estado === 'habilitado' ? 'Habilitado' : 'Cerrado'}
+              readOnly
+              style={{ ...styles.input, backgroundColor: '#f3f4f6', cursor: 'not-allowed', color: selectedProyecto.estado === 'habilitado' ? '#065f46' : '#991b1b', fontWeight: '500' }}
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <button type="button" onClick={handleCancel} style={styles.buttonSecondary}>
+            Cancelar
+          </button>
+          <button type="submit" style={styles.buttonPrimary}>
+            {mode === 'create' ? 'Crear Proyecto' : 'Guardar Cambios'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
 
-const PortafolioProyectos = ({ apiCall, currentUser }) => {
+// Componente de Tabla (ACTUALIZADO)
+const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, searchTerm }) => {
 
-  // Lista de todos los proyectos
-  const [proyectos, setProyectos] = useState([]);
+  const filteredProyectos = proyectos.filter(p =>
+    p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // --- Estados de UI ---
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProyectoId, setSelectedProyectoId] = useState(null);
-
-  // --- Estados del Formulario ---
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentProyectoId, setCurrentProyectoId] = useState(null); // Para saber qué ID editar
-  const [nombre, setNombre] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaCierre, setFechaCierre] = useState('');
-
-  // ⭐️ --- NUEVA FUNCIÓN PARA FORMATEAR FECHAS --- ⭐️
-  /**
-   * Convierte una fecha de 'AAAA-MM-DD' a 'DD/MM/AAAA'.
-   * @param {string} dateString La fecha en formato 'AAAA-MM-DD'.
-   * @returns {string | null} La fecha formateada o null si no hay fecha.
-   */
-  const formatDate = (dateString) => {
-    if (!dateString || dateString.length === 0) {
-      return null;
-    }
+  // Formateador de fechas para mostrar en la tabla (DD/MM/YYYY)
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString || dateString === "0001-01-01T00:00:00Z" || dateString.startsWith("0001-01-01")) return null;
     try {
-      // Separa la fecha (ej: '2025-10-20')
-      const [year, month, day] = dateString.split('-');
-      // Devuelve la fecha en el nuevo formato (ej: '20/10/2025')
-      if (day && month && year) {
-        return `${day}/${month}/${year}`;
+      // Intenta parsear como AAAA-MM-DD primero (viene del input)
+      let date;
+      if (dateString.includes('-')) {
+        date = new Date(dateString + 'T00:00:00'); // Añade hora para evitar problemas de zona horaria
+      } else {
+        date = new Date(dateString); // Intenta parsear formato ISO si viene del backend
       }
-      return dateString; // Devuelve el original si el formato falla
-    } catch (e) {
-      return dateString; // Devuelve el original en caso de error
+
+      if (isNaN(date.getTime())) { // Verifica si la fecha es válida
+        return dateString; // Devuelve original si no es válida
+      }
+
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0'); // Meses son 0-indexados
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.warn("Error formateando fecha:", dateString, error);
+      return dateString; // Devuelve el string original si falla
     }
   };
 
-  // 1. Cargar Proyectos (sin cambios)
+
+  return (
+    <div style={styles.tableContainer}>
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={styles.th}>ID</th>
+            <th style={styles.th}>Nombre</th>
+            <th style={styles.th}>Fecha Inicio</th>
+            <th style={styles.th}>Fecha Cierre</th>
+            <th style={styles.th}>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredProyectos.map((proyecto) => {
+            const isSelected = proyecto.id === selectedProyectoId;
+            return (
+              <tr
+                key={proyecto.id}
+                style={isSelected ? styles.selectedRow : { cursor: 'pointer' }} // Añade cursor pointer
+                onClick={() => setSelectedProyectoId(proyecto.id)}
+              >
+                <td style={styles.td}>{proyecto.id}</td>
+                <td style={{ ...styles.td, fontWeight: '600' }}>{proyecto.nombre}</td>
+                <td style={styles.td}>{formatDateForDisplay(proyecto.fecha_inicio)}</td>
+                <td style={styles.td}>{formatDateForDisplay(proyecto.fecha_cierre) || <span style={{ color: '#9ca3af' }}>N/A</span>}</td>
+                <td style={styles.td}>
+                  {proyecto.estado === 'habilitado' ? (
+                    <span style={styles.badgeSuccess}>Habilitado</span>
+                  ) : (
+                    <span style={styles.badgeError}>Cerrado</span>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+          {filteredProyectos.length === 0 && (
+            <tr>
+              <td colSpan="5" style={{ ...styles.td, textAlign: 'center', color: '#6b7280', padding: '1.5rem' }}>
+                {searchTerm ? 'No se encontraron proyectos con ese nombre.' : 'No hay proyectos creados.'}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+
+// --- COMPONENTE PRINCIPAL (ACTUALIZADO) ---
+const PortafolioProyectos = ({ apiCall, currentUser }) => { // Recibe currentUser completo ahora
+  const [proyectos, setProyectos] = useState([]);
+  const [mode, setMode] = useState('view'); // 'view', 'create', 'edit'
+  const [selectedProyectoId, setSelectedProyectoId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre: '',
+    fecha_inicio: '',
+    fecha_cierre: '',
+  });
+
+  const selectedProyecto = useMemo(() => {
+    return proyectos.find(p => p.id === selectedProyectoId);
+  }, [proyectos, selectedProyectoId]);
+
   const fetchProyectos = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
-      const result = await apiCall('admin/get-proyectos', { admin_username: currentUser }, 'POST');
+      // Asegúrate de que currentUser exista y tenga la propiedad 'usuario'
+      const username = currentUser; // Ajustado aquí
+      if (!username) {
+        throw new Error("Nombre de usuario no disponible para la solicitud.");
+      }
+      const result = await apiCall('admin/get-proyectos', { admin_username: username }, 'POST');
       if (result.success) {
         setProyectos(result.data.proyectos || []);
       } else {
-        setError(result.data.error || 'No se pudieron cargar los proyectos.');
+        throw new Error(result.data.error || "Error desconocido al cargar proyectos");
       }
-    } catch (e) {
-      setError(`Error de conexión: ${e.message}`);
+    } catch (error) {
+      console.error("Error al cargar proyectos:", error);
+      alert(`Error al cargar proyectos: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [apiCall, currentUser]);
+  }, [apiCall, currentUser]); // Dependencia ajustada
 
   useEffect(() => {
     fetchProyectos();
   }, [fetchProyectos]);
 
-  // 2. Limpiar formulario y resetear modos (sin cambios)
-  const resetForm = () => {
-    setNombre('');
-    setFechaInicio('');
-    setFechaCierre('');
-    setIsEditing(false);
-    setCurrentProyectoId(null);
+  // Formatear fechas para el formulario (YYYY-MM-DD)
+  const formatDateForInput = (dateString) => {
+    if (!dateString || dateString.startsWith("0001-01-01")) return '';
+    try {
+      // Intenta parsear como AAAA-MM-DD primero (viene del input)
+      let date;
+      if (dateString.includes('-') && !dateString.includes('T')) {
+        date = new Date(dateString + 'T00:00:00'); // Añade hora para evitar problemas de zona horaria
+      } else {
+        date = new Date(dateString); // Intenta parsear formato ISO si viene del backend
+      }
+
+      if (isNaN(date.getTime())) { // Verifica si la fecha es válida
+        console.warn("Fecha inválida recibida:", dateString);
+        return ''; // Devuelve vacío si no es válida
+      }
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error("Error formateando fecha para input:", dateString, error);
+      return ''; // Devuelve vacío en caso de error
+    }
   };
 
-  // 3. Botón "Agregar Nuevo Proyecto" (sin cambios)
-  const handleShowAddForm = () => {
+
+  const resetForm = () => {
+    setFormData({ nombre: '', fecha_inicio: '', fecha_cierre: '' });
+  };
+
+  const handleCreateNew = () => {
     resetForm();
     setSelectedProyectoId(null);
-    setIsEditing(false);
+    setMode('create');
   };
 
-  // 4. Botón "Modificar Proyecto" (sin cambios)
-  // (Nota: Esto funciona porque el <input type="date"> SÍ espera 'AAAA-MM-DD')
-  const handleStartEdit = () => {
-    if (!selectedProyectoId) return;
-
-    const proyectoToEdit = proyectos.find(p => p.id === selectedProyectoId);
-    if (proyectoToEdit) {
-      setNombre(proyectoToEdit.nombre);
-      setFechaInicio(proyectoToEdit.fecha_inicio || '');
-      setFechaCierre(proyectoToEdit.fecha_cierre || '');
-      setCurrentProyectoId(proyectoToEdit.id);
-      setIsEditing(true);
+  const handleEditClick = () => {
+    if (selectedProyecto) {
+      if (selectedProyecto.estado === 'cerrado') {
+        alert('No se puede modificar un proyecto que está "Cerrado".');
+        return;
+      }
+      setFormData({
+        nombre: selectedProyecto.nombre,
+        fecha_inicio: formatDateForInput(selectedProyecto.fecha_inicio),
+        fecha_cierre: formatDateForInput(selectedProyecto.fecha_cierre),
+      });
+      setMode('edit');
+    } else {
+      alert('Por favor, selecciona un proyecto para modificar.');
     }
   };
 
-  // 5. Botón "Eliminar Proyecto" (sin cambios)
-  const handleDelete = async () => {
-    if (!selectedProyectoId) return;
+  const handleCancel = () => {
+    resetForm();
+    setMode('view');
+  };
 
-    const proyectoToDelete = proyectos.find(p => p.id === selectedProyectoId);
-    if (!window.confirm(`¿Seguro que quieres borrar el proyecto "${proyectoToDelete.nombre}"?`)) {
+  const handleDelete = async () => {
+    if (!selectedProyecto) {
+      alert('Por favor, selecciona un proyecto para borrar.');
       return;
     }
-
-    setError('');
-    setSuccess('');
-
-    try {
-      const result = await apiCall('admin/delete-proyecto', {
-        id: selectedProyectoId,
-        admin_username: currentUser
-      }, 'POST');
-
-      if (result.success) {
-        setSuccess(result.data.mensaje);
+    if (window.confirm(`¿Estás seguro de que quieres borrar el proyecto "${selectedProyecto.nombre}"? Esta acción no se puede deshacer.`)) {
+      try {
+        const username = currentUser; // Ajustado aquí
+        if (!username) { throw new Error("Nombre de usuario no disponible."); }
+        await apiCall('admin/delete-proyecto', {
+          id: selectedProyecto.id,
+          admin_username: username
+        }, 'POST');
+        alert('Proyecto borrado exitosamente.');
         fetchProyectos();
         setSelectedProyectoId(null);
-        resetForm();
-      } else {
-        setError(result.data.error || 'Fallo al borrar el proyecto.');
+        setMode('view');
+      } catch (error) {
+        console.error("Error al borrar proyecto:", error);
+        alert(`Error al borrar proyecto: ${error.message}`);
       }
-    } catch (e) {
-      setError(`Error de conexión: ${e.message}`);
     }
   };
 
-  // 6. Submit del Formulario (Crea o Modifica) (sin cambios)
-  // (Nota: Esto funciona porque el backend SÍ espera 'AAAA-MM-DD')
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    const endpoint = mode === 'create' ? 'admin/create-proyecto' : 'admin/update-proyecto';
+    const username = currentUser; // Ajustado aquí
+    if (!username) { alert("Error: Nombre de usuario no disponible."); return; }
+    const payload = {
+      ...formData,
+      admin_username: username,
+    };
+    if (mode === 'edit') {
+      payload.id = selectedProyectoId;
+    }
 
-    if (!nombre || !fechaInicio) {
-      setError('El Nombre y la Fecha de Inicio son obligatorios.');
+    // Validación simple de fecha de cierre
+    if (formData.fecha_cierre && formData.fecha_inicio && formData.fecha_cierre < formData.fecha_inicio) {
+      alert("La fecha de cierre no puede ser anterior a la fecha de inicio.");
       return;
     }
 
-    const proyectoData = {
-      nombre,
-      fecha_inicio: fechaInicio,
-      fecha_cierre: fechaCierre,
-      admin_username: currentUser
-    };
-
     try {
-      let result;
-      if (isEditing) {
-        result = await apiCall('admin/update-proyecto', {
-          id: currentProyectoId,
-          ...proyectoData
-        }, 'POST');
-      } else {
-        result = await apiCall('admin/create-proyecto', proyectoData, 'POST');
+      const result = await apiCall(endpoint, payload, 'POST');
+      alert(result.data.mensaje || 'Operación exitosa.');
+      fetchProyectos();
+      setMode('view');
+      resetForm();
+      if (mode === 'create') {
+        setSelectedProyectoId(null);
       }
-
-      if (result.success) {
-        setSuccess(result.data.mensaje);
-        resetForm();
-        fetchProyectos();
-      } else {
-        setError(result.data.error || 'Fallo al guardar el proyecto.');
-      }
-    } catch (e) {
-      setError(`Error de conexión: ${e.message}`);
+    } catch (error) {
+      console.error("Error al guardar proyecto:", error);
+      alert(`Error al guardar: ${error.message}`);
     }
   };
 
-  // 7. Filtrar proyectos basado en la búsqueda (sin cambios)
-  const filteredProyectos = proyectos.filter(p =>
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSetEstado = async (nuevoEstado) => {
+    if (!selectedProyecto) {
+      alert('Por favor, selecciona un proyecto primero.');
+      return;
+    }
+    if (!window.confirm(`¿Estás seguro de que quieres cambiar el estado de "${selectedProyecto.nombre}" a "${nuevoEstado}"?`)) {
+      return;
+    }
+
+    try {
+      const endpoint = 'admin/set-proyecto-estado'; // Endpoint ajustado
+      const username = currentUser; // Ajustado aquí
+      if (!username) { throw new Error("Nombre de usuario no disponible."); }
+      const payload = {
+        id: selectedProyecto.id,
+        estado: nuevoEstado,
+        admin_username: username,
+      };
+      const result = await apiCall(endpoint, payload, 'POST'); // Método POST
+      alert(result.data.mensaje || 'Estado actualizado con éxito.');
+      fetchProyectos();
+      if (nuevoEstado === 'cerrado' && mode === 'edit') {
+        setMode('view');
+      }
+    } catch (error) {
+      console.error('Error al cambiar estado:', error);
+      alert(`Error al cambiar estado: ${error.message}`);
+    }
+  };
 
 
   return (
-    <div>
-      <h2 style={{ fontSize: '1.875rem', fontWeight: '700', color: '#1f2937' }}>
-        Portafolio de Proyectos
+    <div style={{ padding: '2rem' }}>
+      <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '1.5rem' }}>
+        Gestión de Proyectos
       </h2>
 
-      {success && <p style={{ ...styles.success, margin: '1rem 0' }}>{success}</p>}
-      {error && <p style={{ ...styles.error, margin: '1rem 0' }}>{error}</p>}
-
-      {/* --- Barra de Botones y Búsqueda (sin cambios) --- */}
-      <div style={styles.actionToolbar}>
-        <button
-          onClick={handleShowAddForm}
-          style={{ ...styles.button, backgroundColor: '#10b981' }} // emerald-500
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
-        >
-          <span>➕</span> Agregar Nuevo Proyecto
-        </button>
-        <button
-          onClick={handleStartEdit}
-          disabled={!selectedProyectoId}
-          style={{ ...styles.button, backgroundColor: '#3b82f6', opacity: !selectedProyectoId ? 0.5 : 1, cursor: !selectedProyectoId ? 'not-allowed' : 'pointer' }} // blue-500
-          onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#2563eb')}
-          onMouseOut={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#3b82f6')}
-        >
-          <span>✏️</span> Modificar Proyecto
-        </button>
-        <button
-          onClick={handleDelete}
-          disabled={!selectedProyectoId}
-          style={{ ...styles.button, backgroundColor: '#ef4444', opacity: !selectedProyectoId ? 0.5 : 1, cursor: !selectedProyectoId ? 'not-allowed' : 'pointer' }} // red-500
-          onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#dc2626')}
-          onMouseOut={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#ef4444')}
-        >
-          <span>❌</span> Eliminar Proyecto
-        </button>
-        <input
-          type="text"
-          placeholder="Buscar Proyecto por nombre..."
-          style={styles.searchInput}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+      {mode !== 'view' ? (
+        <ProyectoForm
+          mode={mode}
+          formData={formData}
+          setFormData={setFormData}
+          handleSubmit={handleSubmit}
+          handleCancel={handleCancel}
+          selectedProyecto={selectedProyecto}
         />
-      </div>
-
-      {/* --- Formulario de Agregar / Modificar (sin cambios) --- */}
-      <div style={{ ...styles.adminFormContainer, marginTop: '1rem' }}>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
-          {isEditing ? 'Modificar Proyecto ✏️' : 'Agregar Nuevo Proyecto ➕'}
-        </h3>
-        <form onSubmit={handleSubmit}>
-          <div style={styles.formGrid}>
-            {/* Campo Nombre */}
-            <div style={{ ...styles.formField, ...styles.formFullWidth }}>
-              <label htmlFor="nombre" style={styles.label}>Descripción (Nombre del Proyecto)</label>
-              <input
-                id="nombre"
-                type="text"
-                placeholder="Nombre del proyecto..."
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                required
-                style={styles.input}
-              />
-            </div>
-
-            {/* Campo Fecha Inicio */}
-            <div style={styles.formField}>
-              <label htmlFor="fechaInicio" style={styles.label}>Fecha de Inicio</label>
-              <input
-                id="fechaInicio"
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                required
-                style={styles.input}
-              />
-            </div>
-
-            {/* Campo Fecha Cierre */}
-            <div style={styles.formField}>
-              <label htmlFor="fechaCierre" style={styles.label}>Fecha de Cierre (Opcional)</label>
-              <input
-                id="fechaCierre"
-                type="date"
-                value={fechaCierre}
-                onChange={(e) => setFechaCierre(e.target.value)}
-                style={styles.input}
-              />
-            </div>
-
-            {/* Botones del Formulario */}
-            <div style={styles.formActions}>
-              <button
-                type="submit"
-                style={{ ...styles.button, backgroundColor: '#4f46e5' }} // indigo-600
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4338ca'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}
-              >
-                {isEditing ? 'Guardar Cambios' : 'Agregar Proyecto'}
-              </button>
-              {isEditing && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  style={{ ...styles.button, backgroundColor: '#6b7280' }} // gray-500
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
-                >
-                  Cancelar Edición
-                </button>
-              )}
-            </div>
-          </div>
-        </form>
-      </div>
-
-      {/* --- Tabla de Proyectos Existentes --- */}
-      <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
-        Proyectos Existentes (Total: {filteredProyectos.length})
-      </h3>
-      {loading ? (
-        <p>Cargando proyectos...</p>
       ) : (
-        <div style={{ maxHeight: '600px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>ID</th>
-                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Descripción</th>
-                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Inicio</th>
-                <th style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>Cierre</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProyectos.map((proyecto, index) => {
-                const isSelected = proyecto.id === selectedProyectoId;
-                return (
-                  <tr
-                    key={proyecto.id}
-                    style={{
-                      borderBottom: index < filteredProyectos.length - 1 ? '1px solid #f3f4f6' : 'none',
-                      backgroundColor: isSelected ? '#eef2ff' : 'white', // Resaltar fila seleccionada
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setSelectedProyectoId(proyecto.id)} // Seleccionar fila al hacer clic
-                  >
-                    <td style={{ padding: '0.75rem', fontWeight: '500' }}>{proyecto.id}</td>
-                    <td style={{ padding: '0.75rem', fontWeight: '600' }}>{proyecto.nombre}</td>
-                    {/* ⭐️ --- CAMBIO AQUÍ --- ⭐️ */}
-                    <td style={{ padding: '0.75rem' }}>
-                      {formatDate(proyecto.fecha_inicio) || <span style={{ color: '#9ca3af' }}>N/A</span>}
-                    </td>
-                    {/* ⭐️ --- CAMBIO AQUÍ --- ⭐️ */}
-                    <td style={{ padding: '0.75rem' }}>
-                      {formatDate(proyecto.fecha_cierre) || <span style={{ color: '#9ca3af' }}>N/A</span>}
-                    </td>
-                  </tr>
-                )
-              })}
-              {filteredProyectos.length === 0 && (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '1rem', color: '#6b7280' }}>
-                  {searchTerm ? 'No se encontraron proyectos con ese nombre.' : 'No hay proyectos creados.'}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div style={styles.actionToolbar}>
+            <button onClick={handleCreateNew} style={styles.buttonPrimary}>
+              <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
+              Crear Proyecto
+            </button>
+            <button
+              onClick={handleEditClick}
+              disabled={!selectedProyecto || selectedProyecto.estado === 'cerrado'}
+              style={{
+                ...styles.buttonSecondary,
+                cursor: (!selectedProyecto || selectedProyecto.estado === 'cerrado') ? 'not-allowed' : 'pointer',
+                opacity: (!selectedProyecto || selectedProyecto.estado === 'cerrado') ? 0.6 : 1
+              }}
+              title={
+                !selectedProyecto
+                  ? 'Selecciona un proyecto para modificar'
+                  : selectedProyecto.estado === 'cerrado'
+                    ? 'No se puede modificar un proyecto "Cerrado"'
+                    : 'Modificar proyecto seleccionado'
+              }
+            >
+              <i className="fas fa-pencil-alt" style={{ marginRight: '8px' }}></i>
+              Modificar
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={!selectedProyecto}
+              style={{
+                ...styles.buttonDanger,
+                cursor: !selectedProyecto ? 'not-allowed' : 'pointer',
+                opacity: !selectedProyecto ? 0.6 : 1
+              }}
+              title={!selectedProyecto ? 'Selecciona un proyecto para borrar' : 'Borrar proyecto seleccionado'}
+            >
+              <i className="fas fa-trash-alt" style={{ marginRight: '8px' }}></i>
+              Borrar
+            </button>
+            <button
+              onClick={() => handleSetEstado('habilitado')}
+              disabled={!selectedProyecto || selectedProyecto.estado === 'habilitado'}
+              style={{
+                ...styles.buttonSecondary,
+                cursor: (!selectedProyecto || selectedProyecto.estado === 'habilitado') ? 'not-allowed' : 'pointer',
+                opacity: (!selectedProyecto || selectedProyecto.estado === 'habilitado') ? 0.6 : 1,
+                color: (!selectedProyecto || selectedProyecto.estado === 'habilitado') ? '#9ca3af' : '#10b981' // Verde
+              }}
+              title={
+                !selectedProyecto
+                  ? 'Selecciona un proyecto'
+                  : selectedProyecto.estado === 'habilitado'
+                    ? 'El proyecto ya está habilitado'
+                    : 'Habilitar proyecto para edición'
+              }
+            >
+              <i className="fas fa-check-circle" style={{ marginRight: '8px' }}></i>
+              Habilitar
+            </button>
+            <button
+              onClick={() => handleSetEstado('cerrado')}
+              disabled={!selectedProyecto || selectedProyecto.estado === 'cerrado'}
+              style={{
+                ...styles.buttonWarning,
+                cursor: (!selectedProyecto || selectedProyecto.estado === 'cerrado') ? 'not-allowed' : 'pointer',
+                opacity: (!selectedProyecto || selectedProyecto.estado === 'cerrado') ? 0.6 : 1
+              }}
+              title={
+                !selectedProyecto
+                  ? 'Selecciona un proyecto'
+                  : selectedProyecto.estado === 'cerrado'
+                    ? 'El proyecto ya está cerrado'
+                    : 'Cerrar proyecto para bloquear edición'
+              }
+            >
+              <i className="fas fa-lock" style={{ marginRight: '8px' }}></i>
+              Cerrar
+            </button>
+            <input
+              type="text"
+              placeholder="Buscar por nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+          {loading ? (
+            <p>Cargando proyectos...</p>
+          ) : (
+            <ListaProyectos
+              proyectos={proyectos}
+              selectedProyectoId={selectedProyectoId}
+              setSelectedProyectoId={setSelectedProyectoId}
+              searchTerm={searchTerm}
+            />
+          )}
+        </>
       )}
-
     </div>
   );
 };
