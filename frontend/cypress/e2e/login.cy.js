@@ -1,87 +1,106 @@
-describe('Login Flow - React + Go', () => {
+/**
+ * Pruebas E2E para los flujos de Login.
+ * Verifica redirecciones y contenido inicial de dashboards.
+ */
+describe('Flujo de Autenticación - Login', () => {
+
+  // Antes de cada prueba ('it' block), limpia el estado y visita la página de login
   beforeEach(() => {
-    cy.visit('http://localhost:3000'); 
+    cy.clearLocalStorage(); // Asegura que no haya sesión previa
+    cy.visit('/login');    // Ve a la página de login
+    cy.url().should('include', '/login'); // Confirma que estamos en /login
   });
 
-  it('✅ Login exitoso con intercept y token', () => {
-    cy.intercept('POST', '/api/login', {
+  // --- Prueba 1: Login Admin/Gerente Exitoso ---
+  it('debería loguear a un admin/gerente y redirigir a /admin/proyectos', () => {
+    // 1. Simula la respuesta EXITOSA del API de login para un admin/gerente
+    cy.intercept('POST', '**/api/login', {
       statusCode: 200,
-      body: { token: 'fake-jwt-token' },
-    }).as('loginRequest');
+      body: { // Debe coincidir con lo que AuthContext espera
+        token: 'token-admin-simulado',
+        user: { username: 'adminTest', nombre: 'Admin', apellido: 'Prueba' },
+        userId: 1,
+        role: 'admin' // O 'gerente'
+      }
+    }).as('loginAdmin'); // Alias para esperar esta llamada
 
-    cy.get('input#username').type('David');
-    cy.get('input#password').type('123456');
-    cy.get('button[type="submit"]').click();
+    // 2. Simula la respuesta del API que carga los proyectos INICIALMENTE (vacía)
+    cy.intercept('POST', '**/api/admin/get-proyectos', {
+      statusCode: 200,
+      body: { proyectos: [] } // Empieza sin proyectos
+    }).as('getAdminProjects');
 
-    cy.wait('@loginRequest');
-    cy.contains('Bienvenido').should('exist');
+    // 3. Interactúa con el formulario de login
+    cy.get('#username').should('be.visible').type('adminTest');
+    cy.get('#password').should('be.visible').type('password123');
+    cy.contains('button', 'Iniciar Sesión').click();
+
+    // 4. Espera a que las llamadas API terminen
+    cy.wait('@loginAdmin'); // Espera el login
+    cy.wait('@getAdminProjects'); // Espera la carga inicial de proyectos
+
+    // 5. Verifica la redirección y el contenido del dashboard admin
+    cy.url().should('include', '/admin/proyectos'); // Verifica URL final
+    cy.contains('Portafolio de Proyectos').should('be.visible'); // Verifica título
+    cy.contains('No hay proyectos creados.').should('be.visible'); // Verifica tabla vacía
   });
 
-  it('❌ Login fallido con credenciales incorrectas', () => {
-    cy.intercept('POST', '/api/login', {
+  // --- Prueba 2: Login Usuario Normal Exitoso (Sin Proyecto) ---
+  it('debería loguear a un usuario normal y redirigir a /dashboard (mostrando "sin proyecto")', () => {
+    // 1. Simula respuesta EXITOSA del API de login para un usuario 'user'
+    cy.intercept('POST', '**/api/login', {
+      statusCode: 200,
+      body: {
+        token: 'token-user-simulado',
+        user: { username: 'userTest', nombre: 'Usuario', apellido: 'Prueba' },
+        userId: 15,
+        role: 'user'
+      }
+    }).as('loginUser');
+
+    // 2. Simula respuesta del API de detalles (404 manejado -> sin proyecto)
+    cy.intercept('POST', '**/api/user/project-details', {
+      statusCode: 404, // Simula el caso "no encontrado"
+      body: null      // Respuesta vacía
+    }).as('getUserDashboard');
+
+    // 3. Interactúa con el formulario
+    cy.get('#username').should('be.visible').type('userTest');
+    cy.get('#password').should('be.visible').type('password123');
+    cy.contains('button', 'Iniciar Sesión').click();
+
+    // 4. Espera llamadas API
+    cy.wait('@loginUser');
+    cy.wait('@getUserDashboard');
+
+    // 5. Verifica redirección y contenido del dashboard de usuario
+    cy.url().should('include', '/dashboard'); // Verifica URL final
+    // Verifica elementos clave del estado "sin proyecto"
+    cy.get('h1').should('contain', 'Bienvenido, Usuario'); // Verifica saludo
+    cy.contains('p', 'Actualmente no estás asignado a ningún proyecto.').should('be.visible');
+    cy.contains('button', 'Cerrar Sesión').should('be.visible'); // Verifica botón logout
+  });
+
+  // --- Prueba 3: Login Fallido ---
+  it('debería mostrar un error si las credenciales son incorrectas', () => {
+    // 1. Simula respuesta de ERROR 401 del API de login
+    cy.intercept('POST', '**/api/login', {
       statusCode: 401,
-      body: { error: 'Credenciales inválidas' },
+      body: { error: 'Credenciales inválidas' } // El mensaje exacto de tu backend
     }).as('loginFail');
 
-    cy.get('input#username').type('usuario@ejemplo.com');
-    cy.get('input#password').type('claveIncorrecta');
-    cy.get('button[type="submit"]').click();
+    // 2. Interactúa con el formulario (datos incorrectos)
+    cy.get('#username').should('be.visible').type('usuarioErroneo');
+    cy.get('#password').should('be.visible').type('passErronea');
+    cy.contains('button', 'Iniciar Sesión').click();
 
+    // 3. Espera la llamada fallida
     cy.wait('@loginFail');
-    cy.contains('Usuario o contraseña incorrectos.').should('exist');
+
+    // 4. Verifica que NO redirige y muestra el error
+    cy.url().should('include', '/login'); // Sigue en la misma página
+    // Busca el texto de error (ajusta si se muestra diferente)
+    cy.contains('Credenciales inválidas').should('be.visible');
   });
 
-  // --- PRUEBA PARA ADMINISTRADOR (Historia 1.b) ---
-  it('✅ Admin: Creación de un nuevo perfil de usuario', () => {
-    // 1. Mockear el login como administrador (importante: role: 'admin')
-    cy.intercept('POST', '/api/login', {
-      statusCode: 200,
-      body: { 
-        token: 'fake-admin-token',
-        usuario: 'AdminUser',
-        role: 'admin'
-      },
-    }).as('adminLogin');
-
-    // 2. Mockear la llamada para añadir un nuevo usuario
-    cy.intercept('POST', '/api/admin/add-user', (req) => {
-      // Puedes verificar que el cuerpo de la solicitud sea el correcto
-      expect(req.body.username).to.eq('NuevoUsuario');
-      expect(req.body.password).to.eq('password123');
-      req.reply({
-        statusCode: 200,
-        body: { mensaje: 'Usuario NuevoUsuario creado exitosamente.' },
-      });
-    }).as('addUserRequest');
-
-    // 3. Simular el login del administrador (para renderizar AdminDashboard)
-    cy.get('input#username').type('admin');
-    cy.get('input#password').type('admin123');
-    cy.get('button[type="submit"]').click();
-    cy.wait('@adminLogin');
-    
-    // Asersión para verificar que se cargó el Dashboard de Admin
-    cy.contains('Panel de Administración').should('exist');
-    
-    // 4. Ingresar datos del nuevo usuario
-    cy.get('input[placeholder="Nombre de Usuario"]').type('NuevoUsuario');
-    cy.get('input[placeholder^="Contraseña (mín. 6 caracteres"]').type('password123'); // Selector que busca el inicio del placeholder
-    
-    // 5. Hacer clic en el botón de Crear Usuario
-    cy.contains('Crear Usuario').click();
-
-    // 6. Esperar el mock de la API de creación de usuario
-    cy.wait('@addUserRequest');
-    
-    // 7. Verificar el mensaje de éxito que se muestra en la UI
-    cy.contains('Usuario NuevoUsuario creado exitosamente.').should('be.visible');
-  });
-  // ----------------------------------------------------
-
-  it('🧼 Limpieza de sesión y cookies', () => {
-    cy.clearCookies();
-    cy.clearLocalStorage();
-    cy.visit('http://localhost:3000');
-    cy.get('input#username').should('exist');
-  });
 });

@@ -1,36 +1,50 @@
 import React from 'react';
+// 1. Importa Link y useLocation
+import { Link, useLocation } from 'react-router-dom';
 import './AdminDashboard.css'; // Reutilizamos los mismos estilos
+import { useAuth } from './context/AuthContext'; // Importa useAuth
 
-// Recibe 'onNavigate' para cambiar la vista en el padre (AdminDashboard)
-// Recibe 'currentView' para saber qué botón resaltar como "activo"
-const Sidebar = ({ onNavigate, handleLogout, currentView }) => {
+const Sidebar = () => {
+
+  // 2. Obtiene 'logout' y 'userRole' del contexto
+  const { logout, userRole } = useAuth();
+
+  // 3. Obtiene la ubicación actual (la URL)
+  const location = useLocation();
+  const currentPath = location.pathname; // Ej: "/admin/proyectos"
+
   return (
     <nav className="sidebar">
       <h3>Menú</h3>
-      
-      <button 
-        className={`nav-button ${currentView === 'proyectos' ? 'active' : ''}`}
-        onClick={() => onNavigate('proyectos')}
+
+      {/* 4. Cambiamos <button> por <Link> */}
+      <Link
+        to="/admin/proyectos" // La ruta a la que navega
+        // 5. La clase 'active' se asigna si la URL actual incluye esta ruta
+        className={`nav-button ${currentPath.includes('/admin/proyectos') ? 'active' : ''}`}
       >
         Portafolio de Proyectos
-      </button>
-      
-      <button 
-        className={`nav-button ${currentView === 'usuarios' ? 'active' : ''}`}
-        onClick={() => onNavigate('usuarios')}
+      </Link>
+
+      <Link
+        to="/admin/usuarios"
+        className={`nav-button ${currentPath.includes('/admin/usuarios') ? 'active' : ''}`}
       >
         Perfiles de usuarios
-      </button>
-      
-      <button 
-        className={`nav-button ${currentView === 'logs' ? 'active' : ''}`}
-        onClick={() => onNavigate('logs')}
-      >
-        Logger de eventos
-      </button>
+      </Link>
 
-      {/* Botón de Logout al final */}
-      <button className="nav-button logout-button" onClick={handleLogout}>
+      {/* 6. Renderizado condicional del link de Logs (basado en lógica original) */}
+      {userRole === 'admin' && (
+        <Link
+          to="/admin/logs"
+          className={`nav-button ${currentPath.includes('/admin/logs') ? 'active' : ''}`}
+        >
+          Logger de eventos
+        </Link>
+      )}
+
+      {/* El botón de Logout usa 'logout' del contexto */}
+      <button className="nav-button logout-button" onClick={logout}>
         Cerrar Sesión
       </button>
     </nav>

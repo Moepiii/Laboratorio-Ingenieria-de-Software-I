@@ -1,19 +1,46 @@
 package handlers
 
 import (
-	"database/sql" // Necesario para sql.ErrNoRows
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time" // ⭐️ NUEVO: Para la expiración del token
 
+	"github.com/golang-jwt/jwt/v5" // ⭐️ NUEVO: Para generar tokens
 	"golang.org/x/crypto/bcrypt"
 
-	"proyecto/internal/auth"     // <--- RUTA CORREGIDA
-	"proyecto/internal/database" // <--- RUTA CORREGIDA
-	"proyecto/internal/models"   // <--- RUTA CORREGIDA
+	"proyecto/internal/auth"
+	"proyecto/internal/database"
+	"proyecto/internal/models"
 )
+
+// ⭐️ NUEVO: Llave secreta para firmar tokens.
+// ¡En producción, esto debe leerse desde una variable de entorno!
+var jwtKey = []byte("mi_llave_secreta_super_segura_12345")
+
+// ⭐️ NUEVO: Estructura de datos que vivirá DENTRO del token (los "Claims")
+type Claims struct {
+	UserID int    `json:"userId"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+// ⭐️ NUEVO: Estructuras de la respuesta JSON que React espera
+type UserDetails struct {
+	Username string `json:"username"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+}
+
+type LoginResponse struct {
+	Token  string      `json:"token"`
+	User   UserDetails `json:"user"`
+	Role   string      `json:"role"`
+	UserId int         `json:"userId"`
+}
 
 // --- UTILIDADES ---
 func respondWithError(w http.ResponseWriter, code int, message string) {
@@ -56,27 +83,65 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Usuario registrado exitosamente."})
 }
 
+// ⭐️ NUEVO: LoginHandler reemplazado por completo
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var userReq models.User
 	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
+
+	// 1. Busca al usuario en la DB
+	// Asumimos que userDB tiene: ID, Username, HashedPassword, Role, Nombre, Apellido
 	userDB, err := database.GetUserByUsername(userReq.Username)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Credenciales inválidas")
 		return
 	}
+
+	// 2. Compara la contraseña
 	err = bcrypt.CompareHashAndPassword([]byte(userDB.HashedPassword), []byte(userReq.Password))
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Credenciales inválidas")
 		return
 	}
-	response := map[string]interface{}{"mensaje": "Inicio de sesión exitoso", "usuario": userDB.Username, "id": userDB.ID, "role": userDB.Role}
+
+	// 3. ¡Éxito! Genera el token JWT
+	expirationTime := time.Now().Add(24 * time.Hour) // Token válido por 24 horas
+	claims := &Claims{
+		UserID: userDB.ID,
+		Role:   userDB.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		log.Printf("Error al firmar token: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Error interno al generar token")
+		return
+	}
+
+	// 4. Construye la respuesta JSON exacta que React espera
+	response := LoginResponse{
+		Token: tokenString,
+		User: UserDetails{
+			Username: userDB.Username,
+			Nombre:   userDB.Nombre,
+			Apellido: userDB.Apellido,
+		},
+		Role:   userDB.Role,
+		UserId: userDB.ID,
+	}
+
+	// 5. Envía la respuesta
 	respondWithJSON(w, http.StatusOK, response)
 }
 
 // --- Handlers Admin/Gerente (Usuarios) ---
+// (Todos tus demás handlers permanecen sin cambios)
 
 func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest
