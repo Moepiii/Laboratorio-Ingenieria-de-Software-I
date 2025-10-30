@@ -3,13 +3,12 @@ import { apiCall } from './authService';
 // --- Funciones para el Dashboard de Usuario ---
 
 export const getUserDashboardData = (token, userId) => {
-    // ⭐️⭐️ ARREGLO FINAL: Usa 'user_id' (snake_case) ⭐️⭐️
-    // Esto debe coincidir EXACTAMENTE con el `json:"user_id"` en tu struct de Go
+    // Coincide con json:"user_id" en models.go
     return apiCall('/user/project-details', 'POST', { user_id: userId }, token);
 };
 
 
-// --- Funciones para el Panel de Admin (SIN CAMBIOS - usan la mezcla original) ---
+// --- Funciones para el Panel de Admin ---
 
 export const getAdminUsers = (token, adminUsername) => {
     return apiCall('/admin/users', 'POST', { admin_username: adminUsername }, token);
@@ -21,9 +20,15 @@ export const getGerentes = async (token, adminUsername) => {
     return { users: gerentes };
 };
 
+/**
+ * ⭐️ ARREGLO AQUÍ ⭐️
+ * Admin: Crea un nuevo usuario.
+ */
 export const adminAddUser = (token, userData, adminUsername) => {
+    // Usa el operador '...' para "aplanar" el objeto userData
+    // en el nivel superior del body.
     const body = {
-        user: userData, // { username, password, ... }
+        ...userData, // <-- Esto convierte {user: {username: "..."}} en {username: "..."}
         admin_username: adminUsername
     };
     return apiCall('/admin/add-user', 'POST', body, token);
