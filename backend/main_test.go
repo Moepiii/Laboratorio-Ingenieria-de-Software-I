@@ -157,7 +157,9 @@ func TestRegisterHandler_Success(t *testing.T) {
 
 func TestRegisterHandler_Conflict(t *testing.T) {
 	// Usa models.User
-	user := models.User{Username: "admin", Password: "password123"} // Falta Nombre/Apellido pero para esta prueba no importa
+	// *** ESTA ES LA LÍNEA CORREGIDA ***
+	// Se añaden Nombre y Apellido para pasar la validación de campos
+	user := models.User{Username: "admin", Password: "password123", Nombre: "Admin", Apellido: "UserTest"}
 	body, _ := json.Marshal(user)
 	req := httptest.NewRequest("POST", "/api/register", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -398,5 +400,46 @@ func TestAdminDeleteUserHandler_SelfDeleteForbidden(t *testing.T) {
 	}
 }
 
-// TODO: Añadir pruebas para los handlers de Proyectos y UserProjectDetailsHandler
+// --- PRUEBAS DE HANDLERS DE PROYECTOS ---
+
+func TestAdminCreateProyectoHandler_Success(t *testing.T) {
+	// 1. Definir el payload de la petición (incluyendo el admin)
+	// *** CORRECCIÓN *** Los campos van "planos" en el struct de la petición
+	createReq := models.CreateProyectoRequest{
+		Nombre:        "Proyecto Secreto Alfa",
+		FechaInicio:   "2025-01-01",
+		FechaCierre:   "2025-12-31",
+		AdminUsername: "admin", // Solo un 'admin' puede crear proyectos
+	}
+
+	// 2. Crear la petición
+	req := newAdminRequest("POST", "/api/admin/create-proyecto", "admin", createReq)
+	rr := httptest.NewRecorder()
+
+	// 3. Ejecutar el handler
+	handler := http.HandlerFunc(apphandlers.AdminCreateProyectoHandler)
+	handler.ServeHTTP(rr, req)
+
+	// 4. Verificar el código de estado (201 Created)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Fatalf("Handler devolvió código incorrecto: got %v, want %v. Body: %s",
+			status, http.StatusCreated, rr.Body.String())
+	}
+
+	// 5. (Opcional pero recomendado) Verificar que se creó en la DB
+	var nombre string
+	// Usamos createReq.Nombre para verificar
+	err := database.DB.QueryRow("SELECT nombre FROM proyectos WHERE nombre = ?", createReq.Nombre).Scan(&nombre)
+	if err != nil {
+		t.Fatalf("Error al verificar el proyecto en la DB: %v", err)
+	}
+
+	if nombre != createReq.Nombre {
+		t.Errorf("El nombre del proyecto en la DB es incorrecto: got %s, want %s", nombre, createReq.Nombre)
+	}
+}
+
+
+// TODO: Añadir pruebas para el resto de handlers de Proyectos y UserProjectDetailsHandler
 // (Omitido por brevedad, pero seguirían un patrón similar a los tests de usuarios)
+
