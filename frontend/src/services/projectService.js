@@ -41,11 +41,7 @@ export const getAdminProjects = (token, adminUsername) => {
     return apiCall('/admin/get-proyectos', 'POST', { admin_username: adminUsername }, token);
 };
 
-/**
- * ⭐️ FUNCIÓN PARA CAMBIAR ESTADO ⭐️
- * Cambia el estado de un proyecto (habilitado/cerrado).
- * (Corresponde a tu 'AdminSetProyectoEstadoHandler')
- */
+
 export const setProjectState = (token, projectId, newState, adminUsername) => {
     // Tu handler espera { id, estado, admin_username }
     const body = {

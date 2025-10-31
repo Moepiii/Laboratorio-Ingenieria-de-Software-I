@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './context/AuthContext'; // 1. Importa el provider
 
-// Tus otros imports (como CSS) pueden ir aquí
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

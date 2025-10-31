@@ -1,20 +1,15 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-// ⭐️ 'useAuth' ya no es necesario aquí, porque el Sidebar lo llama por su cuenta
-// import { useAuth } from '../context/AuthContext'; 
+
 
 // Importa los componentes
 import Sidebar from '../Sidebar';
 import Portafolio from './Portafolio';
 import Usuarios from './Usuarios';
-// import Logs from './Logs'; // No tenemos este archivo, lo dejamos comentado
 import '../AdminDashboard.css'; // Importa el CSS
 
 const AdminDashboard = () => {
 
-  // ⭐️ LÍNEA CORREGIDA:
-  // Ya no extraemos 'userRole' porque no se usa en ESTE componente.
-  // El Sidebar ahora obtiene 'userRole' él mismo desde el contexto.
 
   return (
     <div className="admin-container">

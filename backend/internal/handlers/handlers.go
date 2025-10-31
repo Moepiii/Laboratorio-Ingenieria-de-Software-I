@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time" // ⭐️ NUEVO: Para la expiración del token
+	"time" 
 
-	"github.com/golang-jwt/jwt/v5" // ⭐️ NUEVO: Para generar tokens
+	"github.com/golang-jwt/jwt/v5" 
 	"golang.org/x/crypto/bcrypt"
 
 	"proyecto/internal/auth"
@@ -17,18 +17,17 @@ import (
 	"proyecto/internal/models"
 )
 
-// ⭐️ NUEVO: Llave secreta para firmar tokens.
-// ¡En producción, esto debe leerse desde una variable de entorno!
+
 var jwtKey = []byte("mi_llave_secreta_super_segura_12345")
 
-// ⭐️ NUEVO: Estructura de datos que vivirá DENTRO del token (los "Claims")
+
 type Claims struct {
 	UserID int    `json:"userId"`
 	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// ⭐️ NUEVO: Estructuras de la respuesta JSON que React espera
+
 type UserDetails struct {
 	Username string `json:"username"`
 	Nombre   string `json:"nombre"`
@@ -141,7 +140,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Handlers Admin/Gerente (Usuarios) ---
-// (Todos tus demás handlers permanecen sin cambios)
 
 func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest

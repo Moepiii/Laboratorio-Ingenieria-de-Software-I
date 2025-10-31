@@ -56,22 +56,22 @@ type Proyecto struct {
 	Nombre      string `json:"nombre"`
 	FechaInicio string `json:"fecha_inicio"`
 	FechaCierre string `json:"fecha_cierre"`
-	Estado      string `json:"estado"` // NUEVO
+	Estado      string `json:"estado"` 
 }
-type CreateProyectoRequest struct { // (Sin cambios, el estado es default)
+type CreateProyectoRequest struct {
 	Nombre        string `json:"nombre"`
 	FechaInicio   string `json:"fecha_inicio"`
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-type UpdateProyectoRequest struct { // (Sin cambios, no se actualiza estado aquí)
+type UpdateProyectoRequest struct { 
 	ID            int    `json:"id"`
 	Nombre        string `json:"nombre"`
 	FechaInicio   string `json:"fecha_inicio"`
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-type DeleteProyectoRequest struct { // (Sin cambios)
+type DeleteProyectoRequest struct { 
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
@@ -79,7 +79,7 @@ type DeleteProyectoRequest struct { // (Sin cambios)
 // NUEVA STRUCT para cambiar estado
 type SetProyectoEstadoRequest struct {
 	ID            int    `json:"id"`
-	Estado        string `json:"estado"` // 'habilitado' o 'cerrado'
+	Estado        string `json:"estado"` 
 	AdminUsername string `json:"admin_username"`
 }
 

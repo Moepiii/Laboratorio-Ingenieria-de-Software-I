@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"proyecto/internal/database" // <--- RUTA CORREGIDA
+	"proyecto/internal/database" 
 )
 
 // CheckPermission verifica si un usuario tiene al menos uno de los roles requeridos

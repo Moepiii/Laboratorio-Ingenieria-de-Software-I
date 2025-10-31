@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
-	"proyecto/internal/models" // <--- RUTA CORREGIDA
+	"proyecto/internal/models" 
 )
 
 var DB *sql.DB

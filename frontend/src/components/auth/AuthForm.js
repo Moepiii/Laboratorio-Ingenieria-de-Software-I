@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext'; // Importa el hook 'useAuth'
+import { useAuth } from '../../context/AuthContext'; 
 
-// Estilos copiados de tu App.js original
+
 const styles = {
     card: {
         padding: '2rem',
@@ -22,10 +22,10 @@ const styles = {
 };
 
 const AuthForm = () => {
-    // Trae todo lo que necesita del Contexto de Autenticación
+    
     const { login, register, loading, error, successMessage, setError, setSuccessMessage } = useAuth();
 
-    // El estado del *formulario* vive AQUÍ
+    
     const [isRegisterMode, setIsRegisterMode] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -58,7 +58,7 @@ const AuthForm = () => {
         setSuccessMessage(''); // Limpia mensajes de éxito
     };
 
-    // El JSX es idéntico al que tenías en App.js
+
     return (
         <div style={styles.card}>
             <h2 style={{ fontSize: '1.875rem', fontWeight: '700', color: '#1f2937', textAlign: 'center', marginBottom: '2rem' }}>

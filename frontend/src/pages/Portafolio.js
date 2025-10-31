@@ -256,7 +256,6 @@ const Portafolio = () => {
     }
   };
 
-  // ⭐️⭐️ Lógica para Cambiar Estado ⭐️⭐️
   const handleChangeEstado = async (newState) => {
     if (!selectedProyecto) {
       alert("Por favor, selecciona un proyecto.");

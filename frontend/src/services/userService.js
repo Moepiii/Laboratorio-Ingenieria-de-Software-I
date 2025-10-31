@@ -20,13 +20,9 @@ export const getGerentes = async (token, adminUsername) => {
     return { users: gerentes };
 };
 
-/**
- * ⭐️ ARREGLO AQUÍ ⭐️
- * Admin: Crea un nuevo usuario.
- */
+
 export const adminAddUser = (token, userData, adminUsername) => {
-    // Usa el operador '...' para "aplanar" el objeto userData
-    // en el nivel superior del body.
+
     const body = {
         ...userData, // <-- Esto convierte {user: {username: "..."}} en {username: "..."}
         admin_username: adminUsername

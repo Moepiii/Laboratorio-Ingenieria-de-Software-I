@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
                 setToken(storedToken);
                 setCurrentUser(JSON.parse(storedUser));
                 setUserRole(storedRole);
-                // ⭐️ ARREGLO: Parsea el 'userId' (que es un string) a un número
+                
                 setUserId(parseInt(storedUserId, 10));
                 setIsLoggedIn(true);
 
@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }) => {
         isLoggedIn,
         currentUser,
         userRole,
-        userId, // Este ahora será un NÚMERO gracias al useEffect
+        userId, 
         token,
         loading,
         error,

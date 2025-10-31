@@ -4,14 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/handlers" // Este sigue siendo 'handlers' para CORS
+	"github.com/gorilla/handlers" 
 
 	"proyecto/internal/database"
-	apphandlers "proyecto/internal/handlers" // <--- ALIAS AÑADIDO 'apphandlers'
+	apphandlers "proyecto/internal/handlers" 
 )
 
 func main() {
-	database.InitDB("../Base de datos/users.db") // Ajusta la ruta si es necesario
+	database.InitDB("../Base de datos/users.db") 
 
 	// Configuración de CORS (usa 'handlers' de gorilla)
 	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
@@ -46,7 +46,7 @@ func main() {
 
 	// Iniciar Servidor
 	log.Println("🚀 Servidor Go modularizado en :8080")
-	// Aplica CORS (de 'handlers' gorilla) a todas las rutas
+
 	if err := http.ListenAndServe(":8080", corsOptions(mux)); err != nil {
 		log.Fatalf("Error al iniciar servidor: %v", err)
 	}

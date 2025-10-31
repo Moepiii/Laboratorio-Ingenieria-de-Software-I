@@ -23,8 +23,7 @@ const styles = {
     noDataMessage: { fontStyle: 'italic', color: '#6b7280', marginTop: '1rem' }
 };
 
-// ⭐️ MUEVE la definición de formatDate FUERA del componente
-//    para que no se re-declare en cada renderizado.
+
 const formatDate = (dateString) => {
     if (!dateString || dateString.startsWith("0001-01-01")) return "N/A";
     try {

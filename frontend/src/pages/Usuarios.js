@@ -80,7 +80,7 @@ const PerfilesUsuarios = () => {
     } finally {
       setLoadingUsers(false);
     }
-    // ⭐️ ARREGLO: Añade 'currentUser' completo a las dependencias
+    
   }, [token, currentUser]);
 
   // 3. useEffect llama a fetch solo cuando las dependencias están listas
@@ -91,7 +91,7 @@ const PerfilesUsuarios = () => {
     } else {
       setLoadingUsers(!token);
     }
-    // ⭐️ ARREGLO: Añade 'currentUser' completo a las dependencias
+   
   }, [fetchUsersAndProyectos, token, currentUser]);
 
 

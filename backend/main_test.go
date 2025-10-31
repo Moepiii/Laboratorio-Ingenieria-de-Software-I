@@ -15,10 +15,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite" // Driver SQLite
 
-	// --- IMPORTS CORREGIDOS ---
 	"proyecto/internal/auth"
 	"proyecto/internal/database"             // Usaremos database.DB
-	apphandlers "proyecto/internal/handlers" // Alias para tus handlers
+	apphandlers "proyecto/internal/handlers" 
 	"proyecto/internal/models"
 )
 
@@ -31,7 +30,6 @@ func setupTestDB() {
 		log.Fatalf("Error al abrir la base de datos en memoria: %v", err)
 	}
 
-	// Habilitar foreign keys (importante para tests de consistencia, aunque aquí no los tengamos)
 	_, err = database.DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		log.Fatalf("Error al habilitar foreign keys: %v", err)
@@ -119,7 +117,6 @@ func TestCheckPermission(t *testing.T) {
 				}
 				return
 			}
-			// Solo compara 'got' si no esperábamos un error
 			if !tt.wantErr && got != tt.want {
 				t.Errorf("CheckPermission() = %v, want %v", got, tt.want)
 			}
@@ -157,8 +154,6 @@ func TestRegisterHandler_Success(t *testing.T) {
 
 func TestRegisterHandler_Conflict(t *testing.T) {
 	// Usa models.User
-	// *** ESTA ES LA LÍNEA CORREGIDA ***
-	// Se añaden Nombre y Apellido para pasar la validación de campos
 	user := models.User{Username: "admin", Password: "password123", Nombre: "Admin", Apellido: "UserTest"}
 	body, _ := json.Marshal(user)
 	req := httptest.NewRequest("POST", "/api/register", bytes.NewBuffer(body))
@@ -215,7 +210,6 @@ func TestLoginHandler_InvalidCredentials(t *testing.T) {
 
 // --- PRUEBAS DE HANDLERS DE ADMINISTRACIÓN ---
 
-// Helper actualizado para usar models.AdminActionRequest
 func newAdminRequest(method, url string, adminUsername string, data interface{}) *http.Request {
 	var body io.Reader
 	if data != nil {
@@ -403,8 +397,7 @@ func TestAdminDeleteUserHandler_SelfDeleteForbidden(t *testing.T) {
 // --- PRUEBAS DE HANDLERS DE PROYECTOS ---
 
 func TestAdminCreateProyectoHandler_Success(t *testing.T) {
-	// 1. Definir el payload de la petición (incluyendo el admin)
-	// *** CORRECCIÓN *** Los campos van "planos" en el struct de la petición
+
 	createReq := models.CreateProyectoRequest{
 		Nombre:        "Proyecto Secreto Alfa",
 		FechaInicio:   "2025-01-01",
@@ -420,13 +413,13 @@ func TestAdminCreateProyectoHandler_Success(t *testing.T) {
 	handler := http.HandlerFunc(apphandlers.AdminCreateProyectoHandler)
 	handler.ServeHTTP(rr, req)
 
-	// 4. Verificar el código de estado (201 Created)
+
 	if status := rr.Code; status != http.StatusCreated {
 		t.Fatalf("Handler devolvió código incorrecto: got %v, want %v. Body: %s",
 			status, http.StatusCreated, rr.Body.String())
 	}
 
-	// 5. (Opcional pero recomendado) Verificar que se creó en la DB
+
 	var nombre string
 	// Usamos createReq.Nombre para verificar
 	err := database.DB.QueryRow("SELECT nombre FROM proyectos WHERE nombre = ?", createReq.Nombre).Scan(&nombre)
@@ -439,7 +432,4 @@ func TestAdminCreateProyectoHandler_Success(t *testing.T) {
 	}
 }
 
-
-// TODO: Añadir pruebas para el resto de handlers de Proyectos y UserProjectDetailsHandler
-// (Omitido por brevedad, pero seguirían un patrón similar a los tests de usuarios)
 
