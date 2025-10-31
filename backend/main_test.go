@@ -16,8 +16,8 @@ import (
 	_ "modernc.org/sqlite" // Driver SQLite
 
 	"proyecto/internal/auth"
-	"proyecto/internal/database"             // Usaremos database.DB
-	apphandlers "proyecto/internal/handlers" 
+	"proyecto/internal/database" // Usaremos database.DB
+	apphandlers "proyecto/internal/handlers"
 	"proyecto/internal/models"
 )
 
@@ -413,12 +413,10 @@ func TestAdminCreateProyectoHandler_Success(t *testing.T) {
 	handler := http.HandlerFunc(apphandlers.AdminCreateProyectoHandler)
 	handler.ServeHTTP(rr, req)
 
-
 	if status := rr.Code; status != http.StatusCreated {
 		t.Fatalf("Handler devolvió código incorrecto: got %v, want %v. Body: %s",
 			status, http.StatusCreated, rr.Body.String())
 	}
-
 
 	var nombre string
 	// Usamos createReq.Nombre para verificar
@@ -431,5 +429,3 @@ func TestAdminCreateProyectoHandler_Success(t *testing.T) {
 		t.Errorf("El nombre del proyecto en la DB es incorrecto: got %s, want %s", nombre, createReq.Nombre)
 	}
 }
-
-
