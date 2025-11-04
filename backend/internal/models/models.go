@@ -51,27 +51,37 @@ type DeleteUserRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
+// --- ESTRUCTURAS DE RESPUESTA ---
+
+type SimpleResponse struct {
+	Mensaje string `json:"mensaje,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// --- ESTRUCTURAS DE PROYECTOS ---
+
 type Proyecto struct {
 	ID          int    `json:"id"`
 	Nombre      string `json:"nombre"`
 	FechaInicio string `json:"fecha_inicio"`
 	FechaCierre string `json:"fecha_cierre"`
-	Estado      string `json:"estado"` 
+	Estado      string `json:"estado"`
 }
+
 type CreateProyectoRequest struct {
 	Nombre        string `json:"nombre"`
 	FechaInicio   string `json:"fecha_inicio"`
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-type UpdateProyectoRequest struct { 
+type UpdateProyectoRequest struct {
 	ID            int    `json:"id"`
 	Nombre        string `json:"nombre"`
 	FechaInicio   string `json:"fecha_inicio"`
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
-type DeleteProyectoRequest struct { 
+type DeleteProyectoRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
@@ -79,7 +89,7 @@ type DeleteProyectoRequest struct {
 // NUEVA STRUCT para cambiar estado
 type SetProyectoEstadoRequest struct {
 	ID            int    `json:"id"`
-	Estado        string `json:"estado"` 
+	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
 
@@ -108,8 +118,43 @@ type UserProjectDetailsResponse struct {
 	Gerentes []ProjectMember `json:"gerentes"`
 }
 
-// Para respuestas simples
-type SimpleResponse struct {
-	Mensaje string `json:"mensaje,omitempty"`
-	Error   string `json:"error,omitempty"`
+// ⭐️ --- (INICIO) Estructuras para Labores Agronómicas --- ⭐️
+
+// ⭐️ NUEVO: Estructura de la tabla (la que database.go usa)
+type LaborAgronomica struct {
+	ID            int    `json:"id"`
+	ProyectoID    int    `json:"proyecto_id"`
+	Descripcion   string `json:"descripcion"`
+	Estado        string `json:"estado"`
+	FechaCreacion string `json:"fecha_creacion"`
 }
+
+// ⭐️ NUEVO: Para la petición GET del frontend
+type GetLaboresRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO: Para la petición CREATE del frontend
+type CreateLaborRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
+	Descripcion   string `json:"descripcion"`
+	Estado        string `json:"estado"` // Opcional, el estado por defecto es 'activa'
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO: Para la petición UPDATE del frontend
+type UpdateLaborRequest struct {
+	ID            int    `json:"id"` // ID de la labor
+	Descripcion   string `json:"descripcion"`
+	Estado        string `json:"estado"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO: Para la petición DELETE del frontend
+type DeleteLaborRequest struct {
+	ID            int    `json:"id"` // ID de la labor
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ --- (FIN) Estructuras para Labores Agronómicas --- ⭐️

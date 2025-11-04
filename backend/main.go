@@ -4,14 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/handlers" 
+	"github.com/gorilla/handlers" // Usas 'handlers' de gorilla para CORS
 
 	"proyecto/internal/database"
-	apphandlers "proyecto/internal/handlers" 
+	apphandlers "proyecto/internal/handlers" // Tu alias 'apphandlers'
 )
 
 func main() {
-	database.InitDB("../Base de datos/users.db") 
+	database.InitDB("../Base de datos/users.db") // Asegúrate que la ruta a tu DB sea correcta
 
 	// Configuración de CORS (usa 'handlers' de gorilla)
 	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
@@ -41,13 +41,18 @@ func main() {
 	mux.HandleFunc("/api/admin/update-proyecto", apphandlers.AdminUpdateProyectoHandler)
 	mux.HandleFunc("/api/admin/set-proyecto-estado", apphandlers.AdminSetProyectoEstadoHandler)
 
+	// ⭐️ --- (INICIO) Nuevas Rutas de Labores --- ⭐️
+	mux.HandleFunc("/api/admin/get-labores", apphandlers.GetLaboresHandler)
+	mux.HandleFunc("/api/admin/create-labor", apphandlers.CreateLaborHandler)
+	mux.HandleFunc("/api/admin/update-labor", apphandlers.UpdateLaborHandler)
+	mux.HandleFunc("/api/admin/delete-labor", apphandlers.DeleteLaborHandler)
+	// ⭐️ --- (FIN) Nuevas Rutas de Labores --- ⭐️
+
 	// Ruta Usuario - Usa 'apphandlers'
 	mux.HandleFunc("/api/user/project-details", apphandlers.UserProjectDetailsHandler)
 
-	// Iniciar Servidor
-	log.Println("🚀 Servidor Go modularizado en :8080")
-
-	if err := http.ListenAndServe(":8080", corsOptions(mux)); err != nil {
-		log.Fatalf("Error al iniciar servidor: %v", err)
-	}
+	// --- Iniciar Servidor ---
+	log.Println("🚀 Servidor Go escuchando en http://localhost:8080")
+	// Aplica el middleware de CORS a tu mux
+	log.Fatal(http.ListenAndServe(":8080", corsOptions(mux)))
 }

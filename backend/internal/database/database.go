@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time" // ⭐️ NUEVO: Importamos 'time' para la fecha de creación
 
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
-	"proyecto/internal/models" 
+	"proyecto/internal/models"
 )
 
 var DB *sql.DB
@@ -26,6 +27,7 @@ func InitDB(dbPath string) {
 	}
 	createUsersTable()
 	createProyectosTable()
+	createLaboresTable() // ⭐️ NUEVO: Llamada para crear la nueva tabla
 	migrateProyectosTable()
 	migrateUsersTable()
 	createDefaultAdmin()
@@ -39,221 +41,272 @@ func InitDB(dbPath string) {
 func createUsersTable() {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
-		role TEXT NOT NULL DEFAULT 'user', nombre TEXT NOT NULL DEFAULT '', apellido TEXT NOT NULL DEFAULT ''
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		password TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'user',
+		nombre TEXT NOT NULL DEFAULT '',
+		apellido TEXT NOT NULL DEFAULT '',
+		proyecto_id INTEGER,
+		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE SET NULL
 	);`
-	if _, err := DB.Exec(createTableSQL); err != nil {
-		log.Fatalf("Error crear 'users': %v", err)
+
+	_, err := DB.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Error al crear tabla users: %v", err)
 	}
 }
 
 func createProyectosTable() {
-	createProyectosTableSQL := `
+	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS proyectos (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE,
-		fecha_inicio TEXT NOT NULL DEFAULT '', fecha_cierre TEXT NOT NULL DEFAULT '',
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		nombre TEXT NOT NULL UNIQUE,
+		fecha_inicio TEXT NOT NULL DEFAULT '',
+		fecha_cierre TEXT NOT NULL DEFAULT '',
 		estado TEXT NOT NULL DEFAULT 'habilitado'
 	);`
-	if _, err := DB.Exec(createProyectosTableSQL); err != nil {
-		log.Fatalf("Error crear 'proyectos': %v", err)
+
+	_, err := DB.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Error al crear tabla proyectos: %v", err)
+	}
+}
+
+// ⭐️ NUEVO: Función completa para crear la tabla de labores
+func createLaboresTable() {
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS labores_agronomicas (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		proyecto_id INTEGER NOT NULL,
+		descripcion TEXT NOT NULL,
+		estado TEXT NOT NULL DEFAULT 'activa',
+		fecha_creacion TEXT NOT NULL,
+		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
+	);`
+
+	_, err := DB.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Error al crear tabla labores_agronomicas: %v", err)
 	}
 }
 
 func migrateProyectosTable() {
 	rows, err := DB.Query("PRAGMA table_info(proyectos)")
 	if err != nil {
-		log.Fatalf("Error PRAGMA 'proyectos': %v", err)
+		log.Fatalf("Error PRAGMA table_info(proyectos): %v", err)
 	}
 	defer rows.Close()
-	columnExists := map[string]bool{"nombre": false, "fecha_inicio": false, "fecha_cierre": false, "estado": false}
+
+	columns := make(map[string]bool)
 	for rows.Next() {
 		var (
 			cid        int
 			name       string
-			ctype      string
+			dtype      string
 			notnull    int
 			dflt_value sql.NullString
 			pk         int
 		)
-		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
-		if err != nil {
-			log.Fatalf("Error scan 'proyectos': %v", err)
+		if err := rows.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk); err != nil {
+			log.Fatalf("Error escaneando table_info(proyectos): %v", err)
 		}
-		if _, ok := columnExists[name]; ok {
-			columnExists[name] = true
-		}
+		columns[name] = true
 	}
-	rows.Close()
-	if !columnExists["nombre"] {
-		log.Println("⚠️ Recreando 'proyectos' por falta de 'nombre'...")
-		_, err = DB.Exec("DROP TABLE IF EXISTS proyectos;")
+
+	if !columns["fecha_inicio"] {
+		_, err := DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error DROP 'proyectos': %v", err)
+			log.Fatalf("Error al migrar proyectos (add fecha_inicio): %v", err)
 		}
-		createProyectosTable()
-		log.Println("✅ Tabla 'proyectos' recreada.")
-		return
+		log.Println("Migración: Columna 'fecha_inicio' añadida a 'proyectos'.")
 	}
-	if !columnExists["fecha_inicio"] {
-		log.Println("⚠️ Migrando 'fecha_inicio' en 'proyectos'...")
-		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
+	if !columns["fecha_cierre"] {
+		_, err := DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_cierre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error migrar 'fecha_inicio': %v", err)
+			log.Fatalf("Error al migrar proyectos (add fecha_cierre): %v", err)
 		}
+		log.Println("Migración: Columna 'fecha_cierre' añadida a 'proyectos'.")
 	}
-	if !columnExists["fecha_cierre"] {
-		log.Println("⚠️ Migrando 'fecha_cierre' en 'proyectos'...")
-		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_cierre TEXT NOT NULL DEFAULT ''")
+	if !columns["estado"] {
+		_, err := DB.Exec("ALTER TABLE proyectos ADD COLUMN estado TEXT NOT NULL DEFAULT 'habilitado'")
 		if err != nil {
-			log.Fatalf("Error migrar 'fecha_cierre': %v", err)
+			log.Fatalf("Error al migrar proyectos (add estado): %v", err)
 		}
-	}
-	if !columnExists["estado"] {
-		log.Println("⚠️ Migrando 'estado' en 'proyectos'...")
-		_, err = DB.Exec("ALTER TABLE proyectos ADD COLUMN estado TEXT NOT NULL DEFAULT 'habilitado'")
-		if err != nil {
-			log.Fatalf("Error migrar 'estado': %v", err)
-		}
+		log.Println("Migración: Columna 'estado' añadida a 'proyectos'.")
 	}
 }
 
 func migrateUsersTable() {
 	rows, err := DB.Query("PRAGMA table_info(users)")
 	if err != nil {
-		log.Fatalf("Error PRAGMA 'users': %v", err)
+		log.Fatalf("Error PRAGMA table_info(users): %v", err)
 	}
 	defer rows.Close()
-	columnExists := map[string]bool{"role": false, "nombre": false, "apellido": false, "proyecto_id": false}
+
+	columns := make(map[string]bool)
 	for rows.Next() {
 		var (
 			cid        int
 			name       string
-			ctype      string
+			dtype      string
 			notnull    int
 			dflt_value sql.NullString
 			pk         int
 		)
-		err = rows.Scan(&cid, &name, &ctype, &notnull, &dflt_value, &pk)
-		if err != nil {
-			log.Fatalf("Error scan 'users': %v", err)
+		if err := rows.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk); err != nil {
+			log.Fatalf("Error escaneando table_info(users): %v", err)
 		}
-		if _, ok := columnExists[name]; ok {
-			columnExists[name] = true
-		}
+		columns[name] = true
 	}
-	rows.Close()
-	if !columnExists["role"] {
-		log.Println("⚠️ Migrando 'role' en 'users'...")
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+
+	if !columns["nombre"] {
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error migrar 'role': %v", err)
+			log.Fatalf("Error al migrar users (add nombre): %v", err)
 		}
+		log.Println("Migración: Columna 'nombre' añadida a 'users'.")
 	}
-	if !columnExists["nombre"] {
-		log.Println("⚠️ Migrando 'nombre' en 'users'...")
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
+	if !columns["apellido"] {
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN apellido TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error migrar 'nombre': %v", err)
+			log.Fatalf("Error al migrar users (add apellido): %v", err)
 		}
+		log.Println("Migración: Columna 'apellido' añadida a 'users'.")
 	}
-	if !columnExists["apellido"] {
-		log.Println("⚠️ Migrando 'apellido' en 'users'...")
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN apellido TEXT NOT NULL DEFAULT ''")
+
+	if !columns["proyecto_id"] {
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL")
 		if err != nil {
-			log.Fatalf("Error migrar 'apellido': %v", err)
+			log.Fatalf("Error al migrar users (add proyecto_id): %v", err)
 		}
-	}
-	if !columnExists["proyecto_id"] {
-		log.Println("⚠️ Migrando 'proyecto_id' en 'users'...")
-		_, err = DB.Exec("ALTER TABLE users ADD COLUMN proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL")
-		if err != nil {
-			log.Fatalf("Error migrar 'proyecto_id': %v", err)
-		}
+		log.Println("Migración: Columna 'proyecto_id' añadida a 'users'.")
 	}
 }
 
 func createDefaultAdmin() {
-	var count int
-	err := DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = 'admin'").Scan(&count)
+	var exists int
+	err := DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = 'admin'").Scan(&exists)
 	if err != nil {
-		log.Fatalf("Error check admin: %v", err)
+		log.Fatalf("Error al verificar admin: %v", err)
 	}
-	if count == 0 {
-		adminPassword := "admin123"
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
-		insertAdminSQL := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
-		_, err = DB.Exec(insertAdminSQL, "admin", string(hashedPassword), "admin", "Admin", "User")
+
+	if exists == 0 {
+		hashedPassword, _ := HashPassword("admin123")
+		_, err := DB.Exec("INSERT INTO users (username, password, role, nombre, apellido) VALUES (?, ?, ?, ?, ?)",
+			"admin", hashedPassword, "admin", "Administrador", "Del Sistema")
 		if err != nil {
-			log.Fatalf("Error insert admin: %v", err)
+			log.Fatalf("Error al crear admin por defecto: %v", err)
 		}
-		log.Println("✅ Usuario admin creado.")
+		log.Println("Usuario 'admin' por defecto creado con contraseña 'admin123'.")
 	}
 }
 
-func GetUserByUsername(username string) (*models.UserDB, error) {
-	var userDB models.UserDB
-	query := "SELECT id, username, password, role FROM users WHERE username = ?"
-	row := DB.QueryRow(query, username)
-	err := row.Scan(&userDB.ID, &userDB.Username, &userDB.HashedPassword, &userDB.Role)
-	if err != nil {
-		return nil, err
-	}
-	return &userDB, nil
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	return string(bytes), err
 }
 
-func CreateUser(user models.User) error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("error al hashear password: %w", err)
-	}
-	query := "INSERT INTO users(username, password, role, nombre, apellido) VALUES(?, ?, ?, ?, ?)"
-	_, err = DB.Exec(query, user.Username, string(hashedPassword), "user", user.Nombre, user.Apellido)
-	if err != nil {
-		return fmt.Errorf("error al insertar usuario: %w", err)
-	}
-	return nil
-}
-
-func GetAllUsersWithProjects() ([]models.UserListResponse, error) {
-	query := `SELECT u.id, u.username, u.role, u.nombre, u.apellido, p.id, p.nombre FROM users u LEFT JOIN proyectos p ON u.proyecto_id = p.id ORDER BY u.id ASC`
-	rows, err := DB.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("error al consultar usuarios: %w", err)
-	}
-	defer rows.Close()
-	users := []models.UserListResponse{}
-	for rows.Next() {
-		var u models.UserListResponse
-		var pID sql.NullInt64
-		var pNombre sql.NullString
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Nombre, &u.Apellido, &pID, &pNombre); err != nil {
-			log.Printf("Error al escanear usuario %s: %v", u.Username, err)
-			continue
-		}
-		if pID.Valid {
-			id := int(pID.Int64)
-			u.ProyectoID = &id
-		}
-		if pNombre.Valid {
-			u.ProyectoNombre = &pNombre.String
-		}
-		users = append(users, u)
-	}
-	return users, nil
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 func GetUserRole(username string) (string, error) {
 	var role string
 	err := DB.QueryRow("SELECT role FROM users WHERE username = ?", username).Scan(&role)
 	if err != nil {
-		return "", err
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("usuario '%s' no encontrado", username)
+		}
+		return "", fmt.Errorf("error al obtener rol: %w", err)
 	}
 	return role, nil
 }
 
-func DeleteUserByID(id int) (int64, error) {
-	query := "DELETE FROM users WHERE id = ?"
-	result, err := DB.Exec(query, id)
+func GetUserByUsername(username string) (models.UserDB, error) {
+	var user models.UserDB
+	err := DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = ?", username).Scan(&user.ID, &user.Username, &user.HashedPassword, &user.Role)
+	return user, err
+}
+
+func RegisterUser(username, password, nombre, apellido string) (int64, error) {
+	hashedPassword, err := HashPassword(password)
+	if err != nil {
+		return 0, fmt.Errorf("error al hashear password: %w", err)
+	}
+	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return 0, fmt.Errorf("error preparando statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(username, hashedPassword, nombre, apellido)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
+			return 0, fmt.Errorf("el nombre de usuario '%s' ya existe", username)
+		}
+		return 0, fmt.Errorf("error ejecutando insert: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
+	query := `
+	SELECT u.id, u.username, u.role, u.nombre, u.apellido, u.proyecto_id, p.nombre
+	FROM users u
+	LEFT JOIN proyectos p ON u.proyecto_id = p.id
+	ORDER BY u.id
+	`
+	rows, err := DB.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetAllUsers: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.UserListResponse
+	for rows.Next() {
+		var user models.UserListResponse
+		var proyectoID sql.NullInt64
+		var proyectoNombre sql.NullString
+
+		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &proyectoID, &proyectoNombre); err != nil {
+			log.Printf("Error escaneando usuario: %v", err)
+			continue
+		}
+		if proyectoID.Valid {
+			id := int(proyectoID.Int64)
+			user.ProyectoID = &id
+		}
+		if proyectoNombre.Valid {
+			user.ProyectoNombre = &proyectoNombre.String
+		}
+
+		users = append(users, user)
+	}
+	return users, nil
+}
+
+func AddUser(user models.User, hashedPassword string) (int64, error) {
+	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, role) VALUES (?, ?, ?, ?, 'user')")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(user.Username, hashedPassword, user.Nombre, user.Apellido)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func DeleteUser(id int) (int64, error) {
+	stmt, err := DB.Prepare("DELETE FROM users WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(id)
 	if err != nil {
 		return 0, err
 	}
@@ -261,40 +314,76 @@ func DeleteUserByID(id int) (int64, error) {
 }
 
 func UpdateUserRole(id int, newRole string) (int64, error) {
-	query := "UPDATE users SET role = ? WHERE id = ?"
-	result, err := DB.Exec(query, newRole, id)
+	stmt, err := DB.Prepare("UPDATE users SET role = ? WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(newRole, id)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-func AssignProjectToUser(userID int, projectID int) (int64, error) {
-	var idToSet interface{}
-	if projectID == 0 {
-		idToSet = nil
+func AssignProjectToUser(userID int, proyectoID int) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE users SET proyecto_id = ? WHERE id = ?")
+	if err != nil {
+		return 0, fmt.Errorf("error preparando update: %w", err)
+	}
+	defer stmt.Close()
+
+	var res sql.Result
+	if proyectoID == 0 {
+		res, err = stmt.Exec(sql.NullInt64{}, userID)
 	} else {
-		idToSet = projectID
+		res, err = stmt.Exec(proyectoID, userID)
 	}
-	query := "UPDATE users SET proyecto_id = ? WHERE id = ?"
-	result, err := DB.Exec(query, idToSet, userID)
+
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("error ejecutando update: %w", err)
 	}
-	return result.RowsAffected()
+	return res.RowsAffected()
 }
 
-func GetAllProjects() ([]models.Proyecto, error) {
-	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos ORDER BY nombre ASC")
+func GetProjectByID(id int64) (*models.Proyecto, error) {
+	var p models.Proyecto
+	err := DB.QueryRow("SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos WHERE id = ?", id).Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre, &p.Estado)
 	if err != nil {
-		return nil, fmt.Errorf("error al consultar proyectos: %w", err)
+		return nil, err
+	}
+	return &p, nil
+}
+
+func CreateProyecto(nombre, fechaInicio, fechaCierre string) (int64, error) {
+	stmt, err := DB.Prepare("INSERT INTO proyectos (nombre, fecha_inicio, fecha_cierre, estado) VALUES (?, ?, ?, 'habilitado')")
+	if err != nil {
+		return 0, fmt.Errorf("error preparando statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(nombre, fechaInicio, fechaCierre)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: proyectos.nombre") {
+			return 0, fmt.Errorf("el nombre de proyecto '%s' ya existe", nombre)
+		}
+		return 0, fmt.Errorf("error ejecutando insert: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+func GetAllProyectos() ([]models.Proyecto, error) {
+	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos ORDER BY id DESC")
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetAllProyectos: %w", err)
 	}
 	defer rows.Close()
-	proyectos := []models.Proyecto{}
+
+	var proyectos []models.Proyecto
 	for rows.Next() {
 		var p models.Proyecto
 		if err := rows.Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre, &p.Estado); err != nil {
-			log.Printf("Error al escanear proyecto: %v", err)
+			log.Printf("Error escaneando proyecto: %v", err)
 			continue
 		}
 		proyectos = append(proyectos, p)
@@ -302,52 +391,42 @@ func GetAllProjects() ([]models.Proyecto, error) {
 	return proyectos, nil
 }
 
-func CreateProject(p models.CreateProyectoRequest) error {
-	query := "INSERT INTO proyectos(nombre, fecha_inicio, fecha_cierre) VALUES(?, ?, ?)"
-	_, err := DB.Exec(query, p.Nombre, p.FechaInicio, p.FechaCierre)
+func UpdateProyecto(id int, nombre, fechaInicio, fechaCierre string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE proyectos SET nombre = ?, fecha_inicio = ?, fecha_cierre = ? WHERE id = ?")
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return fmt.Errorf("el nombre del proyecto ya existe")
-		}
-		return fmt.Errorf("error al crear proyecto: %w", err)
+		return 0, err
 	}
-	return nil
+	defer stmt.Close()
+	result, err := stmt.Exec(nombre, fechaInicio, fechaCierre, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: proyectos.nombre") {
+			return 0, fmt.Errorf("el nombre de proyecto '%s' ya existe", nombre)
+		}
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
-func DeleteProjectByID(id int) (int64, error) {
-	query := "DELETE FROM proyectos WHERE id = ?"
-	result, err := DB.Exec(query, id)
+func DeleteProyecto(id int) (int64, error) {
+	stmt, err := DB.Prepare("DELETE FROM proyectos WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(id)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-func GetProjectByID(id int64) (*models.Proyecto, error) {
-	var p models.Proyecto
-	query := "SELECT id, nombre, fecha_inicio, fecha_cierre, estado FROM proyectos WHERE id = ?"
-	err := DB.QueryRow(query, id).Scan(&p.ID, &p.Nombre, &p.FechaInicio, &p.FechaCierre, &p.Estado)
+func SetProjectState(id int, estado string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE proyectos SET estado = ? WHERE id = ?")
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return &p, nil
-}
-
-func UpdateProject(p models.UpdateProyectoRequest) error {
-	query := "UPDATE proyectos SET nombre = ?, fecha_inicio = ?, fecha_cierre = ? WHERE id = ?"
-	_, err := DB.Exec(query, p.Nombre, p.FechaInicio, p.FechaCierre, p.ID)
-	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return fmt.Errorf("ese nombre de proyecto ya existe")
-		}
-		return fmt.Errorf("error al actualizar proyecto: %w", err)
-	}
-	return nil
-}
-
-func SetProjectState(id int, newState string) (int64, error) {
-	query := "UPDATE proyectos SET estado = ? WHERE id = ?"
-	result, err := DB.Exec(query, newState, id)
+	defer stmt.Close()
+	result, err := stmt.Exec(estado, id)
 	if err != nil {
 		return 0, err
 	}
@@ -377,10 +456,10 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 		for rows.Next() {
 			var member models.ProjectMember
 			if err := rows.Scan(&member.ID, &member.Username, &member.Nombre, &member.Apellido, &member.Role); err != nil {
-				log.Printf("Error al escanear miembro de proyecto: %v", err)
+				log.Printf("Error escaneando miembro: %v", err)
 				continue
 			}
-			if strings.ToLower(member.Role) == "gerente" {
+			if member.Role == "gerente" {
 				response.Gerentes = append(response.Gerentes, member)
 			} else {
 				response.Miembros = append(response.Miembros, member)
@@ -389,3 +468,85 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	}
 	return response, nil
 }
+
+// ⭐️ --- (INICIO) Funciones CRUD para Labores Agronómicas --- ⭐️
+
+// ⭐️ NUEVO: Crea una nueva labor en la DB
+func CreateLabor(labor models.LaborAgronomica) (int64, error) {
+	stmt, err := DB.Prepare("INSERT INTO labores_agronomicas (proyecto_id, descripcion, estado, fecha_creacion) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return 0, fmt.Errorf("error preparando statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Usar la fecha actual en formato ISO 8601 (compatible con JS)
+	fechaCreacion := time.Now().Format(time.RFC3339)
+
+	res, err := stmt.Exec(labor.ProyectoID, labor.Descripcion, labor.Estado, fechaCreacion)
+	if err != nil {
+		return 0, fmt.Errorf("error ejecutando insert: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// ⭐️ NUEVO: Obtiene todas las labores de un proyecto específico
+func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
+	rows, err := DB.Query("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetLaboresByProyectoID: %w", err)
+	}
+	defer rows.Close()
+
+	var labores []models.LaborAgronomica
+	for rows.Next() {
+		var labor models.LaborAgronomica
+		if err := rows.Scan(&labor.ID, &labor.ProyectoID, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion); err != nil {
+			log.Printf("Error escaneando labor: %v", err)
+			continue
+		}
+		labores = append(labores, labor)
+	}
+	return labores, nil
+}
+
+// ⭐️ NUEVO: Obtiene una labor individual (útil después de crear)
+func GetLaborByID(id int) (*models.LaborAgronomica, error) {
+	var labor models.LaborAgronomica
+	err := DB.QueryRow("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE id = ?", id).Scan(&labor.ID, &labor.ProyectoID, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion)
+	if err != nil {
+		return nil, err // Devuelve sql.ErrNoRows si no se encuentra
+	}
+	return &labor, nil
+}
+
+// ⭐️ NUEVO: Actualiza una labor existente
+func UpdateLabor(id int, descripcion string, estado string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE labores_agronomicas SET descripcion = ?, estado = ? WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(descripcion, estado, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ⭐️ NUEVO: Borra una labor de la DB
+func DeleteLabor(id int) (int64, error) {
+	stmt, err := DB.Prepare("DELETE FROM labores_agronomicas WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ⭐️ --- (FIN) Funciones CRUD para Labores Agronómicas --- ⭐️
