@@ -1,38 +1,18 @@
 import React from 'react';
-// 1. IMPORTA useParams PARA LOS COMPONENTES HIJOS
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+// ⭐️ YA NO SE NECESITA 'useParams' aquí
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 import Sidebar from '../Sidebar';
 import Portafolio from './Portafolio';
 import Usuarios from './Usuarios';
-// Asumiendo que AdminDashboard.css está un nivel arriba de 'pages'
 import '../AdminDashboard.css';
 
-// 2. CREA LOS NUEVOS COMPONENTES (PLACEHOLDERS)
-//    (Puedes moverlos a sus propios archivos .js si crecen mucho)
+// ⭐️ 1. IMPORTA LOS NUEVOS COMPONENTES DESDE SUS ARCHIVOS
+import LaboresAgronomicas from './LaboresAgronomicas';
+import EquiposEImplementos from './EquiposEImplementos';
 
-const LaboresAgronomicas = () => {
-  const { id } = useParams(); // Obtiene el ID del proyecto de la URL
-  return (
-    <div style={{ padding: '2rem', color: '#333' }}>
-      <h2>Labores Agronómicas</h2>
-      <p>Mostrando labores para el Proyecto ID: <strong>{id}</strong></p>
-      {/* Aquí iría tu futura tabla o lógica para las labores */}
-    </div>
-  );
-};
-
-const EquiposEImplementos = () => {
-  const { id } = useParams(); // Obtiene el ID del proyecto de la URL
-  return (
-    <div style={{ padding: '2rem', color: '#333' }}>
-      <h2>Equipos e Implementos</h2>
-      <p>Mostrando equipos para el Proyecto ID: <strong>{id}</strong></p>
-      {/* Aquí iría tu futura tabla o lógica para los equipos */}
-    </div>
-  );
-};
+// ⭐️ 2. LOS COMPONENTES PLACEHOLDER FUERON ELIMINADOS DE AQUÍ
 
 // Componente principal del Dashboard
 const AdminDashboard = () => {
@@ -49,10 +29,10 @@ const AdminDashboard = () => {
           <Route path="proyectos" element={<Portafolio />} />
           <Route path="usuarios" element={<Usuarios />} />
 
-          {/* 3. RUTA DE CONFIGURACIONES (Muestra la lista de proyectos) */}
+          {/* Ruta de Configuraciones (Muestra la lista de proyectos) */}
           <Route path="configuraciones" element={<Portafolio />} />
 
-          {/* 4. AÑADE LAS NUEVAS RUTAS PARA EL SUB-MENÚ */}
+          {/* ⭐️ 3. LAS RUTAS AHORA USAN LOS COMPONENTES IMPORTADOS */}
 
           {/* Ruta para "Labores": /admin/configuraciones/proyecto/:id/labores */}
           <Route
