@@ -86,7 +86,6 @@ type DeleteProyectoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// NUEVA STRUCT para cambiar estado
 type SetProyectoEstadoRequest struct {
 	ID            int    `json:"id"`
 	Estado        string `json:"estado"`
@@ -118,9 +117,8 @@ type UserProjectDetailsResponse struct {
 	Gerentes []ProjectMember `json:"gerentes"`
 }
 
-// ⭐️ --- (INICIO) Estructuras para Labores Agronómicas --- ⭐️
+// --- Estructuras para Labores Agronómicas ---
 
-// ⭐️ NUEVO: Estructura de la tabla (la que database.go usa)
 type LaborAgronomica struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
@@ -129,32 +127,70 @@ type LaborAgronomica struct {
 	FechaCreacion string `json:"fecha_creacion"`
 }
 
-// ⭐️ NUEVO: Para la petición GET del frontend
 type GetLaboresRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO: Para la petición CREATE del frontend
 type CreateLaborRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
-	Descripcion   string `json:"descripcion"`
-	Estado        string `json:"estado"` // Opcional, el estado por defecto es 'activa'
-	AdminUsername string `json:"admin_username"`
-}
-
-// ⭐️ NUEVO: Para la petición UPDATE del frontend
-type UpdateLaborRequest struct {
-	ID            int    `json:"id"` // ID de la labor
 	Descripcion   string `json:"descripcion"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO: Para la petición DELETE del frontend
-type DeleteLaborRequest struct {
-	ID            int    `json:"id"` // ID de la labor
+type UpdateLaborRequest struct {
+	ID            int    `json:"id"`
+	Descripcion   string `json:"descripcion"`
+	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ --- (FIN) Estructuras para Labores Agronómicas --- ⭐️
+type DeleteLaborRequest struct {
+	ID            int    `json:"id"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ --- (INICIO) Estructuras para Equipos e Implementos --- ⭐️
+
+// ⭐️ NUEVO (Equipos): Estructura de la tabla (la que database.go usa)
+type EquipoImplemento struct {
+	ID            int    `json:"id"`
+	ProyectoID    int    `json:"proyecto_id"`
+	Nombre        string `json:"nombre"`
+	Tipo          string `json:"tipo"`
+	Estado        string `json:"estado"`
+	FechaCreacion string `json:"fecha_creacion"`
+}
+
+// ⭐️ NUEVO (Equipos): Para la petición GET del frontend
+type GetEquiposRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO (Equipos): Para la petición CREATE del frontend
+type CreateEquipoRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
+	Nombre        string `json:"nombre"`
+	Tipo          string `json:"tipo"`
+	Estado        string `json:"estado"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO (Equipos): Para la petición UPDATE del frontend
+type UpdateEquipoRequest struct {
+	ID            int    `json:"id"` // ID del equipo
+	Nombre        string `json:"nombre"`
+	Tipo          string `json:"tipo"`
+	Estado        string `json:"estado"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ NUEVO (Equipos): Para la petición DELETE del frontend
+type DeleteEquipoRequest struct {
+	ID            int    `json:"id"` // ID del equipo
+	AdminUsername string `json:"admin_username"`
+}
+
+// ⭐️ --- (FIN) Estructuras para Equipos e Implementos --- ⭐️

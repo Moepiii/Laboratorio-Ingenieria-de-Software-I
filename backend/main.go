@@ -41,12 +41,18 @@ func main() {
 	mux.HandleFunc("/api/admin/update-proyecto", apphandlers.AdminUpdateProyectoHandler)
 	mux.HandleFunc("/api/admin/set-proyecto-estado", apphandlers.AdminSetProyectoEstadoHandler)
 
-	// ⭐️ --- (INICIO) Nuevas Rutas de Labores --- ⭐️
+	// Rutas Admin/Gerente (Labores)
 	mux.HandleFunc("/api/admin/get-labores", apphandlers.GetLaboresHandler)
 	mux.HandleFunc("/api/admin/create-labor", apphandlers.CreateLaborHandler)
 	mux.HandleFunc("/api/admin/update-labor", apphandlers.UpdateLaborHandler)
 	mux.HandleFunc("/api/admin/delete-labor", apphandlers.DeleteLaborHandler)
-	// ⭐️ --- (FIN) Nuevas Rutas de Labores --- ⭐️
+
+	// ⭐️ --- (INICIO) Nuevas Rutas de Equipos --- ⭐️
+	mux.HandleFunc("/api/admin/get-equipos", apphandlers.GetEquiposHandler)
+	mux.HandleFunc("/api/admin/create-equipo", apphandlers.CreateEquipoHandler)
+	mux.HandleFunc("/api/admin/update-equipo", apphandlers.UpdateEquipoHandler)
+	mux.HandleFunc("/api/admin/delete-equipo", apphandlers.DeleteEquipoHandler)
+	// ⭐️ --- (FIN) Nuevas Rutas de Equipos --- ⭐️
 
 	// Ruta Usuario - Usa 'apphandlers'
 	mux.HandleFunc("/api/user/project-details", apphandlers.UserProjectDetailsHandler)

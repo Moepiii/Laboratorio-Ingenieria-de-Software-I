@@ -517,9 +517,8 @@ func UserProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, details)
 }
 
-// ⭐️ --- (INICIO) Handlers Labores Agronómicas --- ⭐️
+// --- Handlers Labores Agronómicas ---
 
-// ⭐️ NUEVO: Handler para OBTENER todas las labores de un proyecto
 func GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Decodificar
 	var req models.GetLaboresRequest
@@ -556,7 +555,6 @@ func GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"labores": labores})
 }
 
-// ⭐️ NUEVO: Handler para CREAR una nueva labor
 func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Decodificar
 	var req models.CreateLaborRequest
@@ -602,7 +600,6 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 5. Responder
-	// Devolvemos la labor completa recién creada
 	nuevaLabor, err := database.GetLaborByID(int(laborID))
 	if err != nil {
 		log.Printf("Error al obtener labor recién creada (ID: %d): %v", laborID, err)
@@ -613,7 +610,6 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, nuevaLabor)
 }
 
-// ⭐️ NUEVO: Handler para ACTUALIZAR una labor
 func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Decodificar
 	var req models.UpdateLaborRequest
@@ -655,7 +651,6 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor actualizada."})
 }
 
-// ⭐️ NUEVO: Handler para BORRAR una labor
 func DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Decodificar
 	var req models.DeleteLaborRequest
@@ -697,4 +692,189 @@ func DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor borrada."})
 }
 
-// ⭐️ --- (FIN) Handlers Labores Agronómicas --- ⭐️
+// ⭐️ --- (INICIO) Handlers Equipos e Implementos --- ⭐️
+
+// ⭐️ NUEVO (Equipos): Handler para OBTENER todos los equipos de un proyecto
+func GetEquiposHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Decodificar
+	var req models.GetEquiposRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	// 2. Seguridad
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
+		return
+	}
+
+	// 3. Lógica de DB
+	if req.ProyectoID == 0 {
+		respondWithError(w, http.StatusBadRequest, "ID de proyecto requerido.")
+		return
+	}
+
+	equipos, err := database.GetEquiposByProyectoID(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error al obtener equipos para proyecto %d: %v", req.ProyectoID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener equipos.")
+		return
+	}
+
+	// 4. Responder
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"equipos": equipos})
+}
+
+// ⭐️ NUEVO (Equipos): Handler para CREAR un nuevo equipo
+func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Decodificar
+	var req models.CreateEquipoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	// 2. Seguridad
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	// 3. Validar
+	if req.ProyectoID == 0 || req.Nombre == "" {
+		respondWithError(w, http.StatusBadRequest, "ProyectoID y Nombre son requeridos.")
+		return
+	}
+
+	// Valores por defecto
+	tipo := req.Tipo
+	if tipo == "" {
+		tipo = "implemento"
+	}
+	estado := req.Estado
+	if estado == "" {
+		estado = "disponible"
+	}
+
+	// 4. Lógica de DB
+	equipo := models.EquipoImplemento{
+		ProyectoID: req.ProyectoID,
+		Nombre:     req.Nombre,
+		Tipo:       tipo,
+		Estado:     estado,
+	}
+
+	equipoID, err := database.CreateEquipo(equipo)
+	if err != nil {
+		log.Printf("Error al crear equipo: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Error al crear equipo.")
+		return
+	}
+
+	// 5. Responder
+	nuevoEquipo, err := database.GetEquipoByID(int(equipoID))
+	if err != nil {
+		log.Printf("Error al obtener equipo recién creado (ID: %d): %v", equipoID, err)
+		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Equipo creado con éxito, pero no se pudo recuperar."})
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, nuevoEquipo)
+}
+
+// ⭐️ NUEVO (Equipos): Handler para ACTUALIZAR un equipo
+func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Decodificar
+	var req models.UpdateEquipoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	// 2. Seguridad
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	// 3. Validar
+	if req.ID == 0 || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
+		respondWithError(w, http.StatusBadRequest, "ID, Nombre, Tipo y Estado son requeridos.")
+		return
+	}
+
+	// 4. Lógica de DB
+	affected, err := database.UpdateEquipo(req.ID, req.Nombre, req.Tipo, req.Estado)
+	if err != nil {
+		log.Printf("Error al actualizar equipo ID %d: %v", req.ID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al actualizar el equipo.")
+		return
+	}
+	if affected == 0 {
+		respondWithError(w, http.StatusNotFound, "Equipo no encontrado.")
+		return
+	}
+
+	// 5. Responder
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo actualizado."})
+}
+
+// ⭐️ NUEVO (Equipos): Handler para BORRAR un equipo
+func DeleteEquipoHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Decodificar
+	var req models.DeleteEquipoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	// 2. Seguridad
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	// 3. Validar
+	if req.ID == 0 {
+		respondWithError(w, http.StatusBadRequest, "ID de equipo requerido.")
+		return
+	}
+
+	// 4. Lógica de DB
+	affected, err := database.DeleteEquipo(req.ID)
+	if err != nil {
+		log.Printf("Error al borrar equipo ID %d: %v", req.ID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al borrar el equipo.")
+		return
+	}
+	if affected == 0 {
+		respondWithError(w, http.StatusNotFound, "Equipo no encontrado.")
+		return
+	}
+
+	// 5. Responder
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo borrado."})
+}
+
+// ⭐️ --- (FIN) Handlers Equipos e Implementos --- ⭐️

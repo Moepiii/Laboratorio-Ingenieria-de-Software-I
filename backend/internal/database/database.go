@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time" // ⭐️ NUEVO: Importamos 'time' para la fecha de creación
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
@@ -27,7 +27,8 @@ func InitDB(dbPath string) {
 	}
 	createUsersTable()
 	createProyectosTable()
-	createLaboresTable() // ⭐️ NUEVO: Llamada para crear la nueva tabla
+	createLaboresTable()
+	createEquiposTable() // ⭐️ NUEVO (Equipos): Llamada para crear la nueva tabla
 	migrateProyectosTable()
 	migrateUsersTable()
 	createDefaultAdmin()
@@ -73,7 +74,6 @@ func createProyectosTable() {
 	}
 }
 
-// ⭐️ NUEVO: Función completa para crear la tabla de labores
 func createLaboresTable() {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS labores_agronomicas (
@@ -88,6 +88,25 @@ func createLaboresTable() {
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla labores_agronomicas: %v", err)
+	}
+}
+
+// ⭐️ NUEVO (Equipos): Función completa para crear la tabla de equipos
+func createEquiposTable() {
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS equipos_implementos (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		proyecto_id INTEGER NOT NULL,
+		nombre TEXT NOT NULL,
+		tipo TEXT NOT NULL DEFAULT 'implemento',
+		estado TEXT NOT NULL DEFAULT 'disponible',
+		fecha_creacion TEXT NOT NULL,
+		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
+	);`
+
+	_, err := DB.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Error al crear tabla equipos_implementos: %v", err)
 	}
 }
 
@@ -469,9 +488,8 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	return response, nil
 }
 
-// ⭐️ --- (INICIO) Funciones CRUD para Labores Agronómicas --- ⭐️
+// --- Funciones CRUD para Labores Agronómicas ---
 
-// ⭐️ NUEVO: Crea una nueva labor en la DB
 func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	stmt, err := DB.Prepare("INSERT INTO labores_agronomicas (proyecto_id, descripcion, estado, fecha_creacion) VALUES (?, ?, ?, ?)")
 	if err != nil {
@@ -479,7 +497,6 @@ func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	}
 	defer stmt.Close()
 
-	// Usar la fecha actual en formato ISO 8601 (compatible con JS)
 	fechaCreacion := time.Now().Format(time.RFC3339)
 
 	res, err := stmt.Exec(labor.ProyectoID, labor.Descripcion, labor.Estado, fechaCreacion)
@@ -489,7 +506,6 @@ func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ⭐️ NUEVO: Obtiene todas las labores de un proyecto específico
 func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	rows, err := DB.Query("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
@@ -509,17 +525,15 @@ func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	return labores, nil
 }
 
-// ⭐️ NUEVO: Obtiene una labor individual (útil después de crear)
 func GetLaborByID(id int) (*models.LaborAgronomica, error) {
 	var labor models.LaborAgronomica
 	err := DB.QueryRow("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE id = ?", id).Scan(&labor.ID, &labor.ProyectoID, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion)
 	if err != nil {
-		return nil, err // Devuelve sql.ErrNoRows si no se encuentra
+		return nil, err
 	}
 	return &labor, nil
 }
 
-// ⭐️ NUEVO: Actualiza una labor existente
 func UpdateLabor(id int, descripcion string, estado string) (int64, error) {
 	stmt, err := DB.Prepare("UPDATE labores_agronomicas SET descripcion = ?, estado = ? WHERE id = ?")
 	if err != nil {
@@ -534,7 +548,6 @@ func UpdateLabor(id int, descripcion string, estado string) (int64, error) {
 	return result.RowsAffected()
 }
 
-// ⭐️ NUEVO: Borra una labor de la DB
 func DeleteLabor(id int) (int64, error) {
 	stmt, err := DB.Prepare("DELETE FROM labores_agronomicas WHERE id = ?")
 	if err != nil {
@@ -549,4 +562,83 @@ func DeleteLabor(id int) (int64, error) {
 	return result.RowsAffected()
 }
 
-// ⭐️ --- (FIN) Funciones CRUD para Labores Agronómicas --- ⭐️
+// ⭐️ --- (INICIO) Funciones CRUD para Equipos e Implementos --- ⭐️
+
+// ⭐️ NUEVO (Equipos): Crea un nuevo equipo en la DB
+func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
+	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, nombre, tipo, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return 0, fmt.Errorf("error preparando statement: %w", err)
+	}
+	defer stmt.Close()
+
+	fechaCreacion := time.Now().Format(time.RFC3339)
+
+	res, err := stmt.Exec(equipo.ProyectoID, equipo.Nombre, equipo.Tipo, equipo.Estado, fechaCreacion)
+	if err != nil {
+		return 0, fmt.Errorf("error ejecutando insert: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// ⭐️ NUEVO (Equipos): Obtiene todos los equipos de un proyecto
+func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
+	rows, err := DB.Query("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetEquiposByProyectoID: %w", err)
+	}
+	defer rows.Close()
+
+	var equipos []models.EquipoImplemento
+	for rows.Next() {
+		var equipo models.EquipoImplemento
+		if err := rows.Scan(&equipo.ID, &equipo.ProyectoID, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion); err != nil {
+			log.Printf("Error escaneando equipo: %v", err)
+			continue
+		}
+		equipos = append(equipos, equipo)
+	}
+	return equipos, nil
+}
+
+// ⭐️ NUEVO (Equipos): Obtiene un equipo por su ID
+func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
+	var equipo models.EquipoImplemento
+	err := DB.QueryRow("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id).Scan(&equipo.ID, &equipo.ProyectoID, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion)
+	if err != nil {
+		return nil, err
+	}
+	return &equipo, nil
+}
+
+// ⭐️ NUEVO (Equipos): Actualiza un equipo
+func UpdateEquipo(id int, nombre string, tipo string, estado string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE equipos_implementos SET nombre = ?, tipo = ?, estado = ? WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(nombre, tipo, estado, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ⭐️ NUEVO (Equipos): Borra un equipo
+func DeleteEquipo(id int) (int64, error) {
+	stmt, err := DB.Prepare("DELETE FROM equipos_implementos WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ⭐️ --- (FIN) Funciones CRUD para Equipos e Implementos --- ⭐️
