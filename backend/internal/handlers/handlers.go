@@ -257,8 +257,6 @@ func AdminUpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "ID y NewRole son requeridos.")
 		return
 	}
-
-	// ⭐️ MODIFICADO: Añadido "encargado" a la validación
 	if req.NewRole != "admin" && req.NewRole != "gerente" && req.NewRole != "user" && req.NewRole != "encargado" {
 		respondWithError(w, http.StatusBadRequest, "Rol debe ser 'admin', 'gerente', 'encargado' o 'user'.")
 		return
@@ -557,6 +555,7 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
+
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -566,31 +565,44 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-	if req.ProyectoID == 0 || req.Descripcion == "" {
-		respondWithError(w, http.StatusBadRequest, "ProyectoID y Descripción son requeridos.")
+
+	// ⭐️ MODIFICADO: Validación para 'CodigoLabor'
+	if req.ProyectoID == 0 || req.Descripcion == "" || req.CodigoLabor == "" {
+		respondWithError(w, http.StatusBadRequest, "ProyectoID, Código y Descripción son requeridos.")
 		return
 	}
+
 	estado := req.Estado
 	if estado == "" {
 		estado = "activa"
 	}
+
+	// ⭐️ MODIFICADO: Añadido 'CodigoLabor'
 	labor := models.LaborAgronomica{
 		ProyectoID:  req.ProyectoID,
+		CodigoLabor: req.CodigoLabor,
 		Descripcion: req.Descripcion,
 		Estado:      estado,
 	}
+
 	laborID, err := database.CreateLabor(labor)
 	if err != nil {
 		log.Printf("Error al crear labor: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Error al crear labor.")
+		if strings.Contains(err.Error(), "ya existe") {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Error al crear labor.")
+		}
 		return
 	}
+
 	nuevaLabor, err := database.GetLaborByID(int(laborID))
 	if err != nil {
 		log.Printf("Error al obtener labor recién creada (ID: %d): %v", laborID, err)
 		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Labor creada con éxito, pero no se pudo recuperar."})
 		return
 	}
+
 	respondWithJSON(w, http.StatusCreated, nuevaLabor)
 }
 
@@ -600,6 +612,7 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
+
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -609,20 +622,29 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-	if req.ID == 0 || req.Descripcion == "" || req.Estado == "" {
-		respondWithError(w, http.StatusBadRequest, "ID, Descripción y Estado son requeridos.")
+
+	// ⭐️ MODIFICADO: Validación para 'CodigoLabor'
+	if req.ID == 0 || req.CodigoLabor == "" || req.Descripcion == "" || req.Estado == "" {
+		respondWithError(w, http.StatusBadRequest, "ID, Código, Descripción y Estado son requeridos.")
 		return
 	}
-	affected, err := database.UpdateLabor(req.ID, req.Descripcion, req.Estado)
+
+	// ⭐️ MODIFICADO: Pasa 'req.CodigoLabor'
+	affected, err := database.UpdateLabor(req.ID, req.CodigoLabor, req.Descripcion, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar labor ID %d: %v", req.ID, err)
-		respondWithError(w, http.StatusInternalServerError, "Error al actualizar la labor.")
+		if strings.Contains(err.Error(), "ya existe") {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Error al actualizar la labor.")
+		}
 		return
 	}
 	if affected == 0 {
 		respondWithError(w, http.StatusNotFound, "Labor no encontrada.")
 		return
 	}
+
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor actualizada."})
 }
 
@@ -703,10 +725,13 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-	if req.ProyectoID == 0 || req.Nombre == "" {
-		respondWithError(w, http.StatusBadRequest, "ProyectoID y Nombre son requeridos.")
+
+	// ⭐️ MODIFICADO: Validación para 'CodigoEquipo'
+	if req.ProyectoID == 0 || req.Nombre == "" || req.CodigoEquipo == "" {
+		respondWithError(w, http.StatusBadRequest, "ProyectoID, Código y Nombre son requeridos.")
 		return
 	}
+
 	tipo := req.Tipo
 	if tipo == "" {
 		tipo = "implemento"
@@ -715,24 +740,34 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 	if estado == "" {
 		estado = "disponible"
 	}
+
+	// ⭐️ MODIFICADO: Añadido 'CodigoEquipo'
 	equipo := models.EquipoImplemento{
-		ProyectoID: req.ProyectoID,
-		Nombre:     req.Nombre,
-		Tipo:       tipo,
-		Estado:     estado,
+		ProyectoID:   req.ProyectoID,
+		CodigoEquipo: req.CodigoEquipo,
+		Nombre:       req.Nombre,
+		Tipo:         tipo,
+		Estado:       estado,
 	}
+
 	equipoID, err := database.CreateEquipo(equipo)
 	if err != nil {
 		log.Printf("Error al crear equipo: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "Error al crear equipo.")
+		if strings.Contains(err.Error(), "ya existe") {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Error al crear equipo.")
+		}
 		return
 	}
+
 	nuevoEquipo, err := database.GetEquipoByID(int(equipoID))
 	if err != nil {
 		log.Printf("Error al obtener equipo recién creado (ID: %d): %v", equipoID, err)
 		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Equipo creado con éxito, pero no se pudo recuperar."})
 		return
 	}
+
 	respondWithJSON(w, http.StatusCreated, nuevoEquipo)
 }
 
@@ -751,20 +786,29 @@ func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-	if req.ID == 0 || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
-		respondWithError(w, http.StatusBadRequest, "ID, Nombre, Tipo y Estado son requeridos.")
+
+	// ⭐️ MODIFICADO: Validación para 'CodigoEquipo'
+	if req.ID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
+		respondWithError(w, http.StatusBadRequest, "ID, Código, Nombre, Tipo y Estado son requeridos.")
 		return
 	}
-	affected, err := database.UpdateEquipo(req.ID, req.Nombre, req.Tipo, req.Estado)
+
+	// ⭐️ MODIFICADO: Pasa 'req.CodigoEquipo'
+	affected, err := database.UpdateEquipo(req.ID, req.CodigoEquipo, req.Nombre, req.Tipo, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar equipo ID %d: %v", req.ID, err)
-		respondWithError(w, http.StatusInternalServerError, "Error al actualizar el equipo.")
+		if strings.Contains(err.Error(), "ya existe") {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Error al actualizar el equipo.")
+		}
 		return
 	}
 	if affected == 0 {
 		respondWithError(w, http.StatusNotFound, "Equipo no encontrado.")
 		return
 	}
+
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo actualizado."})
 }
 

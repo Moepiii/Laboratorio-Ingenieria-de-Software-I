@@ -2,10 +2,8 @@ import { apiCall } from './authService';
 
 /**
  * Obtiene todas las labores de un proyecto.
- * Llama a: /api/admin/get-labores
  */
 export const getLabores = (token, proyectoId, adminUsername) => {
-    // El body que espera el GetLaboresHandler en Go
     const body = {
         proyecto_id: proyectoId,
         admin_username: adminUsername
@@ -15,10 +13,10 @@ export const getLabores = (token, proyectoId, adminUsername) => {
 
 /**
  * Crea una nueva labor.
- * Llama a: /api/admin/create-labor
+ * ⭐️ MODIFICADO: El 'laborData' ahora incluye 'codigo_labor'
  */
 export const createLabor = (token, laborData, adminUsername) => {
-    // laborData = { proyecto_id, descripcion, estado }
+    // laborData ahora es { proyecto_id, codigo_labor, descripcion, estado }
     const body = {
         ...laborData,
         admin_username: adminUsername
@@ -28,10 +26,10 @@ export const createLabor = (token, laborData, adminUsername) => {
 
 /**
  * Actualiza una labor existente.
- * Llama a: /api/admin/update-labor
+ * ⭐️ MODIFICADO: El 'laborData' ahora incluye 'codigo_labor'
  */
 export const updateLabor = (token, laborData, adminUsername) => {
-    // laborData = { id, descripcion, estado }
+    // laborData ahora es { id, codigo_labor, descripcion, estado }
     const body = {
         ...laborData,
         admin_username: adminUsername
@@ -41,7 +39,6 @@ export const updateLabor = (token, laborData, adminUsername) => {
 
 /**
  * Elimina una labor.
- * Llama a: /api/admin/delete-labor
  */
 export const deleteLabor = (token, laborId, adminUsername) => {
     const body = {

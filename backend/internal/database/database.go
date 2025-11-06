@@ -30,7 +30,8 @@ func InitDB(dbPath string) {
 	createLaboresTable()
 	createEquiposTable()
 	migrateProyectosTable()
-	migrateUsersTable() // ⭐️ Esta función ahora migrará la 'cedula'
+	migrateUsersTable()
+	migrateAppTables() // ⭐️ NUEVO: Llamada a la nueva función de migración
 	createDefaultAdmin()
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
@@ -48,7 +49,7 @@ func createUsersTable() {
 		role TEXT NOT NULL DEFAULT 'user',
 		nombre TEXT NOT NULL DEFAULT '',
 		apellido TEXT NOT NULL DEFAULT '',
-		cedula TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO: Columna para la cédula
+		cedula TEXT NOT NULL UNIQUE DEFAULT '',
 		proyecto_id INTEGER,
 		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE SET NULL
 	);`
@@ -80,6 +81,7 @@ func createLaboresTable() {
 	CREATE TABLE IF NOT EXISTS labores_agronomicas (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		proyecto_id INTEGER NOT NULL,
+		codigo_labor TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO
 		descripcion TEXT NOT NULL,
 		estado TEXT NOT NULL DEFAULT 'activa',
 		fecha_creacion TEXT NOT NULL,
@@ -97,6 +99,7 @@ func createEquiposTable() {
 	CREATE TABLE IF NOT EXISTS equipos_implementos (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		proyecto_id INTEGER NOT NULL,
+		codigo_equipo TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO
 		nombre TEXT NOT NULL,
 		tipo TEXT NOT NULL DEFAULT 'implemento',
 		estado TEXT NOT NULL DEFAULT 'disponible',
@@ -107,6 +110,69 @@ func createEquiposTable() {
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla equipos_implementos: %v", err)
+	}
+}
+
+// ⭐️ NUEVO: Función para migrar las tablas de Labores y Equipos
+func migrateAppTables() {
+	// 1. Migrar labores_agronomicas
+	rowsLabores, err := DB.Query("PRAGMA table_info(labores_agronomicas)")
+	if err != nil {
+		log.Fatalf("Error PRAGMA table_info(labores_agronomicas): %v", err)
+	}
+	defer rowsLabores.Close()
+
+	columnsLabores := make(map[string]bool)
+	for rowsLabores.Next() {
+		var (
+			cid        int
+			name       string
+			dtype      string
+			notnull    int
+			dflt_value sql.NullString
+			pk         int
+		)
+		rowsLabores.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk)
+		columnsLabores[name] = true
+	}
+
+	if !columnsLabores["codigo_labor"] {
+		_, err := DB.Exec("ALTER TABLE labores_agronomicas ADD COLUMN codigo_labor TEXT NOT NULL UNIQUE DEFAULT ''")
+		if err != nil {
+			log.Printf("Advertencia al migrar labores (add codigo_labor): %v. Puede que ya exista.", err)
+		} else {
+			log.Println("Migración: Columna 'codigo_labor' añadida a 'labores_agronomicas'.")
+		}
+	}
+
+	// 2. Migrar equipos_implementos
+	rowsEquipos, err := DB.Query("PRAGMA table_info(equipos_implementos)")
+	if err != nil {
+		log.Fatalf("Error PRAGMA table_info(equipos_implementos): %v", err)
+	}
+	defer rowsEquipos.Close()
+
+	columnsEquipos := make(map[string]bool)
+	for rowsEquipos.Next() {
+		var (
+			cid        int
+			name       string
+			dtype      string
+			notnull    int
+			dflt_value sql.NullString
+			pk         int
+		)
+		rowsEquipos.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk)
+		columnsEquipos[name] = true
+	}
+
+	if !columnsEquipos["codigo_equipo"] {
+		_, err := DB.Exec("ALTER TABLE equipos_implementos ADD COLUMN codigo_equipo TEXT NOT NULL UNIQUE DEFAULT ''")
+		if err != nil {
+			log.Printf("Advertencia al migrar equipos (add codigo_equipo): %v. Puede que ya exista.", err)
+		} else {
+			log.Println("Migración: Columna 'codigo_equipo' añadida a 'equipos_implementos'.")
+		}
 	}
 }
 
@@ -193,7 +259,6 @@ func migrateUsersTable() {
 		}
 		log.Println("Migración: Columna 'apellido' añadida a 'users'.")
 	}
-
 	if !columns["proyecto_id"] {
 		_, err := DB.Exec("ALTER TABLE users ADD COLUMN proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL")
 		if err != nil {
@@ -201,21 +266,13 @@ func migrateUsersTable() {
 		}
 		log.Println("Migración: Columna 'proyecto_id' añadida a 'users'.")
 	}
-
-	// ⭐️ NUEVO: Migración para la cédula
 	if !columns["cedula"] {
-		// Añade la columna, temporalmente SIN el UNIQUE para evitar fallos si hay 'default'
-		_, err := DB.Exec("ALTER TABLE users ADD COLUMN cedula TEXT NOT NULL DEFAULT ''")
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN cedula TEXT NOT NULL UNIQUE DEFAULT ''")
 		if err != nil {
-			log.Fatalf("Error al migrar users (add cedula): %v", err)
+			log.Printf("Advertencia al migrar users (add cedula): %v. Puede que ya exista.", err)
+		} else {
+			log.Println("Migración: Columna 'cedula' añadida a 'users'.")
 		}
-		// Ahora, añade el índice UNIQUE por separado
-		_, err = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cedula ON users(cedula) WHERE cedula != ''")
-		if err != nil {
-			// Esto puede fallar si ya hay duplicados con '', lo cual es normal
-			log.Printf("Advertencia al crear índice unique en cedula (puede ser normal si ya existe): %v", err)
-		}
-		log.Println("Migración: Columna 'cedula' añadida a 'users'.")
 	}
 }
 
@@ -228,9 +285,8 @@ func createDefaultAdmin() {
 
 	if exists == 0 {
 		hashedPassword, _ := HashPassword("admin123")
-		// ⭐️ MODIFICADO: Añade 'cedula' al INSERT
 		_, err := DB.Exec("INSERT INTO users (username, password, role, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?, ?)",
-			"admin", hashedPassword, "admin", "Administrador", "Del Sistema", "00000001") // Cédula por defecto para el admin
+			"admin", hashedPassword, "admin", "Administrador", "Del Sistema", "00000001")
 		if err != nil {
 			log.Fatalf("Error al crear admin por defecto: %v", err)
 		}
@@ -262,32 +318,27 @@ func GetUserRole(username string) (string, error) {
 
 func GetUserByUsername(username string) (models.UserDB, error) {
 	var user models.UserDB
-	// ⭐️ MODIFICADO: Añade 'cedula' al SELECT
 	err := DB.QueryRow("SELECT id, username, password, role, nombre, apellido, cedula, proyecto_id FROM users WHERE username = ?", username).Scan(
 		&user.ID, &user.Username, &user.HashedPassword, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &user.ProyectoID)
 	return user, err
 }
 
-// ⭐️ MODIFICADO: La firma ahora incluye 'cedula'
 func RegisterUser(username, password, nombre, apellido, cedula string) (int64, error) {
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		return 0, fmt.Errorf("error al hashear password: %w", err)
 	}
-	// ⭐️ MODIFICADO: INSERT ahora incluye 'cedula'
 	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
 
-	// ⭐️ MODIFICADO: Se pasa 'cedula' al Exec
 	res, err := stmt.Exec(username, hashedPassword, nombre, apellido, cedula)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
 			return 0, fmt.Errorf("el nombre de usuario '%s' ya existe", username)
 		}
-		// ⭐️ NUEVO: Comprobación de cédula única
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.cedula") {
 			return 0, fmt.Errorf("la cédula '%s' ya está registrada", cedula)
 		}
@@ -297,7 +348,6 @@ func RegisterUser(username, password, nombre, apellido, cedula string) (int64, e
 }
 
 func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
-	// ⭐️ MODIFICADO: Añade 'u.cedula' al SELECT
 	query := `
 	SELECT u.id, u.username, u.role, u.nombre, u.apellido, u.cedula, u.proyecto_id, p.nombre
 	FROM users u
@@ -316,7 +366,6 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 		var proyectoID sql.NullInt64
 		var proyectoNombre sql.NullString
 
-		// ⭐️ MODIFICADO: Añade '&user.Cedula' al Scan
 		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &proyectoID, &proyectoNombre); err != nil {
 			log.Printf("Error escaneando usuario: %v", err)
 			continue
@@ -334,18 +383,14 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 	return users, nil
 }
 
-// ⭐️ MODIFICADO: 'AddUser' ahora también inserta la cédula
 func AddUser(user models.User, hashedPassword string) (int64, error) {
-	// ⭐️ MODIFICADO: INSERT ahora incluye 'cedula'
 	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, cedula, role) VALUES (?, ?, ?, ?, ?, 'user')")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
-	// ⭐️ MODIFICADO: Se pasa 'user.Cedula' al Exec
 	res, err := stmt.Exec(user.Username, hashedPassword, user.Nombre, user.Apellido, user.Cedula)
 	if err != nil {
-		// Añadimos control de errores para cédula también
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
 			return 0, fmt.Errorf("el nombre de usuario '%s' ya existe", user.Username)
 		}
@@ -418,7 +463,6 @@ func CreateProyecto(nombre, fechaInicio, fechaCierre string) (int64, error) {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
-
 	res, err := stmt.Exec(nombre, fechaInicio, fechaCierre)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: proyectos.nombre") {
@@ -435,7 +479,6 @@ func GetAllProyectos() ([]models.Proyecto, error) {
 		return nil, fmt.Errorf("error en query GetAllProyectos: %w", err)
 	}
 	defer rows.Close()
-
 	var proyectos []models.Proyecto
 	for rows.Next() {
 		var p models.Proyecto
@@ -528,24 +571,27 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 
 // --- Funciones CRUD para Labores Agronómicas ---
 
+// ⭐️ MODIFICADO: Acepta 'codigo_labor'
 func CreateLabor(labor models.LaborAgronomica) (int64, error) {
-	stmt, err := DB.Prepare("INSERT INTO labores_agronomicas (proyecto_id, descripcion, estado, fecha_creacion) VALUES (?, ?, ?, ?)")
+	stmt, err := DB.Prepare("INSERT INTO labores_agronomicas (proyecto_id, codigo_labor, descripcion, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
-
 	fechaCreacion := time.Now().Format(time.RFC3339)
-
-	res, err := stmt.Exec(labor.ProyectoID, labor.Descripcion, labor.Estado, fechaCreacion)
+	res, err := stmt.Exec(labor.ProyectoID, labor.CodigoLabor, labor.Descripcion, labor.Estado, fechaCreacion)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: labores_agronomicas.codigo_labor") {
+			return 0, fmt.Errorf("el código de labor '%s' ya existe", labor.CodigoLabor)
+		}
 		return 0, fmt.Errorf("error ejecutando insert: %w", err)
 	}
 	return res.LastInsertId()
 }
 
+// ⭐️ MODIFICADO: Devuelve 'codigo_labor'
 func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
-	rows, err := DB.Query("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
+	rows, err := DB.Query("SELECT id, proyecto_id, codigo_labor, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
 		return nil, fmt.Errorf("error en query GetLaboresByProyectoID: %w", err)
 	}
@@ -554,7 +600,7 @@ func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	var labores []models.LaborAgronomica
 	for rows.Next() {
 		var labor models.LaborAgronomica
-		if err := rows.Scan(&labor.ID, &labor.ProyectoID, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion); err != nil {
+		if err := rows.Scan(&labor.ID, &labor.ProyectoID, &labor.CodigoLabor, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion); err != nil {
 			log.Printf("Error escaneando labor: %v", err)
 			continue
 		}
@@ -563,24 +609,30 @@ func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	return labores, nil
 }
 
+// ⭐️ MODIFICADO: Devuelve 'codigo_labor'
 func GetLaborByID(id int) (*models.LaborAgronomica, error) {
 	var labor models.LaborAgronomica
-	err := DB.QueryRow("SELECT id, proyecto_id, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE id = ?", id).Scan(&labor.ID, &labor.ProyectoID, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion)
+	err := DB.QueryRow("SELECT id, proyecto_id, codigo_labor, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE id = ?", id).Scan(
+		&labor.ID, &labor.ProyectoID, &labor.CodigoLabor, &labor.Descripcion, &labor.Estado, &labor.FechaCreacion)
 	if err != nil {
 		return nil, err
 	}
 	return &labor, nil
 }
 
-func UpdateLabor(id int, descripcion string, estado string) (int64, error) {
-	stmt, err := DB.Prepare("UPDATE labores_agronomicas SET descripcion = ?, estado = ? WHERE id = ?")
+// ⭐️ MODIFICADO: Actualiza 'codigo_labor'
+func UpdateLabor(id int, codigo_labor string, descripcion string, estado string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE labores_agronomicas SET codigo_labor = ?, descripcion = ?, estado = ? WHERE id = ?")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(descripcion, estado, id)
+	result, err := stmt.Exec(codigo_labor, descripcion, estado, id)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: labores_agronomicas.codigo_labor") {
+			return 0, fmt.Errorf("el código de labor '%s' ya existe", codigo_labor)
+		}
 		return 0, err
 	}
 	return result.RowsAffected()
@@ -592,7 +644,6 @@ func DeleteLabor(id int) (int64, error) {
 		return 0, err
 	}
 	defer stmt.Close()
-
 	result, err := stmt.Exec(id)
 	if err != nil {
 		return 0, err
@@ -602,24 +653,27 @@ func DeleteLabor(id int) (int64, error) {
 
 // --- Funciones CRUD para Equipos e Implementos ---
 
+// ⭐️ MODIFICADO: Acepta 'codigo_equipo'
 func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
-	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, nombre, tipo, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
-
 	fechaCreacion := time.Now().Format(time.RFC3339)
-
-	res, err := stmt.Exec(equipo.ProyectoID, equipo.Nombre, equipo.Tipo, equipo.Estado, fechaCreacion)
+	res, err := stmt.Exec(equipo.ProyectoID, equipo.CodigoEquipo, equipo.Nombre, equipo.Tipo, equipo.Estado, fechaCreacion)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: equipos_implementos.codigo_equipo") {
+			return 0, fmt.Errorf("el código de equipo '%s' ya existe", equipo.CodigoEquipo)
+		}
 		return 0, fmt.Errorf("error ejecutando insert: %w", err)
 	}
 	return res.LastInsertId()
 }
 
+// ⭐️ MODIFICADO: Devuelve 'codigo_equipo'
 func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
-	rows, err := DB.Query("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
+	rows, err := DB.Query("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
 		return nil, fmt.Errorf("error en query GetEquiposByProyectoID: %w", err)
 	}
@@ -628,7 +682,7 @@ func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	var equipos []models.EquipoImplemento
 	for rows.Next() {
 		var equipo models.EquipoImplemento
-		if err := rows.Scan(&equipo.ID, &equipo.ProyectoID, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion); err != nil {
+		if err := rows.Scan(&equipo.ID, &equipo.ProyectoID, &equipo.CodigoEquipo, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion); err != nil {
 			log.Printf("Error escaneando equipo: %v", err)
 			continue
 		}
@@ -637,24 +691,30 @@ func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	return equipos, nil
 }
 
+// ⭐️ MODIFICADO: Devuelve 'codigo_equipo'
 func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
 	var equipo models.EquipoImplemento
-	err := DB.QueryRow("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id).Scan(&equipo.ID, &equipo.ProyectoID, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion)
+	err := DB.QueryRow("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id).Scan(
+		&equipo.ID, &equipo.ProyectoID, &equipo.CodigoEquipo, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion)
 	if err != nil {
 		return nil, err
 	}
 	return &equipo, nil
 }
 
-func UpdateEquipo(id int, nombre string, tipo string, estado string) (int64, error) {
-	stmt, err := DB.Prepare("UPDATE equipos_implementos SET nombre = ?, tipo = ?, estado = ? WHERE id = ?")
+// ⭐️ MODIFICADO: Actualiza 'codigo_equipo'
+func UpdateEquipo(id int, codigo_equipo string, nombre string, tipo string, estado string) (int64, error) {
+	stmt, err := DB.Prepare("UPDATE equipos_implementos SET codigo_equipo = ?, nombre = ?, tipo = ?, estado = ? WHERE id = ?")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(nombre, tipo, estado, id)
+	result, err := stmt.Exec(codigo_equipo, nombre, tipo, estado, id)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: equipos_implementos.codigo_equipo") {
+			return 0, fmt.Errorf("el código de equipo '%s' ya existe", codigo_equipo)
+		}
 		return 0, err
 	}
 	return result.RowsAffected()
@@ -666,7 +726,6 @@ func DeleteEquipo(id int) (int64, error) {
 		return 0, err
 	}
 	defer stmt.Close()
-
 	result, err := stmt.Exec(id)
 	if err != nil {
 		return 0, err

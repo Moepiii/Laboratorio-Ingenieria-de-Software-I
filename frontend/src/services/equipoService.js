@@ -2,10 +2,8 @@ import { apiCall } from './authService';
 
 /**
  * Obtiene todos los equipos de un proyecto.
- * Llama a: /api/admin/get-equipos
  */
 export const getEquipos = (token, proyectoId, adminUsername) => {
-    // El body que espera el GetEquiposHandler en Go
     const body = {
         proyecto_id: proyectoId,
         admin_username: adminUsername
@@ -15,10 +13,10 @@ export const getEquipos = (token, proyectoId, adminUsername) => {
 
 /**
  * Crea un nuevo equipo.
- * Llama a: /api/admin/create-equipo
+ * ⭐️ MODIFICADO: El 'equipoData' ahora incluye 'codigo_equipo'
  */
 export const createEquipo = (token, equipoData, adminUsername) => {
-    // equipoData = { proyecto_id, nombre, tipo, estado }
+    // equipoData ahora es { proyecto_id, codigo_equipo, nombre, tipo, estado }
     const body = {
         ...equipoData,
         admin_username: adminUsername
@@ -28,10 +26,10 @@ export const createEquipo = (token, equipoData, adminUsername) => {
 
 /**
  * Actualiza un equipo existente.
- * Llama a: /api/admin/update-equipo
+ * ⭐️ MODIFICADO: El 'equipoData' ahora incluye 'codigo_equipo'
  */
 export const updateEquipo = (token, equipoData, adminUsername) => {
-    // equipoData = { id, nombre, tipo, estado }
+    // equipoData ahora es { id, codigo_equipo, nombre, tipo, estado }
     const body = {
         ...equipoData,
         admin_username: adminUsername
@@ -41,7 +39,6 @@ export const updateEquipo = (token, equipoData, adminUsername) => {
 
 /**
  * Elimina un equipo.
- * Llama a: /api/admin/delete-equipo
  */
 export const deleteEquipo = (token, equipoId, adminUsername) => {
     const body = {

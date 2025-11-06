@@ -9,7 +9,7 @@ type User struct {
 	Password string `json:"password"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
-	Cedula   string `json:"cedula"` // ⭐️ NUEVO: Para recibir la cédula en el JSON
+	Cedula   string `json:"cedula"`
 }
 
 type UserDB struct {
@@ -19,7 +19,7 @@ type UserDB struct {
 	Role           string
 	Nombre         string
 	Apellido       string
-	Cedula         string // ⭐️ NUEVO: Para leer la cédula de la DB
+	Cedula         string
 	ProyectoID     sql.NullInt64
 }
 
@@ -29,7 +29,7 @@ type UserListResponse struct {
 	Role           string  `json:"role"`
 	Nombre         string  `json:"nombre"`
 	Apellido       string  `json:"apellido"`
-	Cedula         string  `json:"cedula"` // ⭐️ NUEVO: Para enviar la cédula al frontend
+	Cedula         string  `json:"cedula"`
 	ProyectoID     *int    `json:"proyecto_id"`
 	ProyectoNombre *string `json:"proyecto_nombre"`
 }
@@ -37,7 +37,7 @@ type UserListResponse struct {
 type UpdateRoleRequest struct {
 	ID            int    `json:"id"`
 	NewRole       string `json:"new_role"`
-	AdminUsername string `json:"admin_username"` // Quien hace la petición
+	AdminUsername string `json:"admin_username"`
 }
 
 type AdminActionRequest struct {
@@ -45,7 +45,7 @@ type AdminActionRequest struct {
 }
 
 type AddUserRequest struct {
-	User                 // Contiene ahora Username, Password, Nombre, Apellido y Cedula
+	User
 	AdminUsername string `json:"admin_username"`
 }
 
@@ -122,9 +122,11 @@ type UserProjectDetailsResponse struct {
 
 // --- Estructuras para Labores Agronómicas ---
 
+// ⭐️ MODIFICADO: Añadido CodigoLabor
 type LaborAgronomica struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
+	CodigoLabor   string `json:"codigo_labor"` // ⭐️ NUEVO
 	Descripcion   string `json:"descripcion"`
 	Estado        string `json:"estado"`
 	FechaCreacion string `json:"fecha_creacion"`
@@ -135,15 +137,19 @@ type GetLaboresRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
+// ⭐️ MODIFICADO: Añadido CodigoLabor
 type CreateLaborRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
+	CodigoLabor   string `json:"codigo_labor"` // ⭐️ NUEVO
 	Descripcion   string `json:"descripcion"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
 
+// ⭐️ MODIFICADO: Añadido CodigoLabor
 type UpdateLaborRequest struct {
 	ID            int    `json:"id"`
+	CodigoLabor   string `json:"codigo_labor"` // ⭐️ NUEVO
 	Descripcion   string `json:"descripcion"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
@@ -156,9 +162,11 @@ type DeleteLaborRequest struct {
 
 // --- Estructuras para Equipos e Implementos ---
 
+// ⭐️ MODIFICADO: Añadido CodigoEquipo
 type EquipoImplemento struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
+	CodigoEquipo  string `json:"codigo_equipo"` // ⭐️ NUEVO
 	Nombre        string `json:"nombre"`
 	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
@@ -170,16 +178,20 @@ type GetEquiposRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
+// ⭐️ MODIFICADO: Añadido CodigoEquipo
 type CreateEquipoRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
+	CodigoEquipo  string `json:"codigo_equipo"` // ⭐️ NUEVO
 	Nombre        string `json:"nombre"`
 	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
 
+// ⭐️ MODIFICADO: Añadido CodigoEquipo
 type UpdateEquipoRequest struct {
-	ID            int    `json:"id"` // ID del equipo
+	ID            int    `json:"id"`
+	CodigoEquipo  string `json:"codigo_equipo"` // ⭐️ NUEVO
 	Nombre        string `json:"nombre"`
 	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
@@ -187,6 +199,6 @@ type UpdateEquipoRequest struct {
 }
 
 type DeleteEquipoRequest struct {
-	ID            int    `json:"id"` // ID del equipo
+	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }

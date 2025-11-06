@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getLabores, createLabor, updateLabor, deleteLabor } from '../services/laborService';
 
-// Estilos (similares a los que ya usas en Portafolio.js y Usuarios.js)
+// Estilos
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
     h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem' },
@@ -12,6 +12,8 @@ const styles = {
     h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
     input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
     button: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '1rem' },
+    // ⭐️ CAMBIO: Se añade el grid para el formulario
+    formGrid: { display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
@@ -23,34 +25,31 @@ const styles = {
     errorText: { color: 'red', marginTop: '1rem' }
 };
 
+
 const LaboresAgronomicas = () => {
-    // --- 1. Hooks y Estado ---
-    const { id } = useParams(); // Obtiene el ID del proyecto de la URL
-    const { token, currentUser } = useAuth(); // Obtiene el token y usuario del contexto
+    const { id } = useParams();
+    const { token, currentUser } = useAuth();
 
     const [labores, setLabores] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Estado para el formulario de crear
+    // ⭐️ CAMBIO: Se añade estado para el código
+    const [newLaborCodigo, setNewLaborCodigo] = useState('');
     const [newLaborDesc, setNewLaborDesc] = useState('');
 
-    // Estado para la edición en línea
-    const [editingId, setEditingId] = useState(null); // ID de la labor que se está editando
-    const [editFormData, setEditFormData] = useState({ descripcion: '', estado: '' }); // Datos del formulario de edición
+    const [editingId, setEditingId] = useState(null);
+    const [editFormData, setEditFormData] = useState({ codigo_labor: '', descripcion: '', estado: '' });
 
-    // Variables de utilidad
     const adminUsername = currentUser?.username;
-    const proyectoIdNum = parseInt(id, 10); // Convierte el ID de la URL a número
+    const proyectoIdNum = parseInt(id, 10);
 
-    // --- 2. Función para Cargar Datos ---
     const fetchLabores = useCallback(async () => {
         if (!token || !adminUsername || !proyectoIdNum) return;
 
         setLoading(true);
         setError('');
         try {
-            // Llama al servicio que creamos en el paso 2.1
             const data = await getLabores(token, proyectoIdNum, adminUsername);
             setLabores(data.labores || []);
         } catch (err) {
@@ -60,39 +59,37 @@ const LaboresAgronomicas = () => {
         }
     }, [token, adminUsername, proyectoIdNum]);
 
-    // Carga inicial de datos cuando el componente se monta
     useEffect(() => {
         fetchLabores();
     }, [fetchLabores]);
 
-    // --- 3. Handlers (Manejadores de eventos) CRUD ---
-
-    // CREAR una nueva labor
+    // Handlers CRUD
     const handleCreateLabor = async (e) => {
         e.preventDefault();
-        if (newLaborDesc.trim() === '') {
-            setError('La descripción no puede estar vacía.');
+        if (newLaborDesc.trim() === '' || newLaborCodigo.trim() === '') {
+            setError('El Código y la Descripción no pueden estar vacíos.');
             return;
         }
         setError('');
 
+        // ⭐️ CAMBIO: Se pasa el 'codigo_labor'
         const laborData = {
             proyecto_id: proyectoIdNum,
+            codigo_labor: newLaborCodigo,
             descripcion: newLaborDesc,
-            estado: 'activa' // Estado por defecto al crear
+            estado: 'activa'
         };
 
         try {
-            // Llama al servicio
             const nuevaLabor = await createLabor(token, laborData, adminUsername);
-            setLabores([nuevaLabor, ...labores]); // Añade la nueva labor al inicio de la lista
-            setNewLaborDesc(''); // Limpia el input
+            setLabores([nuevaLabor, ...labores]);
+            setNewLaborDesc('');
+            setNewLaborCodigo(''); // Limpia el código también
         } catch (err) {
             setError(err.message || 'Error al crear la labor.');
         }
     };
 
-    // BORRAR una labor
     const handleDeleteLabor = async (laborId) => {
         if (!window.confirm('¿Estás seguro de que quieres borrar esta labor?')) {
             return;
@@ -100,55 +97,56 @@ const LaboresAgronomicas = () => {
 
         try {
             await deleteLabor(token, laborId, adminUsername);
-            // Filtra la labor borrada del estado local
             setLabores(labores.filter(labor => labor.id !== laborId));
         } catch (err) {
             setError(err.message || 'Error al borrar la labor.');
         }
     };
 
-    // --- 4. Handlers para Edición En Línea ---
-
-    // Clic en "Editar": activa el modo edición para esa fila
+    // Handlers de Edición En Línea
     const handleEditClick = (labor) => {
         setEditingId(labor.id);
-        setEditFormData({ descripcion: labor.descripcion, estado: labor.estado });
+        setEditFormData({
+            codigo_labor: labor.codigo_labor,
+            descripcion: labor.descripcion,
+            estado: labor.estado
+        });
     };
 
-    // Clic en "Cancelar": desactiva el modo edición
     const handleCancelClick = () => {
         setEditingId(null);
     };
 
-    // Maneja el cambio en los inputs de edición
     const handleEditFormChange = (e) => {
         const { name, value } = e.target;
         setEditFormData({ ...editFormData, [name]: value });
     };
 
-    // Clic en "Guardar": ACTUALIZA la labor
     const handleUpdateLabor = async (laborId) => {
         const laborData = {
             id: laborId,
-            ...editFormData // { descripcion, estado }
+            ...editFormData // { codigo_labor, descripcion, estado }
         };
+
+        if (laborData.codigo_labor.trim() === '' || laborData.descripcion.trim() === '') {
+            setError('El Código y la Descripción no pueden estar vacíos.');
+            return;
+        }
+        setError('');
 
         try {
             await updateLabor(token, laborData, adminUsername);
-
-            // Actualiza la lista local de labores con los nuevos datos
             const updatedLabores = labores.map(labor =>
                 labor.id === laborId ? { ...labor, ...editFormData } : labor
             );
             setLabores(updatedLabores);
-            setEditingId(null); // Desactiva el modo edición
+            setEditingId(null);
         } catch (err) {
             setError(err.message || 'Error al actualizar la labor.');
         }
     };
 
 
-    // --- 5. Renderizado del Componente ---
     return (
         <div style={styles.container}>
             <h2 style={styles.h2}>Gestión de Labores Agronómicas</h2>
@@ -158,24 +156,38 @@ const LaboresAgronomicas = () => {
             <div style={styles.formContainer}>
                 <h3 style={styles.h3}>Nueva Labor</h3>
                 <form onSubmit={handleCreateLabor}>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label htmlFor="descripcion" style={{ display: 'block', marginBottom: '0.5rem' }}>Descripción</label>
-                        <input
-                            id="descripcion"
-                            type="text"
-                            value={newLaborDesc}
-                            onChange={(e) => setNewLaborDesc(e.target.value)}
-                            style={styles.input}
-                            placeholder="Ej: Preparación de suelo"
-                        />
+                    {/* ⭐️ CAMBIO: Formulario en grid */}
+                    <div style={styles.formGrid}>
+                        <div>
+                            <label htmlFor="codigo_labor" style={{ display: 'block', marginBottom: '0.5rem' }}>Código</label>
+                            <input
+                                id="codigo_labor"
+                                type="text"
+                                value={newLaborCodigo}
+                                onChange={(e) => setNewLaborCodigo(e.target.value)}
+                                style={styles.input}
+                                placeholder="Ej: LAB-001"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="descripcion" style={{ display: 'block', marginBottom: '0.5rem' }}>Descripción</label>
+                            <input
+                                id="descripcion"
+                                type="text"
+                                value={newLaborDesc}
+                                onChange={(e) => setNewLaborDesc(e.target.value)}
+                                style={styles.input}
+                                placeholder="Ej: Preparación de suelo"
+                            />
+                        </div>
                     </div>
                     <button type="submit" style={styles.button}>
+                        <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
                         Crear Labor
                     </button>
                 </form>
             </div>
 
-            {/* Muestra de Errores */}
             {error && <p style={styles.errorText}>{error}</p>}
 
             {/* Tabla de Labores */}
@@ -185,6 +197,8 @@ const LaboresAgronomicas = () => {
                 <table style={styles.table}>
                     <thead>
                         <tr>
+                            {/* ⭐️ CAMBIO: Se añade columna Código */}
+                            <th style={styles.th}>Código</th>
                             <th style={styles.th}>Descripción</th>
                             <th style={styles.th}>Estado</th>
                             <th style={styles.th}>Fecha Creación</th>
@@ -194,7 +208,7 @@ const LaboresAgronomicas = () => {
                     <tbody>
                         {labores.length === 0 ? (
                             <tr>
-                                <td colSpan="4" style={{ ...styles.td, textAlign: 'center' }}>
+                                <td colSpan="5" style={{ ...styles.td, textAlign: 'center' }}>
                                     No hay labores registradas para este proyecto.
                                 </td>
                             </tr>
@@ -204,6 +218,15 @@ const LaboresAgronomicas = () => {
                                     {editingId === labor.id ? (
                                         // --- Fila en Modo Edición ---
                                         <>
+                                            <td style={styles.td}>
+                                                <input
+                                                    type="text"
+                                                    name="codigo_labor"
+                                                    value={editFormData.codigo_labor}
+                                                    onChange={handleEditFormChange}
+                                                    style={styles.input}
+                                                />
+                                            </td>
                                             <td style={styles.td}>
                                                 <input
                                                     type="text"
@@ -234,6 +257,7 @@ const LaboresAgronomicas = () => {
                                     ) : (
                                         // --- Fila en Modo Lectura ---
                                         <>
+                                            <td style={styles.td}>{labor.codigo_labor}</td>
                                             <td style={styles.td}>{labor.descripcion}</td>
                                             <td style={styles.td}>{labor.estado}</td>
                                             <td style={styles.td}>{new Date(labor.fecha_creacion).toLocaleDateString()}</td>
