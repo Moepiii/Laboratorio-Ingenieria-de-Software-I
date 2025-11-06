@@ -9,6 +9,7 @@ type User struct {
 	Password string `json:"password"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
+	Cedula   string `json:"cedula"` // ⭐️ NUEVO: Para recibir la cédula en el JSON
 }
 
 type UserDB struct {
@@ -18,6 +19,7 @@ type UserDB struct {
 	Role           string
 	Nombre         string
 	Apellido       string
+	Cedula         string // ⭐️ NUEVO: Para leer la cédula de la DB
 	ProyectoID     sql.NullInt64
 }
 
@@ -27,6 +29,7 @@ type UserListResponse struct {
 	Role           string  `json:"role"`
 	Nombre         string  `json:"nombre"`
 	Apellido       string  `json:"apellido"`
+	Cedula         string  `json:"cedula"` // ⭐️ NUEVO: Para enviar la cédula al frontend
 	ProyectoID     *int    `json:"proyecto_id"`
 	ProyectoNombre *string `json:"proyecto_nombre"`
 }
@@ -42,7 +45,7 @@ type AdminActionRequest struct {
 }
 
 type AddUserRequest struct {
-	User
+	User                 // Contiene ahora Username, Password, Nombre, Apellido y Cedula
 	AdminUsername string `json:"admin_username"`
 }
 
@@ -151,9 +154,8 @@ type DeleteLaborRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ --- (INICIO) Estructuras para Equipos e Implementos --- ⭐️
+// --- Estructuras para Equipos e Implementos ---
 
-// ⭐️ NUEVO (Equipos): Estructura de la tabla (la que database.go usa)
 type EquipoImplemento struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
@@ -163,13 +165,11 @@ type EquipoImplemento struct {
 	FechaCreacion string `json:"fecha_creacion"`
 }
 
-// ⭐️ NUEVO (Equipos): Para la petición GET del frontend
 type GetEquiposRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO (Equipos): Para la petición CREATE del frontend
 type CreateEquipoRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	Nombre        string `json:"nombre"`
@@ -178,7 +178,6 @@ type CreateEquipoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO (Equipos): Para la petición UPDATE del frontend
 type UpdateEquipoRequest struct {
 	ID            int    `json:"id"` // ID del equipo
 	Nombre        string `json:"nombre"`
@@ -187,10 +186,7 @@ type UpdateEquipoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO (Equipos): Para la petición DELETE del frontend
 type DeleteEquipoRequest struct {
 	ID            int    `json:"id"` // ID del equipo
 	AdminUsername string `json:"admin_username"`
 }
-
-// ⭐️ --- (FIN) Estructuras para Equipos e Implementos --- ⭐️

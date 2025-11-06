@@ -14,245 +14,301 @@ const styles = {
   adminFormContainer: { padding: '1.5rem', backgroundColor: '#f9fafb', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #e5e7eb' },
   input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out', boxSizing: 'border-box' },
   button: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 1rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s, transform 0.1s', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-  error: { fontSize: '0.875rem', color: '#dc2626', fontWeight: '500', backgroundColor: '#fef2f2', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecaca' },
-  success: { fontSize: '0.875rem', color: '#059669', fontWeight: '500', backgroundColor: '#ecfdf5', padding: '0.75rem', borderRadius: '8px', border: '1px solid #a7f3d0' },
-  selectAssign: { padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', marginRight: '0.5rem', fontSize: '0.875rem', backgroundColor: 'white' },
-  buttonAssign: { padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: '600', backgroundColor: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' },
-  label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' },
-  inputGroup: { marginBottom: '1.5rem' },
-  card: { padding: '2rem', backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: '400px', margin: 'auto' },
-  tableContainer: { overflowX: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' },
-  th: { padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb', backgroundColor: '#f9fafb', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#374151', verticalAlign: 'middle' },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(1, minmax(0, 1fr))', gap: '1rem' }, // Grid por defecto
+  h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem' },
+  tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
+  table: { width: '100%', borderCollapse: 'collapse', minWidth: '800px' },
+  th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
+  td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
+  select: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', backgroundColor: 'white' },
+  buttonAssign: { padding: '0.4rem 0.8rem', fontSize: '0.875rem', fontWeight: '500', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', width: '100px', marginTop: '0.25rem' },
+  error: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' },
+  success: { backgroundColor: '#dcfce7', color: '#16a34a', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' },
+  inputGroup: { marginBottom: '0.5rem' },
+  label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
 };
+
+// Media query para el grid
+if (window.innerWidth >= 768) {
+  styles.formGrid = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', // 3 columnas en desktop
+    gap: '1rem'
+  };
+}
 
 
 const PerfilesUsuarios = () => {
+  const { token, currentUser } = useAuth();
+  const adminUsername = currentUser?.username;
 
-  // 1. Hooks siempre al principio
-  const { token, currentUser, userRole } = useAuth();
+  // Estados del componente
   const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [selectedProyectos, setSelectedProyectos] = useState({});
-  const [selectedRoles, setSelectedRoles] = useState({});
-  const [proyectosList, setProyectosList] = useState([]);
-  const [adminError, setAdminError] = useState('');
-  const [adminSuccess, setAdminSuccess] = useState('');
-  const [loadingAdd, setLoadingAdd] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [generalError, setGeneralError] = useState('');
+
+  // Estados del formulario "Añadir"
+  const [addingUser, setAddingUser] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newNombre, setNewNombre] = useState('');
   const [newApellido, setNewApellido] = useState('');
+  const [newCedula, setNewCedula] = useState('');
+  const [addError, setAddError] = useState('');
+  const [addSuccess, setAddSuccess] = useState('');
 
-  // 2. useCallback con comprobación interna y dependencia completa
-  const fetchUsersAndProyectos = useCallback(async () => {
-    // Guarda: Salir si los datos requeridos no están listos
-    if (!token || !currentUser?.username) {
-      // console.warn("fetchUsersAndProyectos llamado antes de que user/token estuvieran listos.");
-      setLoadingUsers(false);
-      if (!currentUser && token) setAdminError("Error: No se pudieron cargar los datos del usuario actual.");
-      return;
-    }
+  // Estados para la asignación de roles y proyectos
+  const [proyectos, setProyectos] = useState([]);
+  const [selectedRoles, setSelectedRoles] = useState({});
+  const [selectedProyectos, setSelectedProyectos] = useState({});
 
-    setLoadingUsers(true);
-    setAdminError('');
+  // Carga inicial de datos
+  const loadData = useCallback(async () => {
+    if (!token || !adminUsername) return;
+    setLoading(true);
+    setGeneralError('');
     try {
-      // Ahora es seguro usar currentUser.username
-      const usersResult = await getAdminUsers(token, currentUser.username);
-      const fetchedUsers = usersResult.users || [];
-      setUsers(fetchedUsers);
+      const [usersData, proyectosData] = await Promise.all([
+        getAdminUsers(token, adminUsername),
+        getAdminProjects(token, adminUsername)
+      ]);
+
+      const usersList = usersData.users || [];
+      setUsers(usersList);
+      setProyectos(proyectosData.proyectos || []);
 
       const initialRoles = {};
       const initialProyectos = {};
-      fetchedUsers.forEach(user => {
+      usersList.forEach(user => {
         initialRoles[user.id] = user.role;
-        initialProyectos[user.id] = user.proyecto_id || '0';
+        initialProyectos[user.id] = user.proyecto_id || 0;
       });
       setSelectedRoles(initialRoles);
       setSelectedProyectos(initialProyectos);
 
-      const proyectosResult = await getAdminProjects(token, currentUser.username);
-      setProyectosList(proyectosResult.proyectos || []);
-
-    } catch (e) {
-      setAdminError(`Error al cargar datos: ${e.message}`);
+    } catch (err) {
+      setGeneralError(err.message || 'Error al cargar los datos.');
     } finally {
-      setLoadingUsers(false);
+      setLoading(false);
     }
-    
-  }, [token, currentUser]);
+  }, [token, adminUsername]);
 
-  // 3. useEffect llama a fetch solo cuando las dependencias están listas
   useEffect(() => {
-    // Usa ?. en la guarda
-    if (token && currentUser?.username) {
-      fetchUsersAndProyectos();
-    } else {
-      setLoadingUsers(!token);
-    }
-   
-  }, [fetchUsersAndProyectos, token, currentUser]);
+    loadData();
+  }, [loadData]);
 
 
-  // 4. Handlers CRUD con guardas usando ?. (sin cambios en esta parte)
+  // Helper para limpiar el formulario de añadir
+  const clearForm = () => {
+    setNewUsername('');
+    setNewPassword('');
+    setNewNombre('');
+    setNewApellido('');
+    setNewCedula('');
+    setAddingUser(false);
+    setAddError('');
+    setAddSuccess('');
+  };
+
+  // --- Handlers ---
+
   const handleAdminAddUser = async (e) => {
     e.preventDefault();
-    if (!token || !currentUser?.username) return;
-    setLoadingAdd(true);
-    setAdminError(''); setAdminSuccess('');
+    setAddError('');
+    setAddSuccess('');
+
+    const newUser = {
+      username: newUsername,
+      password: newPassword,
+      nombre: newNombre,
+      apellido: newApellido,
+      cedula: newCedula
+    };
+
+    if (!newUser.username || !newUser.password || !newUser.nombre || !newUser.apellido || !newUser.cedula) {
+      setAddError('Todos los campos (username, password, nombre, apellido y cédula) son requeridos.');
+      return;
+    }
+
     try {
-      const userData = { username: newUsername, password: newPassword, nombre: newNombre, apellido: newApellido };
-      const result = await adminAddUser(token, userData, currentUser.username);
-      setAdminSuccess(result.mensaje || 'Usuario creado');
-      setNewUsername(''); setNewPassword(''); setNewNombre(''); setNewApellido('');
-      fetchUsersAndProyectos();
-    } catch (e) { setAdminError(`Error de conexión: ${e.message}`); }
-    finally { setLoadingAdd(false); }
+      const response = await adminAddUser(token, newUser, adminUsername);
+      setAddSuccess(response.mensaje || 'Usuario añadido con éxito.');
+      loadData();
+      clearForm();
+
+    } catch (err) {
+      setAddError(err.message || 'Error al añadir usuario.');
+    }
   };
-  // ... (resto de handlers CRUD sin cambios) ...
+
   const handleAdminDeleteUser = async (userId, username) => {
-    if (!token || !currentUser?.username || !window.confirm(`Borrar ${username}?`)) return;
-    setAdminError(''); setAdminSuccess('');
+    if (username === currentUser.username) {
+      setGeneralError('No puedes borrar tu propia cuenta.');
+      return;
+    }
+    if (!window.confirm(`¿Estás seguro de que quieres borrar al usuario ${username}?`)) return;
+
+    setGeneralError('');
     try {
-      const result = await adminDeleteUser(token, userId, currentUser.username);
-      setAdminSuccess(result.mensaje || 'Usuario borrado');
-      fetchUsersAndProyectos();
-    } catch (e) { setAdminError(`Error de conexión: ${e.message}`); }
+      await adminDeleteUser(token, userId, adminUsername);
+      loadData();
+    } catch (err) {
+      setGeneralError(err.message || 'Error al borrar usuario.');
+    }
   };
+
   const handleAdminUpdateRole = async (userId, newRole) => {
-    if (!token || !currentUser?.username) return;
-    setAdminError(''); setAdminSuccess('');
+    setGeneralError('');
     try {
-      await adminUpdateUserRole(token, userId, newRole, currentUser.username);
-      setAdminSuccess(`Rol actualizado.`);
-      fetchUsersAndProyectos();
-    } catch (e) { setAdminError(`Error de conexión: ${e.message}`); }
-  };
-  const handleAssignProyecto = async (userId, proyectoId) => {
-    if (!token || !currentUser?.username || !proyectoId) return;
-    setAdminError(''); setAdminSuccess('');
-    try {
-      const idAsignar = parseInt(proyectoId, 10);
-      const result = await adminAssignProjectToUser(token, userId, idAsignar, currentUser.username);
-      setAdminSuccess(result.mensaje || 'Proyecto asignado/quitado');
-      fetchUsersAndProyectos();
-    } catch (e) { setAdminError(`Error de conexión: ${e.message}`); }
+      await adminUpdateUserRole(token, userId, newRole, adminUsername);
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === userId ? { ...user, role: newRole } : user
+        )
+      );
+    } catch (err) {
+      setGeneralError(err.message || 'Error al actualizar el rol.');
+    }
   };
 
+  const handleAdminAssignProject = async (userId, proyectoId) => {
+    setGeneralError('');
+    const pId = parseInt(proyectoId, 10);
+    try {
+      await adminAssignProjectToUser(token, userId, pId, adminUsername);
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === userId ? { ...user, proyecto_id: pId || null, proyecto_nombre: proyectos.find(p => p.id === pId)?.nombre || null } : user
+        )
+      );
+    } catch (err) {
+      setGeneralError(err.message || 'Error al asignar el proyecto.');
+    }
+  };
 
-  // Funciones auxiliares (sin cambios)
-  const handleSelectRoleChange = (userId, newRole) => setSelectedRoles(prev => ({ ...prev, [userId]: newRole }));
-  const handleSelectProyectoChange = (userId, newProyectoId) => setSelectedProyectos(prev => ({ ...prev, [userId]: newProyectoId }));
+  // --- Renderizado ---
 
-  // 5. Renderizado condicional principal
-  if (loadingUsers || !currentUser?.username) {
-    return <div style={{ padding: '2rem' }}>Cargando datos...</div>;
-  }
+  if (loading) return <div style={{ padding: '2rem' }}>Cargando perfiles...</div>;
 
-  // --- Renderiza el componente principal ---
   return (
-    <div style={{ width: '100%' }}>
-      <h2 style={{ fontSize: '1.875rem', fontWeight: '700', color: '#1f2937' }}> Perfiles de Usuarios </h2>
-      <p style={{ fontSize: '1.125rem', color: '#4b5563', marginBottom: '1.5rem' }}>
-        Logueado como: **{currentUser?.username || 'Usuario Desconocido'}** (Rol: {userRole || 'N/A'})
-      </p>
+    <div style={{ padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
+      <h2 style={styles.h2}>Perfiles de Usuarios</h2>
 
-      {adminSuccess && <p style={{ ...styles.success, marginBottom: '1rem' }}>{adminSuccess}</p>}
-      {!loadingUsers && adminError && <p style={{ ...styles.error, marginBottom: '1rem' }}>{adminError}</p>}
+      {generalError && <div style={styles.error}>{generalError}</div>}
 
-      {/* Formulario Admin */}
-      {userRole === 'admin' && (
+      {!addingUser && (
+        <button
+          onClick={() => setAddingUser(true)}
+          style={{ ...styles.button, width: 'auto', marginBottom: '2rem', backgroundColor: '#22c55e' }}
+        >
+          <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
+          Añadir Nuevo Usuario
+        </button>
+      )}
+
+      {addingUser && (
         <div style={styles.adminFormContainer}>
-          {/* ... (contenido del formulario sin cambios) ... */}
-          <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>➕ Crear Nuevo Usuario</h3>
-          <form onSubmit={handleAdminAddUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: window.innerWidth > 600 ? 'row' : 'column', gap: '1rem' }}>
-              <input type="text" placeholder="Nombre de Usuario" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} required style={{ ...styles.input, flex: 1 }} disabled={loadingAdd} />
-              <input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required style={{ ...styles.input, flex: 1 }} disabled={loadingAdd} />
+          <form onSubmit={handleAdminAddUser}>
+            <div style={styles.formGrid}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Nombre</label>
+                <input type="text" style={styles.input} value={newNombre} onChange={(e) => setNewNombre(e.target.value)} />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Apellido</label>
+                <input type="text" style={styles.input} value={newApellido} onChange={(e) => setNewApellido(e.target.value)} />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Cédula</label>
+                <input type="text" style={styles.input} value={newCedula} onChange={(e) => setNewCedula(e.target.value)} placeholder="V-12345678" />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Username (Login)</label>
+                <input type="text" style={styles.input} value={newUsername} onChange={(e) => setNewUsername(e.target.value)} />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Password Temporal</label>
+                <input type="password" style={styles.input} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: window.innerWidth > 600 ? 'row' : 'column', gap: '1rem' }}>
-              <input type="text" placeholder="Nombre" value={newNombre} onChange={(e) => setNewNombre(e.target.value)} required style={{ ...styles.input, flex: 1 }} disabled={loadingAdd} />
-              <input type="text" placeholder="Apellido" value={newApellido} onChange={(e) => setNewApellido(e.target.value)} required style={{ ...styles.input, flex: 1 }} disabled={loadingAdd} />
+
+            {addError && <p style={styles.error}>{addError}</p>}
+            {addSuccess && <p style={styles.success}>{addSuccess}</p>}
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button type="submit" style={{ ...styles.button, width: '150px' }}>Crear Usuario</button>
+              <button type="button" onClick={clearForm} style={{ ...styles.button, width: '150px', backgroundColor: '#6b7280' }}>Cancelar</button>
             </div>
-            <button type="submit" style={{ ...styles.button, width: '100%', backgroundColor: loadingAdd ? '#9ca3af' : '#4f46e5' }} disabled={loadingAdd}>
-              {loadingAdd ? 'Creando...' : 'Crear Usuario'}
-            </button>
           </form>
         </div>
       )}
 
       {/* Tabla de Usuarios */}
-      {!loadingUsers && !adminError && (
+      {loading ? (
+        <p>Cargando usuarios...</p>
+      ) : (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
             <thead>
               <tr>
                 <th style={styles.th}>ID</th>
-                <th style={styles.th}>Usuario</th>
+                {/* ⭐️ LÍNEA CORREGIDA: ⭐️ */}
+                <th style={styles.th}>Username</th>
                 <th style={styles.th}>Nombre</th>
-                <th style={styles.th}>Apellido</th>
-                <th style={styles.th}>Rol Actual</th>
-                <th style={styles.th}>Asignar Proyecto</th>
-                <th style={styles.th}>Acciones (Admin)</th>
+                <th style={styles.th}>Cédula</th>
+                <th style={styles.th}>Proyecto Asignado</th>
+                <th style={styles.th}>Rol</th>
+                <th style={styles.th}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(user => {
-                const isSelf = user.username === currentUser?.username;
-                const proyectosDisponibles = proyectosList.filter(p =>
-                  user.role === 'user' ? p.estado === 'habilitado' : true
-                );
-
+              {users.map((user) => {
+                const isSelf = user.username === currentUser.username;
                 return (
                   <tr key={user.id}>
-                    {/* ... (Celdas de la tabla sin cambios internos) ... */}
                     <td style={styles.td}>{user.id}</td>
-                    <td style={styles.td}>{user.username} {isSelf && '(Tú)'}</td>
-                    <td style={styles.td}>{user.nombre}</td>
-                    <td style={styles.td}>{user.apellido}</td>
+                    <td style={styles.td}>{user.username}</td>
+                    <td style={styles.td}>{user.nombre} {user.apellido}</td>
+                    <td style={styles.td}>{user.cedula}</td>
                     <td style={styles.td}>
-                      {userRole === 'admin' && !isSelf ? (
+                      {isSelf ? (
+                        <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>N/A</span>
+                      ) : (
                         <select
-                          style={styles.selectAssign}
+                          style={styles.select}
+                          value={selectedProyectos[user.id] || 0}
+                          onChange={(e) => {
+                            const newProjId = parseInt(e.target.value, 10);
+                            setSelectedProyectos(prev => ({ ...prev, [user.id]: newProjId }));
+                            handleAdminAssignProject(user.id, newProjId);
+                          }}
+                        >
+                          <option value="0">--- No Asignado ---</option>
+                          {proyectos.map(p => (
+                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td style={styles.td}>
+                      {isSelf ? (
+                        <span style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1f2937' }}>{user.role}</span>
+                      ) : (
+                        <select
+                          style={styles.select}
                           value={selectedRoles[user.id] || user.role}
-                          onChange={(e) => handleSelectRoleChange(user.id, e.target.value)}
+                          onChange={(e) => setSelectedRoles(prev => ({ ...prev, [user.id]: e.target.value }))}
                         >
                           <option value="user">User</option>
+                          <option value="encargado">Encargado</option>
                           <option value="gerente">Gerente</option>
                           <option value="admin">Admin</option>
                         </select>
-                      ) : (
-                        user.role
                       )}
                     </td>
                     <td style={styles.td}>
-                      {(userRole === 'admin' || userRole === 'gerente') && !isSelf && (user.role === 'user' || user.role === 'gerente') ? (
-                        <div style={{ display: 'flex' }}>
-                          <select
-                            style={styles.selectAssign}
-                            value={selectedProyectos[user.id] || '0'}
-                            onChange={(e) => handleSelectProyectoChange(user.id, e.target.value)}
-                          >
-                            <option value="0">Quitar / Ninguno</option>
-                            {proyectosDisponibles.map(p => (
-                              <option key={p.id} value={p.id}>{p.nombre}</option>
-                            ))}
-                          </select>
-                          <button
-                            style={styles.buttonAssign}
-                            onClick={() => handleAssignProyecto(user.id, selectedProyectos[user.id])}
-                          >
-                            Asignar
-                          </button>
-                        </div>
-                      ) : (
-                        user.proyecto_nombre || <span style={{ color: '#9ca3af' }}>N/A</span>
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {userRole === 'admin' && !isSelf ? (
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {!isSelf ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                           <button
                             style={{ ...styles.buttonAssign, backgroundColor: '#f59e0b' }}
                             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d97706'}

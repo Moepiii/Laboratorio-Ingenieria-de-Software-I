@@ -39,19 +39,24 @@ export const apiCall = async (endpoint, method, body = null, token = null) => {
             throw new Error(`Error ${response.status} ${response.statusText}: Respuesta vacía del servidor`);
         }
 
-        // Intenta parsear como JSON
+        // Intenta parsear el texto como JSON
         let data;
         try {
             data = JSON.parse(responseText);
-        } catch (e) {
-            // Si falla el parseo Y el status es OK, algo raro pasó. Lanza error.
-            if (response.ok) {
-                throw new Error(`Respuesta inesperada no-JSON del servidor: ${responseText.substring(0, 100)}`); // Muestra parte del texto
-            } else {
-                // Si falla el parseo Y el status NO es OK, usa el texto como error.
+        } catch (jsonError) {
+            // El texto no era JSON
+            // Si la respuesta NO fue OK, lanza un error con el texto (puede ser un error HTML de Go)
+            if (!response.ok) {
+                console.error("Respuesta no-JSON del servidor (Error):", responseText);
+                // Trunca el texto si es muy largo (ej. una página de error HTML)
                 throw new Error(`Error ${response.status} ${response.statusText}: ${responseText.substring(0, 100)}`);
             }
+
+            // Si la respuesta FUE OK pero no es JSON, devuelve el texto (raro, pero posible)
+            console.warn("Respuesta no-JSON del servidor (OK):", responseText);
+            return responseText;
         }
+
 
         // Si el parseo tiene éxito pero !response.ok, usa el mensaje de error del JSON
         if (!response.ok) {
@@ -76,17 +81,21 @@ export const apiCall = async (endpoint, method, body = null, token = null) => {
 };
 
 
-// --- Funciones de Autenticación (sin cambios) ---
+// --- Funciones de Autenticación ---
+
 export const loginUser = (username, password) => {
     return apiCall('/login', 'POST', { username: username, password: password });
 };
 
-export const registerUser = (username, password, nombre, apellido) => {
+// ⭐️ MODIFICADO: Se añade 'cedula' a la firma y al objeto 'user'
+export const registerUser = (username, password, nombre, apellido, cedula) => {
     const user = {
         username: username,
         password: password,
         nombre: nombre,
-        apellido: apellido
+        apellido: apellido,
+        cedula: cedula // ⭐️ NUEVO
     };
+    // Llama al endpoint de registro (el body ahora incluye la cédula)
     return apiCall('/register', 'POST', user);
 };

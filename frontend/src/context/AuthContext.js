@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+// ⭐️ MODIFICADO: Importamos la función actualizada de authService
 import { loginUser, registerUser } from '../services/authService';
 
 const AuthContext = createContext();
@@ -9,7 +10,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null); // Esto guardará {username, nombre, apellido, cedula}
     const [userRole, setUserRole] = useState(null);
     const [userId, setUserId] = useState(null);
     const [token, setToken] = useState(null);
@@ -37,30 +38,24 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         try {
             const storedToken = localStorage.getItem('token');
-            const storedUser = localStorage.getItem('user');
+            const storedUser = localStorage.getItem('user'); // Esto ya contiene la cédula si el usuario inició sesión
             const storedRole = localStorage.getItem('role');
             const storedUserId = localStorage.getItem('userId');
 
-            if (storedToken && storedUser && storedUser !== "undefined" && storedRole && storedUserId) {
-
+            if (storedToken && storedUser && storedRole && storedUserId) {
+                setIsLoggedIn(true);
                 setToken(storedToken);
                 setCurrentUser(JSON.parse(storedUser));
                 setUserRole(storedRole);
-                
-                setUserId(parseInt(storedUserId, 10));
-                setIsLoggedIn(true);
-
-            } else if (storedToken || storedUser || storedRole || storedUserId) {
-                logout(); // Limpia datos parciales o corruptos
+                setUserId(parseInt(storedUserId, 10)); // Asegura que sea número
             }
-
         } catch (e) {
-            console.error("Error al cargar localStorage, limpiando sesión.", e);
-            logout();
+            console.error("Error al cargar datos de localStorage:", e);
+            logout(); // Limpia el estado si hay un error
         } finally {
             setLoading(false);
         }
-    }, []); // Se ejecuta solo una vez
+    }, []);
 
     // Función de Login
     const login = async (username, password) => {
@@ -68,23 +63,19 @@ export const AuthProvider = ({ children }) => {
         setError('');
         setSuccessMessage('');
         try {
-            // Llama al servicio (que se encarga del PascalCase)
+            // data = { token, user: {username, nombre, apellido, cedula}, role, userId }
             const data = await loginUser(username, password);
 
-            // Verifica la respuesta del backend (que ya envía token)
-            if (!data.token || !data.user || !data.role || !data.userId) {
-                throw new Error('Respuesta de login incompleta (faltan token, user, role, o userId).');
-            }
-
-            setToken(data.token);
-            setCurrentUser(data.user);
-            setUserRole(data.role);
-            setUserId(data.userId); // data.userId ya es un número
+            // 1. Poner datos en el Estado
             setIsLoggedIn(true);
+            setToken(data.token);
+            setCurrentUser(data.user); // data.user ya incluye la cédula desde el backend
+            setUserRole(data.role);
+            setUserId(data.userId);
 
-            // Guarda en localStorage
+            // 2. Guarda en localStorage
             localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('user', JSON.stringify(data.user)); // Se guarda el objeto user completo
             localStorage.setItem('role', data.role);
             localStorage.setItem('userId', data.userId); // Se guarda como string
 
@@ -95,14 +86,14 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Función de Registro
-    const register = async (username, password, nombre, apellido) => {
+    // ⭐️ MODIFICADO: La función 'register' ahora acepta y pasa la 'cedula'
+    const register = async (username, password, nombre, apellido, cedula) => {
         setLoading(true);
         setError('');
         setSuccessMessage('');
         try {
             // Llama al servicio (que se encarga del PascalCase)
-            const response = await registerUser(username, password, nombre, apellido);
+            const response = await registerUser(username, password, nombre, apellido, cedula);
             setSuccessMessage(response.mensaje || '¡Registro exitoso! Ahora puedes iniciar sesión.');
 
         } catch (err) {
@@ -117,7 +108,7 @@ export const AuthProvider = ({ children }) => {
         isLoggedIn,
         currentUser,
         userRole,
-        userId, 
+        userId,
         token,
         loading,
         error,

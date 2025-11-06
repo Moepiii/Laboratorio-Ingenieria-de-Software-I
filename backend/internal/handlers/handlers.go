@@ -28,6 +28,7 @@ type UserDetails struct {
 	Username string `json:"username"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
+	Cedula   string `json:"cedula"`
 }
 
 type LoginResponse struct {
@@ -62,12 +63,12 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Username == "" || user.Password == "" || user.Nombre == "" || user.Apellido == "" {
-		respondWithError(w, http.StatusBadRequest, "Todos los campos (username, password, nombre, apellido) son requeridos.")
+	if user.Username == "" || user.Password == "" || user.Nombre == "" || user.Apellido == "" || user.Cedula == "" {
+		respondWithError(w, http.StatusBadRequest, "Todos los campos (username, password, nombre, apellido, cedula) son requeridos.")
 		return
 	}
 
-	lastID, err := database.RegisterUser(user.Username, user.Password, user.Nombre, user.Apellido)
+	lastID, err := database.RegisterUser(user.Username, user.Password, user.Nombre, user.Apellido, user.Cedula)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -124,6 +125,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Username: dbUser.Username,
 		Nombre:   dbUser.Nombre,
 		Apellido: dbUser.Apellido,
+		Cedula:   dbUser.Cedula,
 	}
 
 	response := LoginResponse{
@@ -182,8 +184,8 @@ func AdminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.User.Username == "" || req.User.Password == "" || req.User.Nombre == "" || req.User.Apellido == "" {
-		respondWithError(w, http.StatusBadRequest, "Username, password, nombre y apellido son requeridos.")
+	if req.User.Username == "" || req.User.Password == "" || req.User.Nombre == "" || req.User.Apellido == "" || req.User.Cedula == "" {
+		respondWithError(w, http.StatusBadRequest, "Username, password, nombre, apellido y cedula son requeridos.")
 		return
 	}
 
@@ -191,8 +193,8 @@ func AdminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := database.AddUser(req.User, hashedPassword)
 	if err != nil {
 		log.Printf("Error en AdminAddUserHandler: %v", err)
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
-			respondWithError(w, http.StatusBadRequest, "El nombre de usuario ya existe.")
+		if strings.Contains(err.Error(), "ya existe") || strings.Contains(err.Error(), "ya está registrada") {
+			respondWithError(w, http.StatusBadRequest, err.Error())
 		} else {
 			respondWithError(w, http.StatusInternalServerError, "Error al añadir usuario.")
 		}
@@ -255,8 +257,10 @@ func AdminUpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "ID y NewRole son requeridos.")
 		return
 	}
-	if req.NewRole != "admin" && req.NewRole != "gerente" && req.NewRole != "user" {
-		respondWithError(w, http.StatusBadRequest, "Rol debe ser 'admin', 'gerente' o 'user'.")
+
+	// ⭐️ MODIFICADO: Añadido "encargado" a la validación
+	if req.NewRole != "admin" && req.NewRole != "gerente" && req.NewRole != "user" && req.NewRole != "encargado" {
+		respondWithError(w, http.StatusBadRequest, "Rol debe ser 'admin', 'gerente', 'encargado' o 'user'.")
 		return
 	}
 
@@ -520,14 +524,11 @@ func UserProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
 // --- Handlers Labores Agronómicas ---
 
 func GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.GetLaboresRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad (Solo Admin o Gerente)
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -537,33 +538,25 @@ func GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
 		return
 	}
-
-	// 3. Lógica de DB
 	if req.ProyectoID == 0 {
 		respondWithError(w, http.StatusBadRequest, "ID de proyecto requerido.")
 		return
 	}
-
 	labores, err := database.GetLaboresByProyectoID(req.ProyectoID)
 	if err != nil {
 		log.Printf("Error al obtener labores para proyecto %d: %v", req.ProyectoID, err)
 		respondWithError(w, http.StatusInternalServerError, "Error al obtener labores.")
 		return
 	}
-
-	// 4. Responder
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"labores": labores})
 }
 
 func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.CreateLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -573,52 +566,40 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ProyectoID == 0 || req.Descripcion == "" {
 		respondWithError(w, http.StatusBadRequest, "ProyectoID y Descripción son requeridos.")
 		return
 	}
-
 	estado := req.Estado
 	if estado == "" {
-		estado = "activa" // Estado por defecto
+		estado = "activa"
 	}
-
-	// 4. Lógica de DB
 	labor := models.LaborAgronomica{
 		ProyectoID:  req.ProyectoID,
 		Descripcion: req.Descripcion,
 		Estado:      estado,
 	}
-
 	laborID, err := database.CreateLabor(labor)
 	if err != nil {
 		log.Printf("Error al crear labor: %v", err)
 		respondWithError(w, http.StatusInternalServerError, "Error al crear labor.")
 		return
 	}
-
-	// 5. Responder
 	nuevaLabor, err := database.GetLaborByID(int(laborID))
 	if err != nil {
 		log.Printf("Error al obtener labor recién creada (ID: %d): %v", laborID, err)
 		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Labor creada con éxito, pero no se pudo recuperar."})
 		return
 	}
-
 	respondWithJSON(w, http.StatusCreated, nuevaLabor)
 }
 
 func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.UpdateLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -628,14 +609,10 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ID == 0 || req.Descripcion == "" || req.Estado == "" {
 		respondWithError(w, http.StatusBadRequest, "ID, Descripción y Estado son requeridos.")
 		return
 	}
-
-	// 4. Lógica de DB
 	affected, err := database.UpdateLabor(req.ID, req.Descripcion, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar labor ID %d: %v", req.ID, err)
@@ -646,20 +623,15 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "Labor no encontrada.")
 		return
 	}
-
-	// 5. Responder
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor actualizada."})
 }
 
 func DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.DeleteLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -669,14 +641,10 @@ func DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ID == 0 {
 		respondWithError(w, http.StatusBadRequest, "ID de labor requerido.")
 		return
 	}
-
-	// 4. Lógica de DB
 	affected, err := database.DeleteLabor(req.ID)
 	if err != nil {
 		log.Printf("Error al borrar labor ID %d: %v", req.ID, err)
@@ -687,23 +655,17 @@ func DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "Labor no encontrada.")
 		return
 	}
-
-	// 5. Responder
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor borrada."})
 }
 
-// ⭐️ --- (INICIO) Handlers Equipos e Implementos --- ⭐️
+// --- Handlers Equipos e Implementos ---
 
-// ⭐️ NUEVO (Equipos): Handler para OBTENER todos los equipos de un proyecto
 func GetEquiposHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.GetEquiposRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -713,34 +675,25 @@ func GetEquiposHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
 		return
 	}
-
-	// 3. Lógica de DB
 	if req.ProyectoID == 0 {
 		respondWithError(w, http.StatusBadRequest, "ID de proyecto requerido.")
 		return
 	}
-
 	equipos, err := database.GetEquiposByProyectoID(req.ProyectoID)
 	if err != nil {
 		log.Printf("Error al obtener equipos para proyecto %d: %v", req.ProyectoID, err)
 		respondWithError(w, http.StatusInternalServerError, "Error al obtener equipos.")
 		return
 	}
-
-	// 4. Responder
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"equipos": equipos})
 }
 
-// ⭐️ NUEVO (Equipos): Handler para CREAR un nuevo equipo
 func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.CreateEquipoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -750,14 +703,10 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ProyectoID == 0 || req.Nombre == "" {
 		respondWithError(w, http.StatusBadRequest, "ProyectoID y Nombre son requeridos.")
 		return
 	}
-
-	// Valores por defecto
 	tipo := req.Tipo
 	if tipo == "" {
 		tipo = "implemento"
@@ -766,43 +715,33 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 	if estado == "" {
 		estado = "disponible"
 	}
-
-	// 4. Lógica de DB
 	equipo := models.EquipoImplemento{
 		ProyectoID: req.ProyectoID,
 		Nombre:     req.Nombre,
 		Tipo:       tipo,
 		Estado:     estado,
 	}
-
 	equipoID, err := database.CreateEquipo(equipo)
 	if err != nil {
 		log.Printf("Error al crear equipo: %v", err)
 		respondWithError(w, http.StatusInternalServerError, "Error al crear equipo.")
 		return
 	}
-
-	// 5. Responder
 	nuevoEquipo, err := database.GetEquipoByID(int(equipoID))
 	if err != nil {
 		log.Printf("Error al obtener equipo recién creado (ID: %d): %v", equipoID, err)
 		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Equipo creado con éxito, pero no se pudo recuperar."})
 		return
 	}
-
 	respondWithJSON(w, http.StatusCreated, nuevoEquipo)
 }
 
-// ⭐️ NUEVO (Equipos): Handler para ACTUALIZAR un equipo
 func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.UpdateEquipoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -812,14 +751,10 @@ func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ID == 0 || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
 		respondWithError(w, http.StatusBadRequest, "ID, Nombre, Tipo y Estado son requeridos.")
 		return
 	}
-
-	// 4. Lógica de DB
 	affected, err := database.UpdateEquipo(req.ID, req.Nombre, req.Tipo, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar equipo ID %d: %v", req.ID, err)
@@ -830,21 +765,15 @@ func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "Equipo no encontrado.")
 		return
 	}
-
-	// 5. Responder
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo actualizado."})
 }
 
-// ⭐️ NUEVO (Equipos): Handler para BORRAR un equipo
 func DeleteEquipoHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Decodificar
 	var req models.DeleteEquipoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
 		return
 	}
-
-	// 2. Seguridad
 	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
@@ -854,14 +783,10 @@ func DeleteEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
 		return
 	}
-
-	// 3. Validar
 	if req.ID == 0 {
 		respondWithError(w, http.StatusBadRequest, "ID de equipo requerido.")
 		return
 	}
-
-	// 4. Lógica de DB
 	affected, err := database.DeleteEquipo(req.ID)
 	if err != nil {
 		log.Printf("Error al borrar equipo ID %d: %v", req.ID, err)
@@ -872,9 +797,5 @@ func DeleteEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "Equipo no encontrado.")
 		return
 	}
-
-	// 5. Responder
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo borrado."})
 }
-
-// ⭐️ --- (FIN) Handlers Equipos e Implementos --- ⭐️

@@ -28,9 +28,9 @@ func InitDB(dbPath string) {
 	createUsersTable()
 	createProyectosTable()
 	createLaboresTable()
-	createEquiposTable() // ⭐️ NUEVO (Equipos): Llamada para crear la nueva tabla
+	createEquiposTable()
 	migrateProyectosTable()
-	migrateUsersTable()
+	migrateUsersTable() // ⭐️ Esta función ahora migrará la 'cedula'
 	createDefaultAdmin()
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
@@ -48,6 +48,7 @@ func createUsersTable() {
 		role TEXT NOT NULL DEFAULT 'user',
 		nombre TEXT NOT NULL DEFAULT '',
 		apellido TEXT NOT NULL DEFAULT '',
+		cedula TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO: Columna para la cédula
 		proyecto_id INTEGER,
 		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE SET NULL
 	);`
@@ -91,7 +92,6 @@ func createLaboresTable() {
 	}
 }
 
-// ⭐️ NUEVO (Equipos): Función completa para crear la tabla de equipos
 func createEquiposTable() {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS equipos_implementos (
@@ -201,6 +201,22 @@ func migrateUsersTable() {
 		}
 		log.Println("Migración: Columna 'proyecto_id' añadida a 'users'.")
 	}
+
+	// ⭐️ NUEVO: Migración para la cédula
+	if !columns["cedula"] {
+		// Añade la columna, temporalmente SIN el UNIQUE para evitar fallos si hay 'default'
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN cedula TEXT NOT NULL DEFAULT ''")
+		if err != nil {
+			log.Fatalf("Error al migrar users (add cedula): %v", err)
+		}
+		// Ahora, añade el índice UNIQUE por separado
+		_, err = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cedula ON users(cedula) WHERE cedula != ''")
+		if err != nil {
+			// Esto puede fallar si ya hay duplicados con '', lo cual es normal
+			log.Printf("Advertencia al crear índice unique en cedula (puede ser normal si ya existe): %v", err)
+		}
+		log.Println("Migración: Columna 'cedula' añadida a 'users'.")
+	}
 }
 
 func createDefaultAdmin() {
@@ -212,8 +228,9 @@ func createDefaultAdmin() {
 
 	if exists == 0 {
 		hashedPassword, _ := HashPassword("admin123")
-		_, err := DB.Exec("INSERT INTO users (username, password, role, nombre, apellido) VALUES (?, ?, ?, ?, ?)",
-			"admin", hashedPassword, "admin", "Administrador", "Del Sistema")
+		// ⭐️ MODIFICADO: Añade 'cedula' al INSERT
+		_, err := DB.Exec("INSERT INTO users (username, password, role, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?, ?)",
+			"admin", hashedPassword, "admin", "Administrador", "Del Sistema", "00000001") // Cédula por defecto para el admin
 		if err != nil {
 			log.Fatalf("Error al crear admin por defecto: %v", err)
 		}
@@ -245,25 +262,34 @@ func GetUserRole(username string) (string, error) {
 
 func GetUserByUsername(username string) (models.UserDB, error) {
 	var user models.UserDB
-	err := DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = ?", username).Scan(&user.ID, &user.Username, &user.HashedPassword, &user.Role)
+	// ⭐️ MODIFICADO: Añade 'cedula' al SELECT
+	err := DB.QueryRow("SELECT id, username, password, role, nombre, apellido, cedula, proyecto_id FROM users WHERE username = ?", username).Scan(
+		&user.ID, &user.Username, &user.HashedPassword, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &user.ProyectoID)
 	return user, err
 }
 
-func RegisterUser(username, password, nombre, apellido string) (int64, error) {
+// ⭐️ MODIFICADO: La firma ahora incluye 'cedula'
+func RegisterUser(username, password, nombre, apellido, cedula string) (int64, error) {
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		return 0, fmt.Errorf("error al hashear password: %w", err)
 	}
-	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido) VALUES (?, ?, ?, ?)")
+	// ⭐️ MODIFICADO: INSERT ahora incluye 'cedula'
+	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(username, hashedPassword, nombre, apellido)
+	// ⭐️ MODIFICADO: Se pasa 'cedula' al Exec
+	res, err := stmt.Exec(username, hashedPassword, nombre, apellido, cedula)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
 			return 0, fmt.Errorf("el nombre de usuario '%s' ya existe", username)
+		}
+		// ⭐️ NUEVO: Comprobación de cédula única
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.cedula") {
+			return 0, fmt.Errorf("la cédula '%s' ya está registrada", cedula)
 		}
 		return 0, fmt.Errorf("error ejecutando insert: %w", err)
 	}
@@ -271,8 +297,9 @@ func RegisterUser(username, password, nombre, apellido string) (int64, error) {
 }
 
 func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
+	// ⭐️ MODIFICADO: Añade 'u.cedula' al SELECT
 	query := `
-	SELECT u.id, u.username, u.role, u.nombre, u.apellido, u.proyecto_id, p.nombre
+	SELECT u.id, u.username, u.role, u.nombre, u.apellido, u.cedula, u.proyecto_id, p.nombre
 	FROM users u
 	LEFT JOIN proyectos p ON u.proyecto_id = p.id
 	ORDER BY u.id
@@ -289,7 +316,8 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 		var proyectoID sql.NullInt64
 		var proyectoNombre sql.NullString
 
-		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &proyectoID, &proyectoNombre); err != nil {
+		// ⭐️ MODIFICADO: Añade '&user.Cedula' al Scan
+		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &proyectoID, &proyectoNombre); err != nil {
 			log.Printf("Error escaneando usuario: %v", err)
 			continue
 		}
@@ -306,14 +334,24 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 	return users, nil
 }
 
+// ⭐️ MODIFICADO: 'AddUser' ahora también inserta la cédula
 func AddUser(user models.User, hashedPassword string) (int64, error) {
-	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, role) VALUES (?, ?, ?, ?, 'user')")
+	// ⭐️ MODIFICADO: INSERT ahora incluye 'cedula'
+	stmt, err := DB.Prepare("INSERT INTO users (username, password, nombre, apellido, cedula, role) VALUES (?, ?, ?, ?, ?, 'user')")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
-	res, err := stmt.Exec(user.Username, hashedPassword, user.Nombre, user.Apellido)
+	// ⭐️ MODIFICADO: Se pasa 'user.Cedula' al Exec
+	res, err := stmt.Exec(user.Username, hashedPassword, user.Nombre, user.Apellido, user.Cedula)
 	if err != nil {
+		// Añadimos control de errores para cédula también
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
+			return 0, fmt.Errorf("el nombre de usuario '%s' ya existe", user.Username)
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.cedula") {
+			return 0, fmt.Errorf("la cédula '%s' ya está registrada", user.Cedula)
+		}
 		return 0, err
 	}
 	return res.LastInsertId()
@@ -562,9 +600,8 @@ func DeleteLabor(id int) (int64, error) {
 	return result.RowsAffected()
 }
 
-// ⭐️ --- (INICIO) Funciones CRUD para Equipos e Implementos --- ⭐️
+// --- Funciones CRUD para Equipos e Implementos ---
 
-// ⭐️ NUEVO (Equipos): Crea un nuevo equipo en la DB
 func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
 	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, nombre, tipo, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
@@ -581,7 +618,6 @@ func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ⭐️ NUEVO (Equipos): Obtiene todos los equipos de un proyecto
 func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	rows, err := DB.Query("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
@@ -601,7 +637,6 @@ func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	return equipos, nil
 }
 
-// ⭐️ NUEVO (Equipos): Obtiene un equipo por su ID
 func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
 	var equipo models.EquipoImplemento
 	err := DB.QueryRow("SELECT id, proyecto_id, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id).Scan(&equipo.ID, &equipo.ProyectoID, &equipo.Nombre, &equipo.Tipo, &equipo.Estado, &equipo.FechaCreacion)
@@ -611,7 +646,6 @@ func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
 	return &equipo, nil
 }
 
-// ⭐️ NUEVO (Equipos): Actualiza un equipo
 func UpdateEquipo(id int, nombre string, tipo string, estado string) (int64, error) {
 	stmt, err := DB.Prepare("UPDATE equipos_implementos SET nombre = ?, tipo = ?, estado = ? WHERE id = ?")
 	if err != nil {
@@ -626,7 +660,6 @@ func UpdateEquipo(id int, nombre string, tipo string, estado string) (int64, err
 	return result.RowsAffected()
 }
 
-// ⭐️ NUEVO (Equipos): Borra un equipo
 func DeleteEquipo(id int) (int64, error) {
 	stmt, err := DB.Prepare("DELETE FROM equipos_implementos WHERE id = ?")
 	if err != nil {
@@ -640,5 +673,3 @@ func DeleteEquipo(id int) (int64, error) {
 	}
 	return result.RowsAffected()
 }
-
-// ⭐️ --- (FIN) Funciones CRUD para Equipos e Implementos --- ⭐️
