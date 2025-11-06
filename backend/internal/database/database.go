@@ -29,9 +29,10 @@ func InitDB(dbPath string) {
 	createProyectosTable()
 	createLaboresTable()
 	createEquiposTable()
+	createActividadesTable() // ⭐️ NUEVO: Llamada para crear la tabla de actividades
 	migrateProyectosTable()
 	migrateUsersTable()
-	migrateAppTables() // ⭐️ NUEVO: Llamada a la nueva función de migración
+	migrateAppTables()
 	createDefaultAdmin()
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
@@ -53,7 +54,6 @@ func createUsersTable() {
 		proyecto_id INTEGER,
 		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE SET NULL
 	);`
-
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla users: %v", err)
@@ -69,7 +69,6 @@ func createProyectosTable() {
 		fecha_cierre TEXT NOT NULL DEFAULT '',
 		estado TEXT NOT NULL DEFAULT 'habilitado'
 	);`
-
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla proyectos: %v", err)
@@ -81,13 +80,12 @@ func createLaboresTable() {
 	CREATE TABLE IF NOT EXISTS labores_agronomicas (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		proyecto_id INTEGER NOT NULL,
-		codigo_labor TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO
+		codigo_labor TEXT NOT NULL UNIQUE DEFAULT '',
 		descripcion TEXT NOT NULL,
 		estado TEXT NOT NULL DEFAULT 'activa',
 		fecha_creacion TEXT NOT NULL,
 		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
 	);`
-
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla labores_agronomicas: %v", err)
@@ -99,29 +97,50 @@ func createEquiposTable() {
 	CREATE TABLE IF NOT EXISTS equipos_implementos (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		proyecto_id INTEGER NOT NULL,
-		codigo_equipo TEXT NOT NULL UNIQUE DEFAULT '', -- ⭐️ NUEVO
+		codigo_equipo TEXT NOT NULL UNIQUE DEFAULT '',
 		nombre TEXT NOT NULL,
 		tipo TEXT NOT NULL DEFAULT 'implemento',
 		estado TEXT NOT NULL DEFAULT 'disponible',
 		fecha_creacion TEXT NOT NULL,
 		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
 	);`
-
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error al crear tabla equipos_implementos: %v", err)
 	}
 }
 
-// ⭐️ NUEVO: Función para migrar las tablas de Labores y Equipos
+// ⭐️ NUEVO: Función para crear la tabla de actividades
+func createActividadesTable() {
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS actividades (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		proyecto_id INTEGER NOT NULL,
+		actividad TEXT NOT NULL,
+		labor_agronomica_id INTEGER,
+		equipo_implemento_id INTEGER,
+		encargado_id INTEGER,
+		recurso_humano INTEGER NOT NULL DEFAULT 0,
+		costo REAL NOT NULL DEFAULT 0.0,
+		observaciones TEXT,
+		fecha_creacion TEXT NOT NULL,
+		FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE,
+		FOREIGN KEY (labor_agronomica_id) REFERENCES labores_agronomicas(id) ON DELETE SET NULL,
+		FOREIGN KEY (equipo_implemento_id) REFERENCES equipos_implementos(id) ON DELETE SET NULL,
+		FOREIGN KEY (encargado_id) REFERENCES users(id) ON DELETE SET NULL
+	);`
+	_, err := DB.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Error al crear tabla actividades: %v", err)
+	}
+}
+
 func migrateAppTables() {
-	// 1. Migrar labores_agronomicas
 	rowsLabores, err := DB.Query("PRAGMA table_info(labores_agronomicas)")
 	if err != nil {
 		log.Fatalf("Error PRAGMA table_info(labores_agronomicas): %v", err)
 	}
 	defer rowsLabores.Close()
-
 	columnsLabores := make(map[string]bool)
 	for rowsLabores.Next() {
 		var (
@@ -135,23 +154,23 @@ func migrateAppTables() {
 		rowsLabores.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk)
 		columnsLabores[name] = true
 	}
-
 	if !columnsLabores["codigo_labor"] {
-		_, err := DB.Exec("ALTER TABLE labores_agronomicas ADD COLUMN codigo_labor TEXT NOT NULL UNIQUE DEFAULT ''")
+		_, err := DB.Exec("ALTER TABLE labores_agronomicas ADD COLUMN codigo_labor TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Printf("Advertencia al migrar labores (add codigo_labor): %v. Puede que ya exista.", err)
-		} else {
-			log.Println("Migración: Columna 'codigo_labor' añadida a 'labores_agronomicas'.")
+			log.Fatalf("Error al migrar labores (add codigo_labor): %v", err)
 		}
+		_, err = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_labores_codigo ON labores_agronomicas(codigo_labor) WHERE codigo_labor != ''")
+		if err != nil {
+			log.Printf("Advertencia al crear índice unique en codigo_labor: %v", err)
+		}
+		log.Println("Migración: Columna 'codigo_labor' añadida a 'labores_agronomicas'.")
 	}
 
-	// 2. Migrar equipos_implementos
 	rowsEquipos, err := DB.Query("PRAGMA table_info(equipos_implementos)")
 	if err != nil {
 		log.Fatalf("Error PRAGMA table_info(equipos_implementos): %v", err)
 	}
 	defer rowsEquipos.Close()
-
 	columnsEquipos := make(map[string]bool)
 	for rowsEquipos.Next() {
 		var (
@@ -165,14 +184,16 @@ func migrateAppTables() {
 		rowsEquipos.Scan(&cid, &name, &dtype, &notnull, &dflt_value, &pk)
 		columnsEquipos[name] = true
 	}
-
 	if !columnsEquipos["codigo_equipo"] {
-		_, err := DB.Exec("ALTER TABLE equipos_implementos ADD COLUMN codigo_equipo TEXT NOT NULL UNIQUE DEFAULT ''")
+		_, err := DB.Exec("ALTER TABLE equipos_implementos ADD COLUMN codigo_equipo TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Printf("Advertencia al migrar equipos (add codigo_equipo): %v. Puede que ya exista.", err)
-		} else {
-			log.Println("Migración: Columna 'codigo_equipo' añadida a 'equipos_implementos'.")
+			log.Fatalf("Error al migrar equipos (add codigo_equipo): %v", err)
 		}
+		_, err = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_equipos_codigo ON equipos_implementos(codigo_equipo) WHERE codigo_equipo != ''")
+		if err != nil {
+			log.Printf("Advertencia al crear índice unique en codigo_equipo: %v", err)
+		}
+		log.Println("Migración: Columna 'codigo_equipo' añadida a 'equipos_implementos'.")
 	}
 }
 
@@ -182,7 +203,6 @@ func migrateProyectosTable() {
 		log.Fatalf("Error PRAGMA table_info(proyectos): %v", err)
 	}
 	defer rows.Close()
-
 	columns := make(map[string]bool)
 	for rows.Next() {
 		var (
@@ -198,7 +218,6 @@ func migrateProyectosTable() {
 		}
 		columns[name] = true
 	}
-
 	if !columns["fecha_inicio"] {
 		_, err := DB.Exec("ALTER TABLE proyectos ADD COLUMN fecha_inicio TEXT NOT NULL DEFAULT ''")
 		if err != nil {
@@ -228,7 +247,6 @@ func migrateUsersTable() {
 		log.Fatalf("Error PRAGMA table_info(users): %v", err)
 	}
 	defer rows.Close()
-
 	columns := make(map[string]bool)
 	for rows.Next() {
 		var (
@@ -244,7 +262,6 @@ func migrateUsersTable() {
 		}
 		columns[name] = true
 	}
-
 	if !columns["nombre"] {
 		_, err := DB.Exec("ALTER TABLE users ADD COLUMN nombre TEXT NOT NULL DEFAULT ''")
 		if err != nil {
@@ -267,12 +284,15 @@ func migrateUsersTable() {
 		log.Println("Migración: Columna 'proyecto_id' añadida a 'users'.")
 	}
 	if !columns["cedula"] {
-		_, err := DB.Exec("ALTER TABLE users ADD COLUMN cedula TEXT NOT NULL UNIQUE DEFAULT ''")
+		_, err := DB.Exec("ALTER TABLE users ADD COLUMN cedula TEXT NOT NULL DEFAULT ''")
 		if err != nil {
-			log.Printf("Advertencia al migrar users (add cedula): %v. Puede que ya exista.", err)
-		} else {
-			log.Println("Migración: Columna 'cedula' añadida a 'users'.")
+			log.Fatalf("Error al migrar users (add cedula): %v", err)
 		}
+		_, err = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cedula ON users(cedula) WHERE cedula != ''")
+		if err != nil {
+			log.Printf("Advertencia al crear índice unique en cedula (puede ser normal si ya existe): %v", err)
+		}
+		log.Println("Migración: Columna 'cedula' añadida a 'users'.")
 	}
 }
 
@@ -282,7 +302,6 @@ func createDefaultAdmin() {
 	if err != nil {
 		log.Fatalf("Error al verificar admin: %v", err)
 	}
-
 	if exists == 0 {
 		hashedPassword, _ := HashPassword("admin123")
 		_, err := DB.Exec("INSERT INTO users (username, password, role, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?, ?)",
@@ -333,7 +352,6 @@ func RegisterUser(username, password, nombre, apellido, cedula string) (int64, e
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
-
 	res, err := stmt.Exec(username, hashedPassword, nombre, apellido, cedula)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
@@ -359,13 +377,11 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 		return nil, fmt.Errorf("error en query GetAllUsers: %w", err)
 	}
 	defer rows.Close()
-
 	var users []models.UserListResponse
 	for rows.Next() {
 		var user models.UserListResponse
 		var proyectoID sql.NullInt64
 		var proyectoNombre sql.NullString
-
 		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &proyectoID, &proyectoNombre); err != nil {
 			log.Printf("Error escaneando usuario: %v", err)
 			continue
@@ -377,7 +393,6 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 		if proyectoNombre.Valid {
 			user.ProyectoNombre = &proyectoNombre.String
 		}
-
 		users = append(users, user)
 	}
 	return users, nil
@@ -434,14 +449,12 @@ func AssignProjectToUser(userID int, proyectoID int) (int64, error) {
 		return 0, fmt.Errorf("error preparando update: %w", err)
 	}
 	defer stmt.Close()
-
 	var res sql.Result
 	if proyectoID == 0 {
 		res, err = stmt.Exec(sql.NullInt64{}, userID)
 	} else {
 		res, err = stmt.Exec(proyectoID, userID)
 	}
-
 	if err != nil {
 		return 0, fmt.Errorf("error ejecutando update: %w", err)
 	}
@@ -571,7 +584,6 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 
 // --- Funciones CRUD para Labores Agronómicas ---
 
-// ⭐️ MODIFICADO: Acepta 'codigo_labor'
 func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	stmt, err := DB.Prepare("INSERT INTO labores_agronomicas (proyecto_id, codigo_labor, descripcion, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
@@ -589,14 +601,12 @@ func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ⭐️ MODIFICADO: Devuelve 'codigo_labor'
 func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	rows, err := DB.Query("SELECT id, proyecto_id, codigo_labor, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
 		return nil, fmt.Errorf("error en query GetLaboresByProyectoID: %w", err)
 	}
 	defer rows.Close()
-
 	var labores []models.LaborAgronomica
 	for rows.Next() {
 		var labor models.LaborAgronomica
@@ -609,7 +619,6 @@ func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	return labores, nil
 }
 
-// ⭐️ MODIFICADO: Devuelve 'codigo_labor'
 func GetLaborByID(id int) (*models.LaborAgronomica, error) {
 	var labor models.LaborAgronomica
 	err := DB.QueryRow("SELECT id, proyecto_id, codigo_labor, descripcion, estado, fecha_creacion FROM labores_agronomicas WHERE id = ?", id).Scan(
@@ -620,14 +629,12 @@ func GetLaborByID(id int) (*models.LaborAgronomica, error) {
 	return &labor, nil
 }
 
-// ⭐️ MODIFICADO: Actualiza 'codigo_labor'
 func UpdateLabor(id int, codigo_labor string, descripcion string, estado string) (int64, error) {
 	stmt, err := DB.Prepare("UPDATE labores_agronomicas SET codigo_labor = ?, descripcion = ?, estado = ? WHERE id = ?")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
-
 	result, err := stmt.Exec(codigo_labor, descripcion, estado, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: labores_agronomicas.codigo_labor") {
@@ -653,7 +660,6 @@ func DeleteLabor(id int) (int64, error) {
 
 // --- Funciones CRUD para Equipos e Implementos ---
 
-// ⭐️ MODIFICADO: Acepta 'codigo_equipo'
 func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
 	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
@@ -671,14 +677,12 @@ func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ⭐️ MODIFICADO: Devuelve 'codigo_equipo'
 func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	rows, err := DB.Query("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
 		return nil, fmt.Errorf("error en query GetEquiposByProyectoID: %w", err)
 	}
 	defer rows.Close()
-
 	var equipos []models.EquipoImplemento
 	for rows.Next() {
 		var equipo models.EquipoImplemento
@@ -691,7 +695,6 @@ func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	return equipos, nil
 }
 
-// ⭐️ MODIFICADO: Devuelve 'codigo_equipo'
 func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
 	var equipo models.EquipoImplemento
 	err := DB.QueryRow("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id).Scan(
@@ -702,14 +705,12 @@ func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
 	return &equipo, nil
 }
 
-// ⭐️ MODIFICADO: Actualiza 'codigo_equipo'
 func UpdateEquipo(id int, codigo_equipo string, nombre string, tipo string, estado string) (int64, error) {
 	stmt, err := DB.Prepare("UPDATE equipos_implementos SET codigo_equipo = ?, nombre = ?, tipo = ?, estado = ? WHERE id = ?")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
-
 	result, err := stmt.Exec(codigo_equipo, nombre, tipo, estado, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: equipos_implementos.codigo_equipo") {
@@ -732,3 +733,142 @@ func DeleteEquipo(id int) (int64, error) {
 	}
 	return result.RowsAffected()
 }
+
+// ⭐️ --- (INICIO) Funciones CRUD para Actividades --- ⭐️
+
+// ⭐️ NUEVO: Obtiene la lista de "Encargados" de un proyecto
+func GetEncargadosByProyectoID(proyectoID int) ([]models.EncargadoResponse, error) {
+	rows, err := DB.Query("SELECT id, nombre, apellido FROM users WHERE proyecto_id = ? AND role = 'encargado'", proyectoID)
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetEncargadosByProyectoID: %w", err)
+	}
+	defer rows.Close()
+
+	var encargados []models.EncargadoResponse
+	for rows.Next() {
+		var e models.EncargadoResponse
+		if err := rows.Scan(&e.ID, &e.Nombre, &e.Apellido); err != nil {
+			log.Printf("Error escaneando encargado: %v", err)
+			continue
+		}
+		encargados = append(encargados, e)
+	}
+	return encargados, nil
+}
+
+// ⭐️ NUEVO: Crea una nueva actividad
+func CreateActividad(act models.Actividad) (int64, error) {
+	stmt, err := DB.Prepare(`
+		INSERT INTO actividades (
+			proyecto_id, actividad, labor_agronomica_id, equipo_implemento_id, 
+			encargado_id, recurso_humano, costo, observaciones, fecha_creacion
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return 0, fmt.Errorf("error preparando statement: %w", err)
+	}
+	defer stmt.Close()
+
+	fechaCreacion := time.Now().Format(time.RFC3339)
+
+	res, err := stmt.Exec(
+		act.ProyectoID, act.Actividad, act.LaborAgronomicaID, act.EquipoImplementoID,
+		act.EncargadoID, act.RecursoHumano, act.Costo, act.Observaciones, fechaCreacion,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("error ejecutando insert: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// ⭐️ NUEVO: Obtiene una actividad por ID
+func GetActividadByID(id int) (*models.Actividad, error) {
+	var act models.Actividad
+	err := DB.QueryRow(`
+		SELECT id, proyecto_id, actividad, labor_agronomica_id, equipo_implemento_id, 
+		encargado_id, recurso_humano, costo, observaciones, fecha_creacion 
+		FROM actividades WHERE id = ?`, id).Scan(
+		&act.ID, &act.ProyectoID, &act.Actividad, &act.LaborAgronomicaID, &act.EquipoImplementoID,
+		&act.EncargadoID, &act.RecursoHumano, &act.Costo, &act.Observaciones, &act.FechaCreacion,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &act, nil
+}
+
+// ⭐️ NUEVO: Obtiene todas las actividades de un proyecto (con JOINs para los nombres)
+func GetActividadesByProyectoID(proyectoID int) ([]models.ActividadResponse, error) {
+	query := `
+	SELECT 
+		a.id, a.proyecto_id, a.actividad, a.labor_agronomica_id, a.equipo_implemento_id,
+		a.encargado_id, a.recurso_humano, a.costo, a.observaciones, a.fecha_creacion,
+		l.descripcion AS labor_descripcion,
+		e.nombre AS equipo_nombre,
+		u.nombre || ' ' || u.apellido AS encargado_nombre
+	FROM actividades a
+	LEFT JOIN labores_agronomicas l ON a.labor_agronomica_id = l.id
+	LEFT JOIN equipos_implementos e ON a.equipo_implemento_id = e.id
+	LEFT JOIN users u ON a.encargado_id = u.id
+	WHERE a.proyecto_id = ?
+	ORDER BY a.fecha_creacion DESC
+	`
+	rows, err := DB.Query(query, proyectoID)
+	if err != nil {
+		return nil, fmt.Errorf("error en query GetActividadesByProyectoID: %w", err)
+	}
+	defer rows.Close()
+
+	var actividades []models.ActividadResponse
+	for rows.Next() {
+		var act models.ActividadResponse
+		if err := rows.Scan(
+			&act.ID, &act.ProyectoID, &act.Actividad, &act.LaborAgronomicaID, &act.EquipoImplementoID,
+			&act.EncargadoID, &act.RecursoHumano, &act.Costo, &act.Observaciones, &act.FechaCreacion,
+			&act.LaborDescripcion, &act.EquipoNombre, &act.EncargadoNombre,
+		); err != nil {
+			log.Printf("Error escaneando actividad: %v", err)
+			continue
+		}
+		actividades = append(actividades, act)
+	}
+	return actividades, nil
+}
+
+// ⭐️ NUEVO: Actualiza una actividad
+func UpdateActividad(act models.Actividad) (int64, error) {
+	stmt, err := DB.Prepare(`
+		UPDATE actividades SET
+			actividad = ?, labor_agronomica_id = ?, equipo_implemento_id = ?, 
+			encargado_id = ?, recurso_humano = ?, costo = ?, observaciones = ?
+		WHERE id = ? AND proyecto_id = ?`)
+	if err != nil {
+		return 0, fmt.Errorf("error preparando update: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(
+		act.Actividad, act.LaborAgronomicaID, act.EquipoImplementoID,
+		act.EncargadoID, act.RecursoHumano, act.Costo, act.Observaciones,
+		act.ID, act.ProyectoID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("error ejecutando update: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// ⭐️ NUEVO: Borra una actividad
+func DeleteActividad(id int) (int64, error) {
+	stmt, err := DB.Prepare("DELETE FROM actividades WHERE id = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ⭐️ --- (FIN) Funciones CRUD para Actividades --- ⭐️

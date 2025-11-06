@@ -566,7 +566,6 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⭐️ MODIFICADO: Validación para 'CodigoLabor'
 	if req.ProyectoID == 0 || req.Descripcion == "" || req.CodigoLabor == "" {
 		respondWithError(w, http.StatusBadRequest, "ProyectoID, Código y Descripción son requeridos.")
 		return
@@ -577,7 +576,6 @@ func CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		estado = "activa"
 	}
 
-	// ⭐️ MODIFICADO: Añadido 'CodigoLabor'
 	labor := models.LaborAgronomica{
 		ProyectoID:  req.ProyectoID,
 		CodigoLabor: req.CodigoLabor,
@@ -623,13 +621,11 @@ func UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⭐️ MODIFICADO: Validación para 'CodigoLabor'
 	if req.ID == 0 || req.CodigoLabor == "" || req.Descripcion == "" || req.Estado == "" {
 		respondWithError(w, http.StatusBadRequest, "ID, Código, Descripción y Estado son requeridos.")
 		return
 	}
 
-	// ⭐️ MODIFICADO: Pasa 'req.CodigoLabor'
 	affected, err := database.UpdateLabor(req.ID, req.CodigoLabor, req.Descripcion, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar labor ID %d: %v", req.ID, err)
@@ -726,7 +722,6 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⭐️ MODIFICADO: Validación para 'CodigoEquipo'
 	if req.ProyectoID == 0 || req.Nombre == "" || req.CodigoEquipo == "" {
 		respondWithError(w, http.StatusBadRequest, "ProyectoID, Código y Nombre son requeridos.")
 		return
@@ -741,7 +736,6 @@ func CreateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		estado = "disponible"
 	}
 
-	// ⭐️ MODIFICADO: Añadido 'CodigoEquipo'
 	equipo := models.EquipoImplemento{
 		ProyectoID:   req.ProyectoID,
 		CodigoEquipo: req.CodigoEquipo,
@@ -787,13 +781,11 @@ func UpdateEquipoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⭐️ MODIFICADO: Validación para 'CodigoEquipo'
 	if req.ID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
 		respondWithError(w, http.StatusBadRequest, "ID, Código, Nombre, Tipo y Estado son requeridos.")
 		return
 	}
 
-	// ⭐️ MODIFICADO: Pasa 'req.CodigoEquipo'
 	affected, err := database.UpdateEquipo(req.ID, req.CodigoEquipo, req.Nombre, req.Tipo, req.Estado)
 	if err != nil {
 		log.Printf("Error al actualizar equipo ID %d: %v", req.ID, err)
@@ -843,3 +835,252 @@ func DeleteEquipoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo borrado."})
 }
+
+// ⭐️ --- (INICIO) Handlers para Actividades (DatosProyecto.js) --- ⭐️
+
+// ⭐️ NUEVO: Handler para OBTENER TODOS los datos de la página
+func GetDatosProyectoHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.GetDatosProyectoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	// Seguridad: admin o gerente
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	if req.ProyectoID == 0 {
+		respondWithError(w, http.StatusBadRequest, "ID de proyecto requerido.")
+		return
+	}
+
+	// 1. Obtener Labores
+	labores, err := database.GetLaboresByProyectoID(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error al obtener labores para proyecto %d: %v", req.ProyectoID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener labores.")
+		return
+	}
+
+	// 2. Obtener Equipos
+	equipos, err := database.GetEquiposByProyectoID(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error al obtener equipos para proyecto %d: %v", req.ProyectoID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener equipos.")
+		return
+	}
+
+	// 3. Obtener Encargados
+	encargados, err := database.GetEncargadosByProyectoID(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error al obtener encargados para proyecto %d: %v", req.ProyectoID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener encargados.")
+		return
+	}
+
+	// 4. Obtener Actividades
+	actividades, err := database.GetActividadesByProyectoID(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error al obtener actividades para proyecto %d: %v", req.ProyectoID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener actividades.")
+		return
+	}
+
+	// 5. Empaquetar y responder
+	response := map[string]interface{}{
+		"labores":     labores,
+		"equipos":     equipos,
+		"encargados":  encargados,
+		"actividades": actividades,
+	}
+	respondWithJSON(w, http.StatusOK, response)
+}
+
+// ⭐️ NUEVO: Handler para CREAR una actividad
+func CreateActividadHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateActividadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	if req.ProyectoID == 0 || req.Actividad == "" {
+		respondWithError(w, http.StatusBadRequest, "ProyectoID y Nombre de Actividad son requeridos.")
+		return
+	}
+
+	// Convertir punteros de JSON a sql.Null* para la DB
+	var laborID sql.NullInt64
+	if req.LaborAgronomicaID != nil {
+		laborID = sql.NullInt64{Int64: int64(*req.LaborAgronomicaID), Valid: true}
+	}
+	var equipoID sql.NullInt64
+	if req.EquipoImplementoID != nil {
+		equipoID = sql.NullInt64{Int64: int64(*req.EquipoImplementoID), Valid: true}
+	}
+	var encargadoID sql.NullInt64
+	if req.EncargadoID != nil {
+		encargadoID = sql.NullInt64{Int64: int64(*req.EncargadoID), Valid: true}
+	}
+	var observaciones sql.NullString
+	if req.Observaciones != "" {
+		observaciones = sql.NullString{String: req.Observaciones, Valid: true}
+	}
+
+	actividad := models.Actividad{
+		ProyectoID:         req.ProyectoID,
+		Actividad:          req.Actividad,
+		LaborAgronomicaID:  laborID,
+		EquipoImplementoID: equipoID,
+		EncargadoID:        encargadoID,
+		RecursoHumano:      req.RecursoHumano,
+		Costo:              req.Costo,
+		Observaciones:      observaciones,
+	}
+
+	// ⭐️ CORRECCIÓN 1: Cambiado 'actividadID, err' a '_, err'
+	_, err = database.CreateActividad(actividad)
+	if err != nil {
+		log.Printf("Error al crear actividad: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Error al crear actividad.")
+		return
+	}
+
+	// Devolvemos la lista completa actualizada
+	actividades, err := database.GetActividadesByProyectoID(req.ProyectoID)
+	if err != nil {
+		// ⭐️ CORRECCIÓN 2: Cambiado 'respondWithError' a 'respondWithJSON'
+		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Actividad creada, pero no se pudo recargar la lista."})
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, map[string]interface{}{"actividades": actividades})
+}
+
+// ⭐️ NUEVO: Handler para ACTUALIZAR una actividad
+func UpdateActividadHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.UpdateActividadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+
+	if req.ID == 0 || req.ProyectoID == 0 || req.Actividad == "" {
+		respondWithError(w, http.StatusBadRequest, "ID, ProyectoID y Nombre de Actividad son requeridos.")
+		return
+	}
+
+	// Convertir punteros de JSON a sql.Null*
+	var laborID sql.NullInt64
+	if req.LaborAgronomicaID != nil {
+		laborID = sql.NullInt64{Int64: int64(*req.LaborAgronomicaID), Valid: true}
+	}
+	var equipoID sql.NullInt64
+	if req.EquipoImplementoID != nil {
+		equipoID = sql.NullInt64{Int64: int64(*req.EquipoImplementoID), Valid: true}
+	}
+	var encargadoID sql.NullInt64
+	if req.EncargadoID != nil {
+		encargadoID = sql.NullInt64{Int64: int64(*req.EncargadoID), Valid: true}
+	}
+	var observaciones sql.NullString
+	if req.Observaciones != "" {
+		observaciones = sql.NullString{String: req.Observaciones, Valid: true}
+	}
+
+	actividad := models.Actividad{
+		ID:                 req.ID,
+		ProyectoID:         req.ProyectoID,
+		Actividad:          req.Actividad,
+		LaborAgronomicaID:  laborID,
+		EquipoImplementoID: equipoID,
+		EncargadoID:        encargadoID,
+		RecursoHumano:      req.RecursoHumano,
+		Costo:              req.Costo,
+		Observaciones:      observaciones,
+	}
+
+	affected, err := database.UpdateActividad(actividad)
+	if err != nil {
+		log.Printf("Error al actualizar actividad ID %d: %v", req.ID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al actualizar la actividad.")
+		return
+	}
+	if affected == 0 {
+		respondWithError(w, http.StatusNotFound, "Actividad no encontrada.")
+		return
+	}
+
+	// Devolvemos la lista actualizada
+	actividades, err := database.GetActividadesByProyectoID(req.ProyectoID)
+	if err != nil {
+		// ⭐️ CORRECCIÓN 3: Cambiado 'respondWithError' a 'respondWithJSON'
+		respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Actividad actualizada, pero no se pudo recargar la lista."})
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
+}
+
+// ⭐️ NUEVO: Handler para BORRAR una actividad
+func DeleteActividadHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.DeleteActividadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		return
+	}
+	hasPermission, err := auth.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		return
+	}
+	if !hasPermission {
+		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		return
+	}
+	if req.ID == 0 {
+		respondWithError(w, http.StatusBadRequest, "ID de actividad requerido.")
+		return
+	}
+	affected, err := database.DeleteActividad(req.ID)
+	if err != nil {
+		log.Printf("Error al borrar actividad ID %d: %v", req.ID, err)
+		respondWithError(w, http.StatusInternalServerError, "Error al borrar la actividad.")
+		return
+	}
+	if affected == 0 {
+		respondWithError(w, http.StatusNotFound, "Actividad no encontrada.")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Actividad borrada."})
+}
+
+// ⭐️ --- (FIN) Handlers para Actividades --- ⭐️

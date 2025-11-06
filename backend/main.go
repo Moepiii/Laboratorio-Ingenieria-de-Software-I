@@ -27,14 +27,14 @@ func main() {
 	mux.HandleFunc("/api/register", apphandlers.RegisterHandler)
 	mux.HandleFunc("/api/login", apphandlers.LoginHandler)
 
-	// Rutas Admin/Gerente (Usuarios) - Usa 'apphandlers'
+	// Rutas Admin/Gerente (Usuarios)
 	mux.HandleFunc("/api/admin/users", apphandlers.AdminUsersHandler)
 	mux.HandleFunc("/api/admin/add-user", apphandlers.AdminAddUserHandler)
 	mux.HandleFunc("/api/admin/delete-user", apphandlers.AdminDeleteUserHandler)
 	mux.HandleFunc("/api/admin/update-user", apphandlers.AdminUpdateUserHandler)
 	mux.HandleFunc("/api/admin/assign-proyecto", apphandlers.AdminAssignProyectoHandler)
 
-	// Rutas Admin/Gerente (Proyectos) - Usa 'apphandlers'
+	// Rutas Admin/Gerente (Proyectos)
 	mux.HandleFunc("/api/admin/get-proyectos", apphandlers.AdminGetProyectosHandler)
 	mux.HandleFunc("/api/admin/create-proyecto", apphandlers.AdminCreateProyectoHandler)
 	mux.HandleFunc("/api/admin/delete-proyecto", apphandlers.AdminDeleteProyectoHandler)
@@ -47,14 +47,20 @@ func main() {
 	mux.HandleFunc("/api/admin/update-labor", apphandlers.UpdateLaborHandler)
 	mux.HandleFunc("/api/admin/delete-labor", apphandlers.DeleteLaborHandler)
 
-	// ⭐️ --- (INICIO) Nuevas Rutas de Equipos --- ⭐️
+	// Rutas Admin/Gerente (Equipos)
 	mux.HandleFunc("/api/admin/get-equipos", apphandlers.GetEquiposHandler)
 	mux.HandleFunc("/api/admin/create-equipo", apphandlers.CreateEquipoHandler)
 	mux.HandleFunc("/api/admin/update-equipo", apphandlers.UpdateEquipoHandler)
 	mux.HandleFunc("/api/admin/delete-equipo", apphandlers.DeleteEquipoHandler)
-	// ⭐️ --- (FIN) Nuevas Rutas de Equipos --- ⭐️
 
-	// Ruta Usuario - Usa 'apphandlers'
+	// ⭐️ --- (INICIO) Nuevas Rutas de Actividades (DatosProyecto.js) --- ⭐️
+	mux.HandleFunc("/api/admin/get-datos-proyecto", apphandlers.GetDatosProyectoHandler)
+	mux.HandleFunc("/api/admin/create-actividad", apphandlers.CreateActividadHandler)
+	mux.HandleFunc("/api/admin/update-actividad", apphandlers.UpdateActividadHandler)
+	mux.HandleFunc("/api/admin/delete-actividad", apphandlers.DeleteActividadHandler)
+	// ⭐️ --- (FIN) Nuevas Rutas de Actividades --- ⭐️
+
+	// Ruta Usuario
 	mux.HandleFunc("/api/user/project-details", apphandlers.UserProjectDetailsHandler)
 
 	// --- Iniciar Servidor ---
