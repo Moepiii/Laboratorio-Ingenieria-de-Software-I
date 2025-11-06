@@ -197,24 +197,21 @@ type DeleteEquipoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ --- (INICIO) Estructuras para Actividades (DatosProyecto.js) --- ⭐️
+// --- Estructuras para Actividades (DatosProyecto.js) ---
 
-// ⭐️ NUEVO: Estructura de la tabla `actividades`
-// Usamos sql.Null* para las claves foráneas que pueden ser nulas
 type Actividad struct {
-	ID                 int            `json:"id"`
-	ProyectoID         int            `json:"proyecto_id"`
-	Actividad          string         `json:"actividad"`
-	LaborAgronomicaID  sql.NullInt64  `json:"labor_agronomica_id"`
-	EquipoImplementoID sql.NullInt64  `json:"equipo_implemento_id"`
-	EncargadoID        sql.NullInt64  `json:"encargado_id"`
-	RecursoHumano      int            `json:"recurso_humano"`
-	Costo              float64        `json:"costo"`
-	Observaciones      sql.NullString `json:"observaciones"`
-	FechaCreacion      string         `json:"fecha_creacion"`
+	ID                 int
+	ProyectoID         int
+	Actividad          string
+	LaborAgronomicaID  sql.NullInt64
+	EquipoImplementoID sql.NullInt64
+	EncargadoID        sql.NullInt64
+	RecursoHumano      int
+	Costo              float64
+	Observaciones      sql.NullString
+	FechaCreacion      string
 }
 
-// ⭐️ NUEVO: Estructura para la respuesta de la lista de actividades (con JOINs)
 type ActividadResponse struct {
 	ID                 int            `json:"id"`
 	ProyectoID         int            `json:"proyecto_id"`
@@ -231,37 +228,21 @@ type ActividadResponse struct {
 	EncargadoNombre    sql.NullString `json:"encargado_nombre"`
 }
 
-// ⭐️ NUEVO: Estructura para la lista de Encargados (rol 'encargado')
+// ⭐️ MODIFICADO: Añadido 'Cedula'
 type EncargadoResponse struct {
 	ID       int    `json:"id"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
+	Cedula   string `json:"cedula"` // ⭐️ NUEVO
 }
 
-// ⭐️ NUEVO: Para la petición GET de datos de la página (Labores, Equipos, Encargados, Actividades)
 type GetDatosProyectoRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ NUEVO: Para la petición de CREAR una actividad
-// El frontend enviará 0 o null para los IDs opcionales
 type CreateActividadRequest struct {
 	ProyectoID         int     `json:"proyecto_id"`
-	Actividad          string  `json:"actividad"`
-	LaborAgronomicaID  *int    `json:"labor_agronomica_id"` // Usamos punteros para manejar 'null' desde JSON
-	EquipoImplementoID *int    `json:"equipo_implemento_id"`
-	EncargadoID        *int    `json:"encargado_id"`
-	RecursoHumano      int     `json:"recurso_humano"`
-	Costo              float64 `json:"costo"`
-	Observaciones      string  `json:"observaciones"` // El frontend enviará string vacío
-	AdminUsername      string  `json:"admin_username"`
-}
-
-// ⭐️ NUEVO: Para la petición de ACTUALIZAR una actividad
-type UpdateActividadRequest struct {
-	ID                 int     `json:"id"`
-	ProyectoID         int     `json:"proyecto_id"` // Para seguridad
 	Actividad          string  `json:"actividad"`
 	LaborAgronomicaID  *int    `json:"labor_agronomica_id"`
 	EquipoImplementoID *int    `json:"equipo_implemento_id"`
@@ -272,10 +253,20 @@ type UpdateActividadRequest struct {
 	AdminUsername      string  `json:"admin_username"`
 }
 
-// ⭐️ NUEVO: Para la petición de BORRAR una actividad
+type UpdateActividadRequest struct {
+	ID                 int     `json:"id"`
+	ProyectoID         int     `json:"proyecto_id"`
+	Actividad          string  `json:"actividad"`
+	LaborAgronomicaID  *int    `json:"labor_agronomica_id"`
+	EquipoImplementoID *int    `json:"equipo_implemento_id"`
+	EncargadoID        *int    `json:"encargado_id"`
+	RecursoHumano      int     `json:"recurso_humano"`
+	Costo              float64 `json:"costo"`
+	Observaciones      string  `json:"observaciones"`
+	AdminUsername      string  `json:"admin_username"`
+}
+
 type DeleteActividadRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
-
-// ⭐️ --- (FIN) Estructuras para Actividades --- ⭐️

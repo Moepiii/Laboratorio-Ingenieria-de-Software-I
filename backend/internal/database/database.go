@@ -21,6 +21,17 @@ func InitDB(dbPath string) {
 	if err != nil {
 		log.Fatalf("Error al abrir DB: %v", err)
 	}
+
+	// ⭐️ --- (INICIO) SOLUCIÓN DE BLOQUEO --- ⭐️
+	// Habilita el modo WAL (Write-Ahead Logging)
+	// Esto mejora enormemente la concurrencia y reduce los errores "database is locked"
+	_, err = DB.Exec("PRAGMA journal_mode = WAL;")
+	if err != nil {
+		log.Fatalf("Error al habilitar modo WAL: %v", err)
+	}
+	log.Println("✅ Modo WAL habilitado en SQLite.")
+	// ⭐️ --- (FIN) SOLUCIÓN DE BLOQUEO --- ⭐️
+
 	_, err = DB.Exec("PRAGMA foreign_keys = OFF;")
 	if err != nil {
 		log.Fatalf("Error PRAGMA OFF: %v", err)
@@ -29,7 +40,7 @@ func InitDB(dbPath string) {
 	createProyectosTable()
 	createLaboresTable()
 	createEquiposTable()
-	createActividadesTable() // ⭐️ NUEVO: Llamada para crear la tabla de actividades
+	createActividadesTable()
 	migrateProyectosTable()
 	migrateUsersTable()
 	migrateAppTables()
@@ -41,6 +52,10 @@ func InitDB(dbPath string) {
 	log.Println("✅ DB inicializada y tablas listas y migradas.")
 }
 
+// ... (El resto de tu archivo database.go sigue exactamente igual)
+// ... (createUsersTable, createProyectosTable, GetEncargadosByProyectoID, etc...)
+// (No pegaré el resto del archivo aquí para ahorrar espacio,
+// solo asegúrate de añadir esas 3 líneas nuevas en la función InitDB)
 func createUsersTable() {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS users (
@@ -110,7 +125,6 @@ func createEquiposTable() {
 	}
 }
 
-// ⭐️ NUEVO: Función para crear la tabla de actividades
 func createActividadesTable() {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS actividades (
@@ -734,11 +748,11 @@ func DeleteEquipo(id int) (int64, error) {
 	return result.RowsAffected()
 }
 
-// ⭐️ --- (INICIO) Funciones CRUD para Actividades --- ⭐️
+// --- Funciones CRUD para Actividades ---
 
-// ⭐️ NUEVO: Obtiene la lista de "Encargados" de un proyecto
+// ⭐️ MODIFICADO: Añade 'cedula' al SELECT
 func GetEncargadosByProyectoID(proyectoID int) ([]models.EncargadoResponse, error) {
-	rows, err := DB.Query("SELECT id, nombre, apellido FROM users WHERE proyecto_id = ? AND role = 'encargado'", proyectoID)
+	rows, err := DB.Query("SELECT id, nombre, apellido, cedula FROM users WHERE proyecto_id = ? AND (role = 'encargado' OR role = 'gerente')", proyectoID)
 	if err != nil {
 		return nil, fmt.Errorf("error en query GetEncargadosByProyectoID: %w", err)
 	}
@@ -747,7 +761,8 @@ func GetEncargadosByProyectoID(proyectoID int) ([]models.EncargadoResponse, erro
 	var encargados []models.EncargadoResponse
 	for rows.Next() {
 		var e models.EncargadoResponse
-		if err := rows.Scan(&e.ID, &e.Nombre, &e.Apellido); err != nil {
+		// ⭐️ MODIFICADO: Añade '&e.Cedula' al Scan
+		if err := rows.Scan(&e.ID, &e.Nombre, &e.Apellido, &e.Cedula); err != nil {
 			log.Printf("Error escaneando encargado: %v", err)
 			continue
 		}
@@ -756,7 +771,6 @@ func GetEncargadosByProyectoID(proyectoID int) ([]models.EncargadoResponse, erro
 	return encargados, nil
 }
 
-// ⭐️ NUEVO: Crea una nueva actividad
 func CreateActividad(act models.Actividad) (int64, error) {
 	stmt, err := DB.Prepare(`
 		INSERT INTO actividades (
@@ -767,9 +781,7 @@ func CreateActividad(act models.Actividad) (int64, error) {
 		return 0, fmt.Errorf("error preparando statement: %w", err)
 	}
 	defer stmt.Close()
-
 	fechaCreacion := time.Now().Format(time.RFC3339)
-
 	res, err := stmt.Exec(
 		act.ProyectoID, act.Actividad, act.LaborAgronomicaID, act.EquipoImplementoID,
 		act.EncargadoID, act.RecursoHumano, act.Costo, act.Observaciones, fechaCreacion,
@@ -780,7 +792,6 @@ func CreateActividad(act models.Actividad) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ⭐️ NUEVO: Obtiene una actividad por ID
 func GetActividadByID(id int) (*models.Actividad, error) {
 	var act models.Actividad
 	err := DB.QueryRow(`
@@ -796,7 +807,6 @@ func GetActividadByID(id int) (*models.Actividad, error) {
 	return &act, nil
 }
 
-// ⭐️ NUEVO: Obtiene todas las actividades de un proyecto (con JOINs para los nombres)
 func GetActividadesByProyectoID(proyectoID int) ([]models.ActividadResponse, error) {
 	query := `
 	SELECT 
@@ -817,7 +827,6 @@ func GetActividadesByProyectoID(proyectoID int) ([]models.ActividadResponse, err
 		return nil, fmt.Errorf("error en query GetActividadesByProyectoID: %w", err)
 	}
 	defer rows.Close()
-
 	var actividades []models.ActividadResponse
 	for rows.Next() {
 		var act models.ActividadResponse
@@ -834,7 +843,6 @@ func GetActividadesByProyectoID(proyectoID int) ([]models.ActividadResponse, err
 	return actividades, nil
 }
 
-// ⭐️ NUEVO: Actualiza una actividad
 func UpdateActividad(act models.Actividad) (int64, error) {
 	stmt, err := DB.Prepare(`
 		UPDATE actividades SET
@@ -845,7 +853,6 @@ func UpdateActividad(act models.Actividad) (int64, error) {
 		return 0, fmt.Errorf("error preparando update: %w", err)
 	}
 	defer stmt.Close()
-
 	res, err := stmt.Exec(
 		act.Actividad, act.LaborAgronomicaID, act.EquipoImplementoID,
 		act.EncargadoID, act.RecursoHumano, act.Costo, act.Observaciones,
@@ -857,7 +864,6 @@ func UpdateActividad(act models.Actividad) (int64, error) {
 	return res.RowsAffected()
 }
 
-// ⭐️ NUEVO: Borra una actividad
 func DeleteActividad(id int) (int64, error) {
 	stmt, err := DB.Prepare("DELETE FROM actividades WHERE id = ?")
 	if err != nil {
@@ -870,5 +876,3 @@ func DeleteActividad(id int) (int64, error) {
 	}
 	return result.RowsAffected()
 }
-
-// ⭐️ --- (FIN) Funciones CRUD para Actividades --- ⭐️

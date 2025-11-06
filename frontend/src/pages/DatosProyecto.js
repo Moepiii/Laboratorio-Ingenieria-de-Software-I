@@ -1,17 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-// ⭐️ 1. Importa el servicio de actividades que creamos
+// 1. Importa el servicio de actividades
 import {
     getDatosProyecto,
     createActividad,
     updateActividad,
     deleteActividad
 } from '../services/actividadService';
-// ⭐️ 2. Importa el Modal que acabamos de crear
-import Modal from '../components/auth/Modal';
 
-// ⭐️ 3. Todos los estilos están definidos aquí (sin .css)
+// ⭐️ --- (INICIO) CORRECCIÓN DE RUTAS --- ⭐️
+// Estas son las rutas correctas basadas en tu Screenshot_199.png
+import Modal from '../components/auth/Modal';
+import EncargadoSearchModal from '../components/auth/EncargadoSearchModal';
+// ⭐️ --- (FIN) CORRECCIÓN DE RUTAS --- ⭐️
+
+// Estilos
 const styles = {
     // Estilos de la página principal
     container: { padding: '2rem', fontFamily: 'Inter, sans-serif' },
@@ -72,16 +76,17 @@ const styles = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle', whiteSpace: 'nowrap' },
     actionButton: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0.5rem' },
-    // Estilos del Modal
+
+    // Estilos del Modal de Formulario
     formGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: '1rem',
         marginBottom: '1.5rem'
     },
-    formGridTriple: { // Estilo para 3 columnas
+    formGridTriple: {
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr 1fr', // Columna de encargado más ancha
         gap: '1rem',
         marginBottom: '1.5rem'
     },
@@ -93,17 +98,44 @@ const styles = {
     formActions: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' },
     saveButton: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#22c55e', border: 'none', cursor: 'pointer' },
     cancelButton: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: '#374151', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', cursor: 'pointer' },
-    errorText: { color: 'red', marginTop: '1rem' }
+    errorText: { color: 'red', marginTop: '1rem' },
+
+    // Estilos para el campo de búsqueda de Encargado
+    inputGroupButton: {
+        display: 'flex',
+    },
+    inputReadOnly: {
+        width: '100%',
+        padding: '0.75rem 1rem',
+        border: '1px solid #d1d5db',
+        borderRadius: '8px',
+        fontSize: '1rem',
+        boxSizing: 'border-box',
+        backgroundColor: '#f9fafb',
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0,
+        borderRight: 'none',
+    },
+    searchButton: {
+        padding: '0 1rem',
+        border: '1px solid #d1d5db',
+        backgroundColor: '#f9fafb',
+        cursor: 'pointer',
+        borderTopRightRadius: '8px',
+        borderBottomRightRadius: '8px',
+        color: '#4f46e5',
+        fontWeight: '600',
+    }
 };
 
 
 const DatosProyecto = () => {
-    const { id } = useParams(); // ID del proyecto desde la URL
+    const { id } = useParams();
     const { token, currentUser } = useAuth();
     const adminUsername = currentUser?.username;
     const proyectoIdNum = parseInt(id, 10);
 
-    // Estado para los datos de la página
+    // Listas de datos maestros
     const [actividades, setActividades] = useState([]);
     const [labores, setLabores] = useState([]);
     const [equipos, setEquipos] = useState([]);
@@ -113,9 +145,10 @@ const DatosProyecto = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false); // ⭐️ AÑADIDO
 
-    // Estado del formulario del modal
-    const [currentActividad, setCurrentActividad] = useState(null); // Si es != null, estamos editando
+    // Estado del formulario
+    const [currentActividad, setCurrentActividad] = useState(null);
     const [formData, setFormData] = useState({
         actividad: '',
         labor_agronomica_id: 0,
@@ -148,9 +181,9 @@ const DatosProyecto = () => {
         loadPageData();
     }, [loadPageData]);
 
-    // --- Manejo del Modal ---
+    // --- Manejo del Modal de Formulario ---
     const handleOpenModal = () => {
-        setCurrentActividad(null); // Limpia para "Crear"
+        setCurrentActividad(null);
         setFormData({
             actividad: '',
             labor_agronomica_id: 0,
@@ -165,7 +198,7 @@ const DatosProyecto = () => {
     };
 
     const handleOpenEditModal = (actividad) => {
-        setCurrentActividad(actividad); // Guarda la actividad para "Editar"
+        setCurrentActividad(actividad);
         setFormData({
             actividad: actividad.actividad,
             labor_agronomica_id: actividad.labor_agronomica_id.Valid ? actividad.labor_agronomica_id.Int64 : 0,
@@ -187,21 +220,37 @@ const DatosProyecto = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-        // Convierte a número si es necesario
         const val = (name === 'labor_agronomica_id' || name === 'equipo_implemento_id' || name === 'encargado_id' || name === 'recurso_humano' || name === 'costo')
             ? Number(value)
             : value;
-
         setFormData(prev => ({ ...prev, [name]: val }));
     };
 
-    // --- Funciones CRUD (Llamadas a la API) ---
+    // --- ⭐️ AÑADIDO: Manejo del Modal de Búsqueda de Encargado ---
+    const handleOpenSearchModal = () => setIsSearchModalOpen(true);
+    const handleCloseSearchModal = () => setIsSearchModalOpen(false);
+
+    const handleSelectEncargado = (encargado) => {
+        setFormData(prev => ({ ...prev, encargado_id: encargado.id }));
+        handleCloseSearchModal();
+    };
+
+    // ⭐️ AÑADIDO: Deriva la cédula a mostrar a partir del ID en el formulario
+    const selectedEncargadoCedula = useMemo(() => {
+        if (formData.encargado_id === 0) {
+            return '';
+        }
+        const encargado = encargados.find(e => e.id === formData.encargado_id);
+        return encargado ? encargado.cedula : '';
+    }, [formData.encargado_id, encargados]);
+
+
+    // --- Funciones CRUD (API) ---
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        // Prepara los datos para enviar (convierte 0 a null para IDs opcionales)
         const dataToSend = {
             ...formData,
             proyecto_id: proyectoIdNum,
@@ -213,13 +262,10 @@ const DatosProyecto = () => {
         try {
             let response;
             if (currentActividad) {
-                // --- Actualizar ---
                 response = await updateActividad(token, { ...dataToSend, id: currentActividad.id }, adminUsername);
             } else {
-                // --- Crear ---
                 response = await createActividad(token, dataToSend, adminUsername);
             }
-            // El backend devuelve la lista actualizada de actividades
             setActividades(response.actividades || []);
             handleCloseModal();
         } catch (err) {
@@ -232,7 +278,6 @@ const DatosProyecto = () => {
         setError('');
         try {
             await deleteActividad(token, actividadId, adminUsername);
-            // Recarga todos los datos (o solo filtra localmente)
             setActividades(prev => prev.filter(act => act.id !== actividadId));
         } catch (err) {
             setError(err.message || 'Error al borrar la actividad.');
@@ -354,23 +399,32 @@ const DatosProyecto = () => {
                         </div>
                     </div>
 
-                    {/* Fila 3 */}
-                    <div style={styles.formGridTriple}> {/* ⭐️ Estilo de 3 columnas */}
+                    {/* ⭐️ CAMBIO: Fila 3 (Encargado) ⭐️ */}
+                    <div style={styles.formGridTriple}>
                         <div style={styles.formGroup}>
                             <label htmlFor="encargado_id" style={styles.label}>Encargado</label>
-                            <select
-                                name="encargado_id"
-                                id="encargado_id"
-                                value={formData.encargado_id}
-                                onChange={handleFormChange}
-                                style={styles.select}
-                            >
-                                <option value="0">--- Ninguno ---</option>
-                                {encargados.map(enc => (
-                                    <option key={enc.id} value={enc.id}>{enc.nombre} {enc.apellido}</option>
-                                ))}
-                            </select>
+
+                            {/* Este es el nuevo campo de búsqueda */}
+                            <div style={styles.inputGroupButton}>
+                                <input
+                                    type="text"
+                                    id="encargado_cedula"
+                                    value={selectedEncargadoCedula}
+                                    style={styles.inputReadOnly}
+                                    placeholder="Buscar por Cédula..."
+                                    readOnly
+                                    onClick={handleOpenSearchModal}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleOpenSearchModal}
+                                    style={styles.searchButton}
+                                >
+                                    Buscar
+                                </button>
+                            </div>
                         </div>
+
                         <div style={styles.formGroup}>
                             <label htmlFor="recurso_humano" style={styles.label}>Recurso Humano (Nro.)</label>
                             <input
@@ -418,6 +472,15 @@ const DatosProyecto = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* ⭐️ AÑADIDO: Pasa el ID seleccionado al modal de búsqueda ⭐️ */}
+            <EncargadoSearchModal
+                isOpen={isSearchModalOpen}
+                onClose={handleCloseSearchModal}
+                onSelect={handleSelectEncargado}
+                encargadosList={encargados}
+                selectedId={formData.encargado_id}
+            />
         </div>
     );
 };
