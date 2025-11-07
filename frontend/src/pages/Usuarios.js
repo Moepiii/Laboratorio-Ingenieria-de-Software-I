@@ -9,239 +9,229 @@ import {
 } from '../services/userService';
 import { getAdminProjects } from '../services/projectService';
 
-// (Estilos - sin cambios)
+// Estilos
 const styles = {
+  container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
+  h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.75rem' },
   adminFormContainer: { padding: '1.5rem', backgroundColor: '#f9fafb', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #e5e7eb' },
+  h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
   input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out', boxSizing: 'border-box' },
+  select: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
   button: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 1rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s, transform 0.1s', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(1, minmax(0, 1fr))', gap: '1rem' }, // Grid por defecto
-  h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem' },
+  error: { color: 'red', marginTop: '1rem' },
+  success: { color: 'green', marginTop: '1rem' },
   tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: '800px' },
+  table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
   td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
-  select: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', backgroundColor: 'white' },
-  buttonAssign: { padding: '0.4rem 0.8rem', fontSize: '0.875rem', fontWeight: '500', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', width: '100px', marginTop: '0.25rem' },
-  error: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' },
-  success: { backgroundColor: '#dcfce7', color: '#16a34a', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' },
-  inputGroup: { marginBottom: '0.5rem' },
-  label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
+  // ⭐️ MODIFICACIÓN: Nuevo estilo para la columna Cédula ⭐️
+  tdCedula: { minWidth: '150px' },
+  // -----------------------------------------------------------
+  roleSelect: { padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', minWidth: '120px' },
+  projectSelect: { padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', minWidth: '150px' },
+  buttonSave: { padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: '600', borderRadius: '4px', color: 'white', backgroundColor: '#f59e0b', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' },
+  buttonAssign: { padding: '0.6rem 1.2rem', fontSize: '0.875rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#3b82f6', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s, transform 0.1s' }
 };
 
-// Media query para el grid
-if (window.innerWidth >= 768) {
-  styles.formGrid = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', // 3 columnas en desktop
-    gap: '1rem'
-  };
-}
-
-
 const PerfilesUsuarios = () => {
-  const { token, currentUser } = useAuth();
+  const { token, currentUser, userId, userRole, setError, setSuccessMessage } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    password: '',
+    nombre: '',
+    apellido: '',
+    cedula: '', // Nuevo campo
+    role: 'user',
+    proyecto_id: '' // Para la asignación inicial
+  });
+  const [selectedRoles, setSelectedRoles] = useState({});
+  const [selectedProjects, setSelectedProjects] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [generalError, setGeneralError] = useState('');
+  const [generalSuccess, setGeneralSuccess] = useState('');
+
   const adminUsername = currentUser?.username;
 
-  // Estados del componente
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [generalError, setGeneralError] = useState('');
-
-  // Estados del formulario "Añadir"
-  const [addingUser, setAddingUser] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newNombre, setNewNombre] = useState('');
-  const [newApellido, setNewApellido] = useState('');
-  const [newCedula, setNewCedula] = useState('');
-  const [addError, setAddError] = useState('');
-  const [addSuccess, setAddSuccess] = useState('');
-
-  // Estados para la asignación de roles y proyectos
-  const [proyectos, setProyectos] = useState([]);
-  const [selectedRoles, setSelectedRoles] = useState({});
-  const [selectedProyectos, setSelectedProyectos] = useState({});
-
-  // Carga inicial de datos
-  const loadData = useCallback(async () => {
+  const fetchUsersAndProjects = useCallback(async () => {
     if (!token || !adminUsername) return;
+
     setLoading(true);
     setGeneralError('');
     try {
-      const [usersData, proyectosData] = await Promise.all([
-        getAdminUsers(token, adminUsername),
-        getAdminProjects(token, adminUsername)
-      ]);
+      // 1. Obtener Usuarios
+      const usersData = await getAdminUsers(token, adminUsername);
+      setUsers(usersData.users);
 
-      const usersList = usersData.users || [];
-      setUsers(usersList);
-      setProyectos(proyectosData.proyectos || []);
+      // 2. Obtener Proyectos
+      const projectsData = await getAdminProjects(token, adminUsername);
+      setProjects(projectsData.proyectos || []);
 
+      // 3. Inicializar estados de selección
       const initialRoles = {};
-      const initialProyectos = {};
-      usersList.forEach(user => {
+      const initialProjects = {};
+      usersData.users.forEach(user => {
         initialRoles[user.id] = user.role;
-        initialProyectos[user.id] = user.proyecto_id || 0;
+        initialProjects[user.id] = user.proyecto_id || '';
       });
       setSelectedRoles(initialRoles);
-      setSelectedProyectos(initialProyectos);
+      setSelectedProjects(initialProjects);
 
     } catch (err) {
-      setGeneralError(err.message || 'Error al cargar los datos.');
+      setGeneralError('Error al cargar datos: ' + err.message);
     } finally {
       setLoading(false);
     }
   }, [token, adminUsername]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchUsersAndProjects();
+  }, [fetchUsersAndProjects]);
 
 
-  // Helper para limpiar el formulario de añadir
-  const clearForm = () => {
-    setNewUsername('');
-    setNewPassword('');
-    setNewNombre('');
-    setNewApellido('');
-    setNewCedula('');
-    setAddingUser(false);
-    setAddError('');
-    setAddSuccess('');
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewUser(prev => ({ ...prev, [name]: value }));
   };
-
-  // --- Handlers ---
 
   const handleAdminAddUser = async (e) => {
     e.preventDefault();
-    setAddError('');
-    setAddSuccess('');
+    setGeneralError('');
+    setGeneralSuccess('');
 
-    const newUser = {
-      username: newUsername,
-      password: newPassword,
-      nombre: newNombre,
-      apellido: newApellido,
-      cedula: newCedula
-    };
-
-    if (!newUser.username || !newUser.password || !newUser.nombre || !newUser.apellido || !newUser.cedula) {
-      setAddError('Todos los campos (username, password, nombre, apellido y cédula) son requeridos.');
-      return;
+    if (newUser.username.trim() === '' || newUser.password.trim() === '' || newUser.cedula.trim() === '' || newUser.nombre.trim() === '' || newUser.apellido.trim() === '') {
+      return setGeneralError('Todos los campos son obligatorios.');
     }
 
+    setLoading(true);
     try {
-      const response = await adminAddUser(token, newUser, adminUsername);
-      setAddSuccess(response.mensaje || 'Usuario añadido con éxito.');
-      loadData();
-      clearForm();
+      const userData = {
+        username: newUser.username,
+        password: newUser.password,
+        role: newUser.role,
+        nombre: newUser.nombre,
+        apellido: newUser.apellido,
+        cedula: newUser.cedula,
+        proyecto_id: newUser.proyecto_id || null // Asegura que sea null si está vacío
+      };
 
+      const result = await adminAddUser(token, userData, adminUsername);
+      setGeneralSuccess(result.mensaje || 'Usuario agregado con éxito.');
+      setNewUser({ username: '', password: '', nombre: '', apellido: '', cedula: '', role: 'user', proyecto_id: '' });
+      await fetchUsersAndProjects(); // Recargar la lista
     } catch (err) {
-      setAddError(err.message || 'Error al añadir usuario.');
+      setGeneralError('Error al agregar usuario: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRoleChange = (userId, newRole) => {
+    setSelectedRoles(prev => ({ ...prev, [userId]: newRole }));
+  };
+
+  const handleProjectChange = (userId, newProjectId) => {
+    setSelectedProjects(prev => ({ ...prev, [userId]: newProjectId || null })); // Guarda null si es "No Asignar"
+  };
+
+  const handleAdminUpdateRole = async (userId, newRole) => {
+    if (userId === currentUser.id) return setGeneralError("No puedes cambiar tu propio rol.");
+
+    setGeneralError('');
+    setGeneralSuccess('');
+    setLoading(true);
+
+    try {
+      const result = await adminUpdateUserRole(token, userId, newRole, adminUsername);
+      setGeneralSuccess(result.mensaje || 'Rol de usuario actualizado con éxito.');
+      await fetchUsersAndProjects();
+    } catch (err) {
+      setGeneralError('Error al actualizar el rol: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminAssignProject = async (userId, projectId) => {
+    if (userId === currentUser.id && userRole !== 'admin') {
+      return setGeneralError("Solo un administrador puede asignarse un proyecto a sí mismo.");
+    }
+
+    setGeneralError('');
+    setGeneralSuccess('');
+    setLoading(true);
+
+    try {
+      const actualProjectId = projectId === '' ? null : parseInt(projectId, 10);
+
+      const result = await adminAssignProjectToUser(token, userId, actualProjectId, adminUsername);
+      setGeneralSuccess(result.mensaje || 'Proyecto asignado/desasignado con éxito.');
+      await fetchUsersAndProjects();
+    } catch (err) {
+      setGeneralError('Error al asignar proyecto: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAdminDeleteUser = async (userId, username) => {
-    if (username === currentUser.username) {
-      setGeneralError('No puedes borrar tu propia cuenta.');
-      return;
-    }
+    if (userId === currentUser.id) return setGeneralError("No puedes borrar tu propia cuenta.");
     if (!window.confirm(`¿Estás seguro de que quieres borrar al usuario ${username}?`)) return;
 
     setGeneralError('');
+    setGeneralSuccess('');
+    setLoading(true);
+
     try {
-      await adminDeleteUser(token, userId, adminUsername);
-      loadData();
+      const result = await adminDeleteUser(token, userId, adminUsername);
+      setGeneralSuccess(result.mensaje || 'Usuario borrado con éxito.');
+      await fetchUsersAndProjects();
     } catch (err) {
-      setGeneralError(err.message || 'Error al borrar usuario.');
+      setGeneralError('Error al borrar usuario: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAdminUpdateRole = async (userId, newRole) => {
-    setGeneralError('');
-    try {
-      await adminUpdateUserRole(token, userId, newRole, adminUsername);
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      );
-    } catch (err) {
-      setGeneralError(err.message || 'Error al actualizar el rol.');
-    }
-  };
-
-  const handleAdminAssignProject = async (userId, proyectoId) => {
-    setGeneralError('');
-    const pId = parseInt(proyectoId, 10);
-    try {
-      await adminAssignProjectToUser(token, userId, pId, adminUsername);
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.id === userId ? { ...user, proyecto_id: pId || null, proyecto_nombre: proyectos.find(p => p.id === pId)?.nombre || null } : user
-        )
-      );
-    } catch (err) {
-      setGeneralError(err.message || 'Error al asignar el proyecto.');
-    }
-  };
-
-  // --- Renderizado ---
-
-  if (loading) return <div style={{ padding: '2rem' }}>Cargando perfiles...</div>;
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
-      <h2 style={styles.h2}>Perfiles de Usuarios</h2>
+    <div style={styles.container}>
+      <h2 style={styles.h2}>Perfiles de Usuarios (Admin/Gerente)</h2>
 
-      {generalError && <div style={styles.error}>{generalError}</div>}
-
-      {!addingUser && (
-        <button
-          onClick={() => setAddingUser(true)}
-          style={{ ...styles.button, width: 'auto', marginBottom: '2rem', backgroundColor: '#22c55e' }}
-        >
-          <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
-          Añadir Nuevo Usuario
-        </button>
-      )}
-
-      {addingUser && (
+      {/* Formulario para Agregar Usuario (Solo Admin) */}
+      {userRole === 'admin' && (
         <div style={styles.adminFormContainer}>
+          <h3 style={styles.h3}>Agregar Nuevo Usuario</h3>
           <form onSubmit={handleAdminAddUser}>
-            <div style={styles.formGrid}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Nombre</label>
-                <input type="text" style={styles.input} value={newNombre} onChange={(e) => setNewNombre(e.target.value)} />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Apellido</label>
-                <input type="text" style={styles.input} value={newApellido} onChange={(e) => setNewApellido(e.target.value)} />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Cédula</label>
-                <input type="text" style={styles.input} value={newCedula} onChange={(e) => setNewCedula(e.target.value)} placeholder="V-12345678" />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Username (Login)</label>
-                <input type="text" style={styles.input} value={newUsername} onChange={(e) => setNewUsername(e.target.value)} />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Password Temporal</label>
-                <input type="password" style={styles.input} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-              </div>
-            </div>
-
-            {addError && <p style={styles.error}>{addError}</p>}
-            {addSuccess && <p style={styles.success}>{addSuccess}</p>}
-
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button type="submit" style={{ ...styles.button, width: '150px' }}>Crear Usuario</button>
-              <button type="button" onClick={clearForm} style={{ ...styles.button, width: '150px', backgroundColor: '#6b7280' }}>Cancelar</button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <input type="text" name="username" placeholder="Usuario" value={newUser.username} onChange={handleInputChange} style={styles.input} required />
+              <input type="password" name="password" placeholder="Contraseña" value={newUser.password} onChange={handleInputChange} style={styles.input} required />
+              <input type="text" name="nombre" placeholder="Nombre" value={newUser.nombre} onChange={handleInputChange} style={styles.input} required />
+              <input type="text" name="apellido" placeholder="Apellido" value={newUser.apellido} onChange={handleInputChange} style={styles.input} required />
+              <input type="text" name="cedula" placeholder="Cédula" value={newUser.cedula} onChange={handleInputChange} style={styles.input} required />
+              <select name="role" value={newUser.role} onChange={handleInputChange} style={styles.select}>
+                <option value="user">User</option>
+                <option value="encargado">Encargado</option>
+                <option value="gerente">Gerente</option>
+                <option value="admin">Admin</option>
+              </select>
+              <select name="proyecto_id" value={newUser.proyecto_id} onChange={handleInputChange} style={styles.select}>
+                <option value="">No Asignar Proyecto</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <button type="submit" style={styles.button} disabled={loading}>
+                {loading ? 'Cargando...' : 'Agregar Usuario'}
+              </button>
             </div>
           </form>
+          {generalError && <p style={styles.error}>{generalError}</p>}
+          {generalSuccess && <p style={styles.success}>{generalSuccess}</p>}
         </div>
       )}
+
 
       {/* Tabla de Usuarios */}
       {loading ? (
@@ -252,65 +242,70 @@ const PerfilesUsuarios = () => {
             <thead>
               <tr>
                 <th style={styles.th}>ID</th>
-                {/* ⭐️ LÍNEA CORREGIDA: ⭐️ */}
-                <th style={styles.th}>Username</th>
+                <th style={styles.th}>Usuario</th>
                 <th style={styles.th}>Nombre</th>
-                <th style={styles.th}>Cédula</th>
-                <th style={styles.th}>Proyecto Asignado</th>
+                <th style={styles.th}>Apellido</th>
+                {/* ⭐️ APLICACIÓN DEL ESTILO AL ENCABEZADO ⭐️ */}
+                <th style={{ ...styles.th, ...styles.tdCedula }}>Cédula</th>
                 <th style={styles.th}>Rol</th>
-                <th style={styles.th}>Acciones</th>
+                <th style={styles.th}>Proyecto Asignado</th>
+                <th style={styles.th} colSpan="2">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => {
-                const isSelf = user.username === currentUser.username;
+                const isSelf = user.id === userId;
                 return (
                   <tr key={user.id}>
                     <td style={styles.td}>{user.id}</td>
                     <td style={styles.td}>{user.username}</td>
-                    <td style={styles.td}>{user.nombre} {user.apellido}</td>
-                    <td style={styles.td}>{user.cedula}</td>
+                    <td style={styles.td}>{user.nombre}</td>
+                    <td style={styles.td}>{user.apellido}</td>
+                    {/* ⭐️ APLICACIÓN DEL ESTILO A LA CELDA DE DATOS ⭐️ */}
+                    <td style={{ ...styles.td, ...styles.tdCedula }}>{user.cedula}</td>
                     <td style={styles.td}>
-                      {isSelf ? (
-                        <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>N/A</span>
-                      ) : (
-                        <select
-                          style={styles.select}
-                          value={selectedProyectos[user.id] || 0}
-                          onChange={(e) => {
-                            const newProjId = parseInt(e.target.value, 10);
-                            setSelectedProyectos(prev => ({ ...prev, [user.id]: newProjId }));
-                            handleAdminAssignProject(user.id, newProjId);
-                          }}
-                        >
-                          <option value="0">--- No Asignado ---</option>
-                          {proyectos.map(p => (
-                            <option key={p.id} value={p.id}>{p.nombre}</option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        style={styles.roleSelect}
+                        value={selectedRoles[user.id] || user.role}
+                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        disabled={isSelf || userRole !== 'admin'} // Solo Admin puede cambiar roles
+                      >
+                        <option value="user">User</option>
+                        <option value="encargado">Encargado</option>
+                        <option value="gerente">Gerente</option>
+                        <option value="admin" disabled={isSelf}>Admin</option>
+                      </select>
                     </td>
                     <td style={styles.td}>
-                      {isSelf ? (
-                        <span style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1f2937' }}>{user.role}</span>
-                      ) : (
-                        <select
-                          style={styles.select}
-                          value={selectedRoles[user.id] || user.role}
-                          onChange={(e) => setSelectedRoles(prev => ({ ...prev, [user.id]: e.target.value }))}
+                      <select
+                        style={styles.projectSelect}
+                        value={selectedProjects[user.id] || ''}
+                        onChange={(e) => handleProjectChange(user.id, e.target.value)}
+                        disabled={userRole !== 'admin' && userRole !== 'gerente'} // Admin/Gerente pueden asignar
+                      >
+                        <option value="">No Asignar</option>
+                        {projects.map(p => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ ...styles.td, width: '150px' }}>
+                      {(userRole === 'admin' || userRole === 'gerente') && !isSelf && (
+                        <button
+                          style={{ ...styles.buttonSave, margin: '0 0.5rem 0 0' }}
+                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
+                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f59e0b'}
+                          onClick={() => handleAdminAssignProject(user.id, selectedProjects[user.id] || '')}
                         >
-                          <option value="user">User</option>
-                          <option value="encargado">Encargado</option>
-                          <option value="gerente">Gerente</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                          Guardar Proy.
+                        </button>
                       )}
                     </td>
-                    <td style={styles.td}>
-                      {!isSelf ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <td style={{ ...styles.td, width: '150px' }}>
+                      {(userRole === 'admin' && !isSelf) ? (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button
-                            style={{ ...styles.buttonAssign, backgroundColor: '#f59e0b' }}
+                            style={{ ...styles.buttonSave }}
                             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
                             onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f59e0b'}
                             onClick={() => handleAdminUpdateRole(user.id, selectedRoles[user.id] || user.role)}
