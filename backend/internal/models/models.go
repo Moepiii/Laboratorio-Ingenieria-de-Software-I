@@ -1,6 +1,7 @@
 package models
 
 import "database/sql"
+import "github.com/golang-jwt/jwt/v5"
 
 // --- ESTRUCTURAS DE DATOS ---
 
@@ -52,6 +53,26 @@ type AddUserRequest struct {
 type DeleteUserRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
+}
+
+type Claims struct {
+	UserID int    `json:"userId"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+type UserDetails struct {
+	Username string `json:"username"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	Cedula   string `json:"cedula"`
+}
+
+type LoginResponse struct {
+	Token  string      `json:"token"`
+	User   UserDetails `json:"user"`
+	Role   string      `json:"role"`
+	UserId int         `json:"userId"`
 }
 
 // --- ESTRUCTURAS DE RESPUESTA ---

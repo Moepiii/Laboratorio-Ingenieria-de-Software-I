@@ -1,0 +1,20 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"proyecto/internal/models"
+)
+
+// --- UTILIDADES ---
+func respondWithError(w http.ResponseWriter, code int, message string) {
+	respondWithJSON(w, code, models.SimpleResponse{Error: message})
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	response, _ := json.Marshal(payload)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
+}

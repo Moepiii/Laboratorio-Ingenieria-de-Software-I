@@ -4,67 +4,95 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/handlers" // Usas 'handlers' de gorilla para CORS
+	"github.com/gorilla/handlers"
 
+	"proyecto/internal/actividades"
+	"proyecto/internal/auth"
 	"proyecto/internal/database"
-	apphandlers "proyecto/internal/handlers" // Tu alias 'apphandlers'
+	"proyecto/internal/equipos"
+	apphandlers "proyecto/internal/handlers"
+	"proyecto/internal/labores"
+	"proyecto/internal/proyectos"
+	"proyecto/internal/users"
 )
 
 func main() {
-	database.InitDB("../Base de datos/users.db") // Asegúrate que la ruta a tu DB sea correcta
+	// 1. INICIALIZAR LA BASE DE DATOS
+	database.InitDB("../Base de datos/users.db")
+	defer database.DB.Close() // ⭐️ ¡CORRECCIÓN!
+	log.Println("Base de datos conectada.")
 
-	// Configuración de CORS (usa 'handlers' de gorilla)
+	// 2. "ARMAR" LA APLICACIÓN (Inyección de Dependencias)
+
+	// Creamos todos los servicios
+	authService := auth.NewAuthService()
+	userService := users.NewUserService()
+	proyectoService := proyectos.NewProyectoService()
+	laborService := labores.NewLaborService()
+	equipoService := equipos.NewEquipoService()
+	actividadService := actividades.NewActividadService()
+
+	// Creamos todos los handlers
+	authHandler := apphandlers.NewAuthHandler(authService)
+	userHandler := apphandlers.NewUserHandler(authService, userService)
+	proyectoHandler := apphandlers.NewProyectoHandler(authService, proyectoService)
+	laborHandler := apphandlers.NewLaborHandler(authService, laborService)
+	equipoHandler := apphandlers.NewEquipoHandler(authService, equipoService)
+	actividadHandler := apphandlers.NewActividadHandler(authService, actividadService)
+
+	// 3. CONFIGURACIÓN DE RUTAS Y CORS
+	mux := http.NewServeMux()
+
 	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
 	corsOptions := handlers.CORS(allowedOrigins, allowedMethods, allowedHeaders)
 
 	// --- Definición de Rutas ---
-	mux := http.NewServeMux()
 
-	// Usa 'apphandlers' para llamar a TUS handlers
+	// Rutas de autenticación (listas)
 	mux.HandleFunc("/api/saludo", apphandlers.SaludoHandler)
-	mux.HandleFunc("/api/register", apphandlers.RegisterHandler)
-	mux.HandleFunc("/api/login", apphandlers.LoginHandler)
+	mux.HandleFunc("/api/register", authHandler.RegisterHandler)
+	mux.HandleFunc("/api/login", authHandler.LoginHandler)
 
-	// Rutas Admin/Gerente (Usuarios)
-	mux.HandleFunc("/api/admin/users", apphandlers.AdminUsersHandler)
-	mux.HandleFunc("/api/admin/add-user", apphandlers.AdminAddUserHandler)
-	mux.HandleFunc("/api/admin/delete-user", apphandlers.AdminDeleteUserHandler)
-	mux.HandleFunc("/api/admin/update-user", apphandlers.AdminUpdateUserHandler)
-	mux.HandleFunc("/api/admin/assign-proyecto", apphandlers.AdminAssignProyectoHandler)
+	// Rutas Admin/Gerente (Usuarios) (listas)
+	mux.HandleFunc("/api/admin/users", userHandler.AdminUsersHandler)
+	mux.HandleFunc("/api/admin/add-user", userHandler.AdminAddUserHandler)
+	mux.HandleFunc("/api/admin/delete-user", userHandler.AdminDeleteUserHandler)
+	mux.HandleFunc("/api/admin/update-user", userHandler.AdminUpdateUserHandler)
+	mux.HandleFunc("/api/admin/assign-proyecto", userHandler.AdminAssignProyectoHandler)
 
-	// Rutas Admin/Gerente (Proyectos)
-	mux.HandleFunc("/api/admin/get-proyectos", apphandlers.AdminGetProyectosHandler)
-	mux.HandleFunc("/api/admin/create-proyecto", apphandlers.AdminCreateProyectoHandler)
-	mux.HandleFunc("/api/admin/delete-proyecto", apphandlers.AdminDeleteProyectoHandler)
-	mux.HandleFunc("/api/admin/update-proyecto", apphandlers.AdminUpdateProyectoHandler)
-	mux.HandleFunc("/api/admin/set-proyecto-estado", apphandlers.AdminSetProyectoEstadoHandler)
+	// Ruta Usuario (lista)
+	mux.HandleFunc("/api/user/proyecto-details", userHandler.UserProjectDetailsHandler)
 
-	// Rutas Admin/Gerente (Labores)
-	mux.HandleFunc("/api/admin/get-labores", apphandlers.GetLaboresHandler)
-	mux.HandleFunc("/api/admin/create-labor", apphandlers.CreateLaborHandler)
-	mux.HandleFunc("/api/admin/update-labor", apphandlers.UpdateLaborHandler)
-	mux.HandleFunc("/api/admin/delete-labor", apphandlers.DeleteLaborHandler)
+	// Rutas Admin/Gerente (Proyectos) (listas)
+	mux.HandleFunc("/api/admin/get-proyectos", proyectoHandler.AdminGetProyectosHandler)
+	mux.HandleFunc("/api/admin/create-proyecto", proyectoHandler.AdminCreateProyectoHandler)
+	mux.HandleFunc("/api/admin/update-proyecto", proyectoHandler.AdminUpdateProyectoHandler)
+	mux.HandleFunc("/api/admin/delete-proyecto", proyectoHandler.AdminDeleteProyectoHandler)
+	mux.HandleFunc("/api/admin/set-proyecto-estado", proyectoHandler.AdminSetProyectoEstadoHandler)
 
-	// Rutas Admin/Gerente (Equipos)
-	mux.HandleFunc("/api/admin/get-equipos", apphandlers.GetEquiposHandler)
-	mux.HandleFunc("/api/admin/create-equipo", apphandlers.CreateEquipoHandler)
-	mux.HandleFunc("/api/admin/update-equipo", apphandlers.UpdateEquipoHandler)
-	mux.HandleFunc("/api/admin/delete-equipo", apphandlers.DeleteEquipoHandler)
+	// Rutas Admin/Gerente (Labores) (listas)
+	mux.HandleFunc("/api/admin/get-labores", laborHandler.GetLaboresHandler)
+	mux.HandleFunc("/api/admin/create-labor", laborHandler.CreateLaborHandler)
+	mux.HandleFunc("/api/admin/update-labor", laborHandler.UpdateLaborHandler)
+	mux.HandleFunc("/api/admin/delete-labor", laborHandler.DeleteLaborHandler)
 
-	// ⭐️ --- (INICIO) Nuevas Rutas de Actividades (DatosProyecto.js) --- ⭐️
-	mux.HandleFunc("/api/admin/get-datos-proyecto", apphandlers.GetDatosProyectoHandler)
-	mux.HandleFunc("/api/admin/create-actividad", apphandlers.CreateActividadHandler)
-	mux.HandleFunc("/api/admin/update-actividad", apphandlers.UpdateActividadHandler)
-	mux.HandleFunc("/api/admin/delete-actividad", apphandlers.DeleteActividadHandler)
-	// ⭐️ --- (FIN) Nuevas Rutas de Actividades --- ⭐️
+	// Rutas Admin/Gerente (Equipos) (listas)
+	mux.HandleFunc("/api/admin/get-equipos", equipoHandler.GetEquiposHandler)
+	mux.HandleFunc("/api/admin/create-equipo", equipoHandler.CreateEquipoHandler)
+	mux.HandleFunc("/api/admin/update-equipo", equipoHandler.UpdateEquipoHandler)
+	mux.HandleFunc("/api/admin/delete-equipo", equipoHandler.DeleteEquipoHandler)
 
-	// Ruta Usuario
-	mux.HandleFunc("/api/user/project-details", apphandlers.UserProjectDetailsHandler)
+	// Rutas de Actividades (DatosProyecto.js) (listas)
+	mux.HandleFunc("/api/admin/get-datos-proyecto", actividadHandler.GetDatosProyectoHandler)
+	mux.HandleFunc("/api/admin/create-actividad", actividadHandler.CreateActividadHandler)
+	mux.HandleFunc("/api/admin/update-actividad", actividadHandler.UpdateActividadHandler)
+	mux.HandleFunc("/api/admin/delete-actividad", actividadHandler.DeleteActividadHandler)
 
-	// --- Iniciar Servidor ---
-	log.Println("🚀 Servidor Go escuchando en http://localhost:8080")
-	// Aplica el middleware de CORS a tu mux
-	log.Fatal(http.ListenAndServe(":8080", corsOptions(mux)))
+	// 4. INICIAR EL SERVIDOR
+	log.Println("Servidor escuchando en http://localhost:8080")
+	if err := http.ListenAndServe(":8080", corsOptions(mux)); err != nil {
+		log.Fatalf("Error al iniciar el servidor: %v", err)
+	}
 }
