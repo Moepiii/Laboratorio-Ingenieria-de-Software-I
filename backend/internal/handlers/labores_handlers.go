@@ -5,78 +5,81 @@ import (
 	"net/http"
 
 	"proyecto/internal/auth"
-	"proyecto/internal/labores" // ⭐️ NUEVO
+	"proyecto/internal/labores" // Importamos el servicio de labores
+	"proyecto/internal/logger"  // ⭐️ 1. IMPORTAMOS EL LOGGER
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---
+// --- 1. EL STRUCT DEL HANDLER ---\
 type LaborHandler struct {
-	authSvc  auth.AuthService
-	laborSvc labores.LaborService
+	authSvc   auth.AuthService
+	laborSvc  labores.LaborService
+	loggerSvc logger.LoggerService // ⭐️ 2. AÑADIMOS EL SERVICIO DE LOGGER
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---
-func NewLaborHandler(as auth.AuthService, ls labores.LaborService) *LaborHandler {
+// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+func NewLaborHandler(as auth.AuthService, ls labores.LaborService, logs logger.LoggerService) *LaborHandler {
 	return &LaborHandler{
-		authSvc:  as,
-		laborSvc: ls,
+		authSvc:   as,
+		laborSvc:  ls,
+		loggerSvc: logs, // ⭐️ 3. INYECTAMOS EL SERVICIO
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---
+// --- 3. LOS MÉTODOS (Handlers) ---\
 
 func (h *LaborHandler) GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetLaboresRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	labores, err := h.laborSvc.GetLaboresByProyectoID(req.ProyectoID)
 	if err != nil {
-		// El servicio ya validó el ID y manejó errores de DB
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"labores": labores})
+
+	respondWithJSON(w, http.StatusOK, map[string][]models.LaborAgronomica{"labores": labores})
 }
 
 func (h *LaborHandler) CreateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
-	// Pasamos el request completo, el servicio se encarga de la lógica
 	nuevaLabor, err := h.laborSvc.CreateLabor(req)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	if nuevaLabor != nil {
+		h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Labores", nuevaLabor.ID)
 	}
 
 	respondWithJSON(w, http.StatusCreated, nuevaLabor)
@@ -85,31 +88,32 @@ func (h *LaborHandler) CreateLaborHandler(w http.ResponseWriter, r *http.Request
 func (h *LaborHandler) UpdateLaborHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.laborSvc.UpdateLabor(req)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "Labor no encontrada.")
+		respondWithError(w, http.StatusNotFound, "labor no encontrada")
 		return
 	}
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Labores", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor actualizada."})
 }
@@ -117,30 +121,32 @@ func (h *LaborHandler) UpdateLaborHandler(w http.ResponseWriter, r *http.Request
 func (h *LaborHandler) DeleteLaborHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteLaborRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.laborSvc.DeleteLabor(req.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "Labor no encontrada.")
+		respondWithError(w, http.StatusNotFound, "labor no encontrada")
 		return
 	}
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "ELIMINACIÓN", "Labores", req.ID)
+
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor borrada."})
 }

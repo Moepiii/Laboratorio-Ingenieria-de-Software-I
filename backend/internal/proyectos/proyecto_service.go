@@ -2,7 +2,7 @@ package proyectos
 
 import (
 	"errors"
-	//"fmt"
+	// "fmt"
 	"log"
 	"strings"
 
@@ -42,10 +42,10 @@ func (s *proyectoService) GetAllProyectos() ([]models.Proyecto, error) {
 
 func (s *proyectoService) CreateProyecto(nombre, fechaInicio, fechaCierre string) (*models.Proyecto, error) {
 	if nombre == "" || fechaInicio == "" || fechaCierre == "" {
-		return nil, errors.New("Nombre, fecha_inicio y fecha_cierre son requeridos.")
+		return nil, errors.New("Nombre, Fecha de Inicio y Fecha de Cierre son requeridos.")
 	}
 
-	proyectoID, err := database.CreateProyecto(nombre, fechaInicio, fechaCierre)
+	id, err := database.CreateProyecto(nombre, fechaInicio, fechaCierre)
 	if err != nil {
 		log.Printf("Error en proyectoService.CreateProyecto: %v", err)
 		if strings.Contains(err.Error(), "ya existe") {
@@ -55,18 +55,19 @@ func (s *proyectoService) CreateProyecto(nombre, fechaInicio, fechaCierre string
 	}
 
 	// Devolvemos el proyecto recién creado
-	proyecto, err := database.GetProjectByID(proyectoID)
+	proyecto, err := database.GetProjectByID(id) // Asumiendo que GetProjectByID existe
 	if err != nil {
-		log.Printf("Error al recuperar proyecto recién creado (ID: %d): %v", proyectoID, err)
-		return nil, errors.New("Proyecto creado pero no se pudo recuperar.")
+		log.Printf("Error al obtener proyecto recién creado (ID: %d): %v", id, err)
+		return nil, errors.New("Proyecto creado con éxito, pero no se pudo recuperar.")
 	}
 	return proyecto, nil
 }
 
 func (s *proyectoService) UpdateProyecto(id int, nombre, fechaInicio, fechaCierre string) (*models.Proyecto, error) {
 	if id == 0 || nombre == "" || fechaInicio == "" || fechaCierre == "" {
-		return nil, errors.New("ID, Nombre, fecha_inicio y fecha_cierre son requeridos.")
+		return nil, errors.New("ID, Nombre, Fecha de Inicio y Fecha de Cierre son requeridos.")
 	}
+
 	affected, err := database.UpdateProyecto(id, nombre, fechaInicio, fechaCierre)
 	if err != nil {
 		log.Printf("Error en proyectoService.UpdateProyecto (ID: %d): %v", id, err)
@@ -99,19 +100,20 @@ func (s *proyectoService) DeleteProyecto(id int) (int64, error) {
 	return affected, nil
 }
 
+// ⭐️ CORRECCIÓN AQUÍ ⭐️
 func (s *proyectoService) SetProyectoEstado(id int, estado string) (int64, error) {
 	if id == 0 {
 		return 0, errors.New("ID de proyecto requerido.")
 	}
-	newState := strings.ToLower(estado)
-	if newState != "habilitado" && newState != "cerrado" {
-		return 0, errors.New("Estado inválido. Debe ser 'habilitado' o 'cerrado'.")
+	if estado == "" {
+		return 0, errors.New("Estado requerido.")
 	}
 
-	affected, err := database.SetProjectState(id, newState)
+	// El error era un typo. La función se llama 'SetProyectoEstado'
+	affected, err := database.SetProyectoEstado(id, estado)
 	if err != nil {
-		log.Printf("Error al cambiar estado del proyecto ID %d: %v", id, err)
-		return 0, errors.New("Error al actualizar estado.")
+		log.Printf("Error en proyectoService.SetProyectoEstado (ID: %d): %v", id, err)
+		return 0, errors.New("Error al cambiar estado del proyecto.")
 	}
 	return affected, nil
 }

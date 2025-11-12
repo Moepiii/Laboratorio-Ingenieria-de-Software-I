@@ -10,7 +10,8 @@ import '../AdminDashboard.css';
 // Importamos los componentes de las sub-páginas
 import LaboresAgronomicas from './LaboresAgronomicas';
 import EquiposEImplementos from './EquiposEImplementos';
-import DatosProyecto from './DatosProyecto'; // ⭐️ NUEVO: 1. Importa el nuevo componente
+import DatosProyecto from './DatosProyecto';
+import LoggerEventos from './LoggerEventos'; // ⭐️ 1. IMPORTAMOS EL NUEVO COMPONENTE
 
 // Componente principal del Dashboard
 const AdminDashboard = () => {
@@ -36,13 +37,13 @@ const AdminDashboard = () => {
             element={<LaboresAgronomicas />}
           />
 
-          {/* Ruta para "Equipos": /admin/configuraciones/proyecto/:id/equipos */}
+          {/* Ruta para "Equipos\": /admin/configuraciones/proyecto/:id/equipos */}
           <Route
             path="configuraciones/proyecto/:id/equipos"
             element={<EquiposEImplementos />}
           />
 
-          {/* ⭐️ NUEVO: 2. Añade la ruta para la página de Datos del Proyecto */}
+          {/* Ruta para la página de Datos del Proyecto */}
           <Route
             path="proyectos/datos/:id"
             element={<DatosProyecto />}
@@ -50,7 +51,8 @@ const AdminDashboard = () => {
 
           {/* Ruta de Logs (condicional) */}
           {userRole === 'admin' && (
-            <Route path="logs" element={<div style={{ padding: '2rem', color: '#333' }}>Página de Logs (Aún no implementada)</div>} />
+            // ⭐️ 2. REEMPLAZAMOS EL DIV DE RELLENO
+            <Route path="logs" element={<LoggerEventos />} />
           )}
 
           {/* Ruta por defecto (redirige a /admin/proyectos) */}

@@ -2,24 +2,28 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt" // ⭐️ 1. IMPORTAMOS FMT (para formatear strings)
 	"net/http"
 
 	"proyecto/internal/auth"
+	"proyecto/internal/logger" // ⭐️ 1. IMPORTAMOS EL LOGGER
 	"proyecto/internal/models"
-	"proyecto/internal/users" // ⭐️ NUEVO: Importamos el servicio de usuarios
+	"proyecto/internal/users"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---
+// --- 1. EL STRUCT DEL HANDLER ---\
 type UserHandler struct {
-	authSvc auth.AuthService
-	userSvc users.UserService
+	authSvc   auth.AuthService
+	userSvc   users.UserService
+	loggerSvc logger.LoggerService // ⭐️ 2. AÑADIMOS EL SERVICIO DE LOGGER
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---
-func NewUserHandler(as auth.AuthService, us users.UserService) *UserHandler {
+// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+func NewUserHandler(as auth.AuthService, us users.UserService, ls logger.LoggerService) *UserHandler {
 	return &UserHandler{
-		authSvc: as,
-		userSvc: us,
+		authSvc:   as,
+		userSvc:   us,
+		loggerSvc: ls, // ⭐️ 3. INYECTAMOS EL SERVICIO
 	}
 }
 
@@ -28,154 +32,159 @@ func NewUserHandler(as auth.AuthService, us users.UserService) *UserHandler {
 func (h *UserHandler) AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Usamos el servicio de auth inyectado
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Usamos el servicio de usuario
 	users, err := h.userSvc.GetAllUsers()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"users": users})
+	respondWithJSON(w, http.StatusOK, map[string][]models.UserListResponse{"users": users})
 }
 
 func (h *UserHandler) AdminAddUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AddUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
-	// Pasamos solo la parte de 'User', el servicio hace la validación y el hash
-	userID, err := h.userSvc.AddUser(req.User)
+	lastID, err := h.userSvc.AddUser(req.User)
 	if err != nil {
-		// El servicio nos devuelve el error (ej. "ya existe" o "campos requeridos")
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	respondWithJSON(w, http.StatusCreated, map[string]interface{}{"mensaje": "Usuario añadido", "id": userID})
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	// El rol por defecto ("encargado") se asigna en el servicio
+	h.loggerSvc.Log(req.AdminUsername, "admin", "CREACIÓN (encargado)", "Usuarios", int(lastID))
+
+	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: fmt.Sprintf("Usuario '%s' (ID: %d) agregado con éxito.", req.User.Username, lastID)})
 }
 
 func (h *UserHandler) AdminDeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.userSvc.DeleteUser(req.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "Usuario no encontrado.")
+		respondWithError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Usuarios", req.ID)
+
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Usuario borrado."})
 }
 
-func (h *UserHandler) AdminUpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) AdminUpdateRoleHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.userSvc.UpdateUserRole(req.ID, req.NewRole)
 	if err != nil {
-		// El servicio nos devuelve error de validación ("Rol debe ser...") o de DB
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "Usuario no encontrado.")
+		respondWithError(w, http.StatusNotFound, "usuario no encontrado")
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Rol actualizado."})
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	logMsg := fmt.Sprintf("CAMBIO DE ROL (a %s)", req.NewRole)
+	h.loggerSvc.Log(req.AdminUsername, "admin", logMsg, "Usuarios", req.ID)
+
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Rol de usuario actualizado."})
 }
 
-func (h *UserHandler) AdminAssignProyectoHandler(w http.ResponseWriter, r *http.Request) {
-	var req models.AssignProyectoRequest
+func (h *UserHandler) AdminAssignProjectToUserHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.AssignProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado. Se requiere rol de admin o gerente.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.userSvc.AssignProjectToUser(req.UserID, req.ProyectoID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if affected == 0 {
-		// Nota: El servicio no puede diferenciar "usuario no encontrado" de "proyecto ya asignado".
-		// Para esta lógica, está bien.
-		respondWithError(w, http.StatusNotFound, "Usuario no encontrado o asignación sin cambios.")
+		respondWithError(w, http.StatusNotFound, "usuario no encontrado o asignación sin cambios")
 		return
 	}
+
+	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	logMsg := fmt.Sprintf("ASIGNACIÓN DE PROYECTO (ProyectoID: %d)", req.ProyectoID)
+	if req.ProyectoID == 0 {
+		logMsg = "DESASIGNACIÓN DE PROYECTO"
+	}
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", logMsg, "Usuarios", req.UserID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Proyecto asignado/desasignado."})
 }
@@ -185,20 +194,13 @@ func (h *UserHandler) AdminAssignProyectoHandler(w http.ResponseWriter, r *http.
 func (h *UserHandler) UserProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UserProjectDetailsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// Nota: Este handler no tenía chequeo de permisos.
-	// Se podría añadir:
-	// 1. Un chequeo de que el usuario que pide es el req.UserID
-	// 2. O que el usuario que pide es admin/gerente.
-	// Por ahora, lo dejamos como estaba.
-
-	// ⭐️ LÓGICA MOVIDA: Servicio
+	// (Este handler es solo de lectura, no necesita logging de evento)
 	details, err := h.userSvc.GetProjectDetailsForUser(req.UserID)
 	if err != nil {
-		// El servicio nos devuelve "Usuario no encontrado" u otro error
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

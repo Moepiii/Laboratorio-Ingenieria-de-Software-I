@@ -39,26 +39,10 @@ export const apiCall = async (endpoint, method, body = null, token = null) => {
             throw new Error(`Error ${response.status} ${response.statusText}: Respuesta vacía del servidor`);
         }
 
-        // Intenta parsear el texto como JSON
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (jsonError) {
-            // El texto no era JSON
-            // Si la respuesta NO fue OK, lanza un error con el texto (puede ser un error HTML de Go)
-            if (!response.ok) {
-                console.error("Respuesta no-JSON del servidor (Error):", responseText);
-                // Trunca el texto si es muy largo (ej. una página de error HTML)
-                throw new Error(`Error ${response.status} ${response.statusText}: ${responseText.substring(0, 100)}`);
-            }
+        // Intenta parsear el JSON
+        const data = JSON.parse(responseText);
 
-            // Si la respuesta FUE OK pero no es JSON, devuelve el texto (raro, pero posible)
-            console.warn("Respuesta no-JSON del servidor (OK):", responseText);
-            return responseText;
-        }
-
-
-        // Si el parseo tiene éxito pero !response.ok, usa el mensaje de error del JSON
+        // Si fetch tuvo éxito pero !response.ok, usa el mensaje de error del JSON
         if (!response.ok) {
             // Busca 'error' o 'mensaje' en la respuesta JSON
             throw new Error(data.error || data.mensaje || `Error ${response.status} ${response.statusText}`);
@@ -83,19 +67,21 @@ export const apiCall = async (endpoint, method, body = null, token = null) => {
 
 // --- Funciones de Autenticación ---
 
+// ⭐️ CORRECCIÓN AQUÍ ⭐️
 export const loginUser = (username, password) => {
-    return apiCall('/login', 'POST', { username: username, password: password });
+    // Añadimos '/auth/'
+    return apiCall('/auth/login', 'POST', { username: username, password: password });
 };
 
-// ⭐️ MODIFICADO: Se añade 'cedula' a la firma y al objeto 'user'
+// ⭐️ CORRECCIÓN AQUÍ ⭐️
 export const registerUser = (username, password, nombre, apellido, cedula) => {
     const user = {
         username: username,
         password: password,
         nombre: nombre,
         apellido: apellido,
-        cedula: cedula // ⭐️ NUEVO
+        cedula: cedula
     };
-    // Llama al endpoint de registro (el body ahora incluye la cédula)
-    return apiCall('/register', 'POST', user);
+    // Añadimos '/auth/'
+    return apiCall('/auth/register', 'POST', user);
 };

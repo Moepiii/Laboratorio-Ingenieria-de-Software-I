@@ -21,14 +21,20 @@ export const getGerentes = async (token, adminUsername) => {
 };
 
 
+// ⭐️ INICIO DE LA CORRECCIÓN ⭐️
 export const adminAddUser = (token, userData, adminUsername) => {
 
+    // 'userData' es el objeto {username, password, ...}
+    // El backend espera { user: {...}, admin_username: "..." }
     const body = {
-        ...userData, // <-- Esto convierte {user: {username: "..."}} en {username: "..."}
+        user: userData, // ⬅️ En lugar de "...userData"
         admin_username: adminUsername
     };
+
     return apiCall('/admin/add-user', 'POST', body, token);
 };
+// ⭐️ FIN DE LA CORRECCIÓN ⭐️
+
 
 export const adminDeleteUser = (token, userId, adminUsername) => {
     const body = {
@@ -47,11 +53,19 @@ export const adminUpdateUserRole = (token, userId, newRole, adminUsername) => {
     return apiCall('/admin/update-user', 'POST', body, token);
 };
 
-export const adminAssignProjectToUser = (token, userId, proyectoId, adminUsername) => {
+export const adminAssignProjectToUser = (token, userId, projectId, adminUsername) => {
     const body = {
         user_id: userId,
-        proyecto_id: proyectoId,
+        proyecto_id: projectId,
         admin_username: adminUsername
     };
-    return apiCall('/admin/assign-proyecto', 'POST', body, token);
+    return apiCall('/admin/assign-project', 'POST', body, token);
+};
+
+// Obtiene la data del dashboard de un usuario (para el rol 'user')
+export const getProjectDetailsForUser = (token, userId) => {
+    const body = {
+        user_id: userId
+    };
+    return apiCall('/user/project-details', 'POST', body, token);
 };

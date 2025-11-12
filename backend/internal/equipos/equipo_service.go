@@ -31,52 +31,50 @@ func NewEquipoService() EquipoService {
 
 func (s *equipoService) GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	if proyectoID == 0 {
-		return nil, errors.New("ID de proyecto requerido.")
+		return nil, errors.New("id de proyecto requerido")
 	}
 	equipos, err := database.GetEquiposByProyectoID(proyectoID)
 	if err != nil {
 		log.Printf("Error en equipoService.GetEquiposByProyectoID: %v", err)
-		return nil, errors.New("Error al obtener equipos.")
+		return nil, errors.New("error al obtener equipos")
 	}
 	return equipos, nil
 }
 
 func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.EquipoImplemento, error) {
-	if req.ProyectoID == 0 || req.Nombre == "" || req.CodigoEquipo == "" {
-		return nil, errors.New("ProyectoID, Código y Nombre son requeridos.")
+	// 1. Validación (ST1005 corregido)
+	if req.ProyectoID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" {
+		return nil, errors.New("ProyectoID, Código, Nombre y Tipo son requeridos")
 	}
 
-	tipo := req.Tipo
-	if tipo == "" {
-		tipo = "implemento" // Valor por defecto
-	}
-	estado := req.Estado
-	if estado == "" {
-		estado = "disponible" // Valor por defecto
-	}
-
+	// ⭐️ --- INICIO DE LA CORRECCIÓN --- ⭐️
+	// El error estaba aquí. Probablemente decía "models.LaborAgronomica"
+	// en lugar de "models.EquipoImplemento"
 	equipo := models.EquipoImplemento{
 		ProyectoID:   req.ProyectoID,
 		CodigoEquipo: req.CodigoEquipo,
 		Nombre:       req.Nombre,
-		Tipo:         tipo,
-		Estado:       estado,
+		Tipo:         req.Tipo,
+		Estado:       req.Estado, // 'Estado' también es parte del request
 	}
+	// ⭐️ --- FIN DE LA CORRECCIÓN --- ⭐️
 
+	// 2. Llamada a la base de datos
 	equipoID, err := database.CreateEquipo(equipo)
 	if err != nil {
 		log.Printf("Error en equipoService.CreateEquipo: %v", err)
 		if strings.Contains(err.Error(), "ya existe") {
 			return nil, err
 		}
-		return nil, errors.New("Error al crear equipo.")
+		// Este es el error que estás viendo
+		return nil, errors.New("error al crear equipo")
 	}
 
-	// Devolvemos el equipo recién creado
+	// 3. Devolver el objeto creado
 	nuevoEquipo, err := database.GetEquipoByID(int(equipoID))
 	if err != nil {
 		log.Printf("Error al obtener equipo recién creado (ID: %d): %v", equipoID, err)
-		return nil, errors.New("Equipo creado con éxito, pero no se pudo recuperar.")
+		return nil, errors.New("equipo creado con éxito, pero no se pudo recuperar")
 	}
 
 	return nuevoEquipo, nil
@@ -84,7 +82,7 @@ func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.Eq
 
 func (s *equipoService) UpdateEquipo(req models.UpdateEquipoRequest) (int64, error) {
 	if req.ID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {
-		return 0, errors.New("ID, Código, Nombre, Tipo y Estado son requeridos.")
+		return 0, errors.New("ID, Código, Nombre, Tipo y Estado son requeridos")
 	}
 
 	affected, err := database.UpdateEquipo(req.ID, req.CodigoEquipo, req.Nombre, req.Tipo, req.Estado)
@@ -93,19 +91,22 @@ func (s *equipoService) UpdateEquipo(req models.UpdateEquipoRequest) (int64, err
 		if strings.Contains(err.Error(), "ya existe") {
 			return 0, err
 		}
-		return 0, errors.New("Error al actualizar el equipo.")
+		return 0, errors.New("error al actualizar el equipo")
+	}
+	if affected == 0 {
+		return 0, errors.New("equipo no encontrado")
 	}
 	return affected, nil
 }
 
 func (s *equipoService) DeleteEquipo(id int) (int64, error) {
 	if id == 0 {
-		return 0, errors.New("ID de equipo requerido.")
+		return 0, errors.New("id de equipo requerido")
 	}
 	affected, err := database.DeleteEquipo(id)
 	if err != nil {
 		log.Printf("Error en equipoService.DeleteEquipo (ID %d): %v", id, err)
-		return 0, errors.New("Error al borrar el equipo.")
+		return 0, errors.New("error al borrar el equipo")
 	}
 	return affected, nil
 }

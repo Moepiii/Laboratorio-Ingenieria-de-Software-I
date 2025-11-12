@@ -4,148 +4,146 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"proyecto/internal/actividades" // ⭐️ NUEVO
+	"proyecto/internal/actividades"
 	"proyecto/internal/auth"
+	"proyecto/internal/logger"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---
+// --- 1. EL STRUCT DEL HANDLER ---\
 type ActividadHandler struct {
 	authSvc      auth.AuthService
 	actividadSvc actividades.ActividadService
+	loggerSvc    logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---
-func NewActividadHandler(as auth.AuthService, acs actividades.ActividadService) *ActividadHandler {
+// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+func NewActividadHandler(as auth.AuthService, acs actividades.ActividadService, ls logger.LoggerService) *ActividadHandler {
 	return &ActividadHandler{
 		authSvc:      as,
 		actividadSvc: acs,
+		loggerSvc:    ls,
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---
+// --- 3. LOS MÉTODOS (Handlers) ---\
 
 func (h *ActividadHandler) GetDatosProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetDatosProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
-	// El servicio se encarga de llamar a las 4 funciones de DB
-	response, err := h.actividadSvc.GetDatosProyecto(req.ProyectoID)
+	datos, err := h.actividadSvc.GetDatosProyecto(req.ProyectoID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, response)
+	respondWithJSON(w, http.StatusOK, datos)
 }
 
 func (h *ActividadHandler) CreateActividadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateActividadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	actividades, err := h.actividadSvc.CreateActividad(req)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// El servicio devuelve la lista actualizada (o un mensaje de error si falló la recarga)
-	if err != nil {
-		respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: err.Error()})
-	} else {
-		respondWithJSON(w, http.StatusCreated, map[string]interface{}{"actividades": actividades})
-	}
+	// ⭐️ REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN (Actividad)", "Proyectos", req.ProyectoID)
+
+	// Devolvemos la lista actualizada
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
 }
 
 func (h *ActividadHandler) UpdateActividadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateActividadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	actividades, err := h.actividadSvc.UpdateActividad(req)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err != nil {
-		respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: err.Error()})
-	} else {
-		respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
-	}
+	// ⭐️ REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Actividades", req.ID)
+
+	// ⭐️ CORRECCIÓN: Eliminamos el 'if err != nil' redundante
+	// Simplemente respondemos con la lista actualizada.
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
 }
 
 func (h *ActividadHandler) DeleteActividadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteActividadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Formato JSON inválido.")
+		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// ⭐️ ARREGLADO: Permiso
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error verificando permisos.")
+		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "Acceso denegado.")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
-	// ⭐️ LÓGICA MOVIDA: Servicio
 	affected, err := h.actividadSvc.DeleteActividad(req.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "Actividad no encontrada.")
+		respondWithError(w, http.StatusNotFound, "actividad no encontrada")
 		return
 	}
+
+	// ⭐️ REGISTRAMOS EL EVENTO
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "ELIMINACIÓN", "Actividades", req.ID)
+
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Actividad borrada."})
 }

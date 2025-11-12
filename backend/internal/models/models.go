@@ -1,7 +1,10 @@
 package models
 
-import "database/sql"
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"database/sql"
+
+	"github.com/golang-jwt/jwt/v5"
+)
 
 // --- ESTRUCTURAS DE DATOS ---
 
@@ -46,7 +49,7 @@ type AdminActionRequest struct {
 }
 
 type AddUserRequest struct {
-	User
+	User          User   `json:"user"`
 	AdminUsername string `json:"admin_username"`
 }
 
@@ -55,41 +58,38 @@ type DeleteUserRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-type Claims struct {
-	UserID int    `json:"userId"`
-	Role   string `json:"role"`
-	jwt.RegisteredClaims
+type AssignProjectRequest struct {
+	UserID        int    `json:"user_id"`
+	ProyectoID    int    `json:"proyecto_id"` // 0 para desasignar
+	AdminUsername string `json:"admin_username"`
 }
 
-type UserDetails struct {
+// Para el dashboard del rol 'user'
+type UserProjectDetailsRequest struct {
+	UserID int `json:"user_id"`
+}
+
+type UserProjectDetailsResponse struct {
+	Proyecto *Proyecto       `json:"proyecto"` // Puede ser nil si no tiene proyecto
+	Gerentes []ProjectMember `json:"gerentes"` // Lista de gerentes
+	Miembros []ProjectMember `json:"miembros"` // Lista de compañeros
+}
+
+type ProjectMember struct {
+	ID       int    `json:"id"`
 	Username string `json:"username"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
-	Cedula   string `json:"cedula"`
 }
 
-type LoginResponse struct {
-	Token  string      `json:"token"`
-	User   UserDetails `json:"user"`
-	Role   string      `json:"role"`
-	UserId int         `json:"userId"`
-}
-
-// --- ESTRUCTURAS DE RESPUESTA ---
-
-type SimpleResponse struct {
-	Mensaje string `json:"mensaje,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-// --- ESTRUCTURAS DE PROYECTOS ---
-
+// --- Proyectos ---
 type Proyecto struct {
-	ID          int    `json:"id"`
-	Nombre      string `json:"nombre"`
-	FechaInicio string `json:"fecha_inicio"`
-	FechaCierre string `json:"fecha_cierre"`
-	Estado      string `json:"estado"`
+	ID            int    `json:"id"`
+	Nombre        string `json:"nombre"`
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
+	Estado        string `json:"estado"`
+	FechaCreacion string `json:"fecha_creacion"`
 }
 
 type CreateProyectoRequest struct {
@@ -98,6 +98,7 @@ type CreateProyectoRequest struct {
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
+
 type UpdateProyectoRequest struct {
 	ID            int    `json:"id"`
 	Nombre        string `json:"nombre"`
@@ -105,6 +106,7 @@ type UpdateProyectoRequest struct {
 	FechaCierre   string `json:"fecha_cierre"`
 	AdminUsername string `json:"admin_username"`
 }
+
 type DeleteProyectoRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
@@ -116,33 +118,7 @@ type SetProyectoEstadoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-type AssignProyectoRequest struct {
-	UserID        int    `json:"user_id"`
-	ProyectoID    int    `json:"proyecto_id"`
-	AdminUsername string `json:"admin_username"`
-}
-
-// Para la vista de usuario
-type UserProjectDetailsRequest struct {
-	UserID int `json:"user_id"`
-}
-
-type ProjectMember struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Nombre   string `json:"nombre"`
-	Apellido string `json:"apellido"`
-	Role     string `json:"role"`
-}
-
-type UserProjectDetailsResponse struct {
-	Proyecto *Proyecto       `json:"proyecto"`
-	Miembros []ProjectMember `json:"miembros"`
-	Gerentes []ProjectMember `json:"gerentes"`
-}
-
-// --- Estructuras para Labores Agronómicas ---
-
+// --- Labores Agronómicas ---
 type LaborAgronomica struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
@@ -178,14 +154,13 @@ type DeleteLaborRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Estructuras para Equipos e Implementos ---
-
+// --- Equipos e Implementos ---
 type EquipoImplemento struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
 	CodigoEquipo  string `json:"codigo_equipo"`
 	Nombre        string `json:"nombre"`
-	Tipo          string `json:"tipo"`
+	Tipo          string `json:"tipo"` // "Equipo" o "Implemento"
 	Estado        string `json:"estado"`
 	FechaCreacion string `json:"fecha_creacion"`
 }
@@ -218,18 +193,17 @@ type DeleteEquipoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Estructuras para Actividades (DatosProyecto.js) ---
-
+// --- Actividades ---
 type Actividad struct {
 	ID                 int
 	ProyectoID         int
 	Actividad          string
-	LaborAgronomicaID  sql.NullInt64
-	EquipoImplementoID sql.NullInt64
-	EncargadoID        sql.NullInt64
+	LaborAgronomicaID  sql.NullInt64 // Clave foránea opcional
+	EquipoImplementoID sql.NullInt64 // Clave foránea opcional
+	EncargadoID        sql.NullInt64 // Clave foránea opcional
 	RecursoHumano      int
 	Costo              float64
-	Observaciones      sql.NullString
+	Observaciones      sql.NullString // Texto opcional
 	FechaCreacion      string
 }
 
@@ -244,17 +218,16 @@ type ActividadResponse struct {
 	Costo              float64        `json:"costo"`
 	Observaciones      sql.NullString `json:"observaciones"`
 	FechaCreacion      string         `json:"fecha_creacion"`
-	LaborDescripcion   sql.NullString `json:"labor_descripcion"`
-	EquipoNombre       sql.NullString `json:"equipo_nombre"`
-	EncargadoNombre    sql.NullString `json:"encargado_nombre"`
+	LaborDescripcion   sql.NullString `json:"labor_descripcion"` // Nombre/Descripción de la labor
+	EquipoNombre       sql.NullString `json:"equipo_nombre"`     // Nombre del equipo
+	EncargadoNombre    sql.NullString `json:"encargado_nombre"`  // Nombre del encargado
 }
 
-// ⭐️ MODIFICADO: Añadido 'Cedula'
 type EncargadoResponse struct {
 	ID       int    `json:"id"`
 	Nombre   string `json:"nombre"`
 	Apellido string `json:"apellido"`
-	Cedula   string `json:"cedula"` // ⭐️ NUEVO
+	Cedula   string `json:"cedula"`
 }
 
 type GetDatosProyectoRequest struct {
@@ -291,3 +264,66 @@ type DeleteActividadRequest struct {
 	ID            int    `json:"id"`
 	AdminUsername string `json:"admin_username"`
 }
+
+// --- Autenticación ---
+type Claims struct {
+	UserID int    `json:"user_id"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+type LoginResponse struct {
+	Token  string      `json:"token"`
+	User   UserDetails `json:"user"`
+	Role   string      `json:"role"`
+	UserId int         `json:"userId"`
+}
+
+type UserDetails struct {
+	Username string `json:"username"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	Cedula   string `json:"cedula"`
+}
+
+// --- Respuestas Genéricas ---
+type SimpleResponse struct {
+	Mensaje string `json:"mensaje,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// ⭐️ --- INICIO: NUEVAS STRUCTS PARA EL LOGGER --- ⭐️
+
+// EventLog representa una entrada en la tabla event_logs
+type EventLog struct {
+	ID              int
+	Timestamp       string // Se guardará como string
+	UsuarioUsername string
+	UsuarioRol      string
+	Accion          string // Ej: "CREACIÓN", "MODIFICACIÓN", "ELIMINACIÓN"
+	Entidad         string // Ej: "Proyectos", "Usuarios", "Actividades"
+	EntidadID       int
+}
+
+// EventLogResponse es lo que se envía al frontend
+type EventLogResponse struct {
+	ID              int    `json:"id"`
+	Timestamp       string `json:"timestamp"`
+	UsuarioUsername string `json:"usuario_username"`
+	UsuarioRol      string `json:"usuario_rol"`
+	Accion          string `json:"accion"`
+	Entidad         string `json:"entidad"`
+	EntidadID       int    `json:"entidad_id"`
+}
+
+// GetLogsRequest es lo que se recibe del frontend (con filtros)
+type GetLogsRequest struct {
+	AdminUsername   string `json:"admin_username"`
+	FechaInicio     string `json:"fecha_inicio"`     // Filtro opcional
+	FechaCierre     string `json:"fecha_cierre"`     // Filtro opcional
+	UsuarioUsername string `json:"usuario_username"` // Filtro opcional
+	Accion          string `json:"accion"`           // Filtro opcional
+	Entidad         string `json:"entidad"`          // Filtro opcional
+}
+
+// ⭐️ --- FIN: NUEVAS STRUCTS PARA EL LOGGER --- ⭐️

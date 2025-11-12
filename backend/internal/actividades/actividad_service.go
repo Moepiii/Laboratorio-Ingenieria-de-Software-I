@@ -38,65 +38,55 @@ func NewActividadService() ActividadService {
 
 // --- 4. LOS MÉTODOS (Lógica de Negocio) ---
 
+// ⭐️ CORRECCIÓN AQUÍ ⭐️
 func (s *actividadService) GetDatosProyecto(proyectoID int) (*GetDatosProyectoResponse, error) {
-	if proyectoID == 0 {
-		return nil, errors.New("ID de proyecto requerido.")
-	}
-
-	// 1. Obtener Labores
 	labores, err := database.GetLaboresByProyectoID(proyectoID)
 	if err != nil {
-		log.Printf("Error en actividadService.GetDatosProyecto (GetLabores): %v", err)
+		log.Printf("Error en GetDatosProyecto (GetLabores): %v", err)
 		return nil, errors.New("Error al obtener labores.")
 	}
 
-	// 2. Obtener Equipos
 	equipos, err := database.GetEquiposByProyectoID(proyectoID)
 	if err != nil {
-		log.Printf("Error en actividadService.GetDatosProyecto (GetEquipos): %v", err)
+		log.Printf("Error en GetDatosProyecto (GetEquipos): %v", err)
 		return nil, errors.New("Error al obtener equipos.")
 	}
 
-	// 3. Obtener Encargados
-	encargados, err := database.GetEncargadosByProyectoID(proyectoID)
+	// El error estaba aquí. La función es 'GetEncargados' (sin ID de proyecto)
+	encargados, err := database.GetEncargados()
 	if err != nil {
-		log.Printf("Error en actividadService.GetDatosProyecto (GetEncargados): %v", err)
+		log.Printf("Error en GetDatosProyecto (GetEncargados): %v", err)
 		return nil, errors.New("Error al obtener encargados.")
 	}
 
-	// 4. Obtener Actividades
 	actividades, err := database.GetActividadesByProyectoID(proyectoID)
 	if err != nil {
-		log.Printf("Error en actividadService.GetDatosProyecto (GetActividades): %v", err)
+		log.Printf("Error en GetDatosProyecto (GetActividades): %v", err)
 		return nil, errors.New("Error al obtener actividades.")
 	}
 
-	// 5. Empaquetar y responder
-	response := &GetDatosProyectoResponse{
+	return &GetDatosProyectoResponse{
 		Labores:     labores,
 		Equipos:     equipos,
 		Encargados:  encargados,
 		Actividades: actividades,
-	}
-	return response, nil
+	}, nil
 }
 
 func (s *actividadService) CreateActividad(req models.CreateActividadRequest) ([]models.ActividadResponse, error) {
-	if req.ProyectoID == 0 || req.Actividad == "" {
-		return nil, errors.New("ProyectoID y Nombre de Actividad son requeridos.")
+	if req.ProyectoID == 0 || req.Actividad == "" || req.Costo == 0 || req.RecursoHumano == 0 {
+		return nil, errors.New("ProyectoID, Actividad, RecursoHumano y Costo son requeridos.")
 	}
 
-	// Convertir punteros de JSON a sql.Null*
-	var laborID sql.NullInt64
-	if req.LaborAgronomicaID != nil {
+	// Manejo de valores opcionales (IDs)
+	var laborID, equipoID, encargadoID sql.NullInt64
+	if req.LaborAgronomicaID != nil && *req.LaborAgronomicaID != 0 {
 		laborID = sql.NullInt64{Int64: int64(*req.LaborAgronomicaID), Valid: true}
 	}
-	var equipoID sql.NullInt64
-	if req.EquipoImplementoID != nil {
+	if req.EquipoImplementoID != nil && *req.EquipoImplementoID != 0 {
 		equipoID = sql.NullInt64{Int64: int64(*req.EquipoImplementoID), Valid: true}
 	}
-	var encargadoID sql.NullInt64
-	if req.EncargadoID != nil {
+	if req.EncargadoID != nil && *req.EncargadoID != 0 {
 		encargadoID = sql.NullInt64{Int64: int64(*req.EncargadoID), Valid: true}
 	}
 	var observaciones sql.NullString
@@ -118,14 +108,13 @@ func (s *actividadService) CreateActividad(req models.CreateActividadRequest) ([
 	_, err := database.CreateActividad(actividad)
 	if err != nil {
 		log.Printf("Error en actividadService.CreateActividad: %v", err)
-		return nil, errors.New("Error al crear actividad.")
+		return nil, errors.New("Error al crear la actividad.")
 	}
 
-	// Devolvemos la lista completa actualizada (como en el handler original)
+	// Devolvemos la lista actualizada
 	actividades, err := database.GetActividadesByProyectoID(req.ProyectoID)
 	if err != nil {
 		log.Printf("Error recargando actividades post-creación: %v", err)
-		// Devolvemos un slice vacío pero sin error fatal, para no romper el frontend
 		return []models.ActividadResponse{}, nil
 	}
 
@@ -133,21 +122,19 @@ func (s *actividadService) CreateActividad(req models.CreateActividadRequest) ([
 }
 
 func (s *actividadService) UpdateActividad(req models.UpdateActividadRequest) ([]models.ActividadResponse, error) {
-	if req.ID == 0 || req.ProyectoID == 0 || req.Actividad == "" {
-		return nil, errors.New("ID, ProyectoID y Nombre de Actividad son requeridos.")
+	if req.ID == 0 || req.ProyectoID == 0 || req.Actividad == "" || req.Costo == 0 || req.RecursoHumano == 0 {
+		return nil, errors.New("ID, ProyectoID, Actividad, RecursoHumano y Costo son requeridos.")
 	}
 
-	// Convertir punteros de JSON a sql.Null*
-	var laborID sql.NullInt64
-	if req.LaborAgronomicaID != nil {
+	// Manejo de valores opcionales
+	var laborID, equipoID, encargadoID sql.NullInt64
+	if req.LaborAgronomicaID != nil && *req.LaborAgronomicaID != 0 {
 		laborID = sql.NullInt64{Int64: int64(*req.LaborAgronomicaID), Valid: true}
 	}
-	var equipoID sql.NullInt64
-	if req.EquipoImplementoID != nil {
+	if req.EquipoImplementoID != nil && *req.EquipoImplementoID != 0 {
 		equipoID = sql.NullInt64{Int64: int64(*req.EquipoImplementoID), Valid: true}
 	}
-	var encargadoID sql.NullInt64
-	if req.EncargadoID != nil {
+	if req.EncargadoID != nil && *req.EncargadoID != 0 {
 		encargadoID = sql.NullInt64{Int64: int64(*req.EncargadoID), Valid: true}
 	}
 	var observaciones sql.NullString

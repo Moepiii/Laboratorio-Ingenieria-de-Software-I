@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getEquipos, createEquipo, updateEquipo, deleteEquipo } from '../services/equipoService';
 
-// Estilos
+// (Todos tus estilos 'styles' van aquí... los omito por brevedad)
+// ...
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
     h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem' },
@@ -12,103 +13,94 @@ const styles = {
     h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
     input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
     select: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' },
-    // ⭐️ CAMBIO: Se añade el grid para el formulario
-    formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }, // 3 columnas
+    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' },
     button: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '1rem' },
-    table: { width: '100%', borderCollapse: 'collapse', marginTop: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600' },
-    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
-    actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.875rem', fontWeight: '500', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginRight: '0.5rem' },
-    editButton: { backgroundColor: '#f59e0b', color: 'white' },
+    tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
+    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#111827', verticalAlign: 'middle' },
+    error: { color: 'red', marginTop: '1rem', backgroundColor: '#fee2e2', padding: '1rem', borderRadius: '8px', border: '1px solid #f87171' },
+    loading: { textAlign: 'center', padding: '2rem', fontSize: '1.2rem', color: '#6b7280' },
+    actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.875rem', fontWeight: '500', borderRadius: '6px', border: 'none', cursor: 'pointer', marginRight: '0.5rem', transition: 'background-color 0.2s' },
+    editButton: { backgroundColor: '#3b82f6', color: 'white' },
     deleteButton: { backgroundColor: '#ef4444', color: 'white' },
-    saveButton: { backgroundColor: '#22c55e', color: 'white' },
-    cancelButton: { backgroundColor: '#6b7280', color: 'white' },
-    errorText: { color: 'red', marginTop: '1rem' }
+    saveButton: { backgroundColor: '#10b981', color: 'white' },
+    cancelButton: { backgroundColor: '#6b7280', color: 'white' }
 };
 
+
 const EquiposEImplementos = () => {
-    // Hooks y Estado
-    const { id } = useParams();
+    const { id } = useParams(); // ID del proyecto
     const { token, currentUser } = useAuth();
 
     const [equipos, setEquipos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // ⭐️ CAMBIO: Se añade estado para el código
-    const [newEquipoCodigo, setNewEquipoCodigo] = useState('');
-    const [newEquipoNombre, setNewEquipoNombre] = useState('');
-    const [newEquipoTipo, setNewEquipoTipo] = useState('implemento');
+    // Estado para el formulario de nuevo equipo
+    const [newEquipoData, setNewEquipoData] = useState({
+        codigo_equipo: '',
+        nombre: '',
+        // ⭐️ --- CORRECCIÓN AQUÍ --- ⭐️
+        // El estado 'tipo' no puede ser '', debe ser uno de los valores válidos
+        tipo: 'Equipo',
+        estado: 'Activo'
+    });
 
+    // Estado para la edición
     const [editingId, setEditingId] = useState(null);
-    const [editFormData, setEditFormData] = useState({ codigo_equipo: '', nombre: '', tipo: '', estado: '' });
+    const [editFormData, setEditFormData] = useState({});
 
-    const adminUsername = currentUser?.username;
-    const proyectoIdNum = parseInt(id, 10);
-
-    // Cargar Datos
+    // Cargar Labores
     const fetchEquipos = useCallback(async () => {
-        if (!token || !adminUsername || !proyectoIdNum) return;
-
-        setLoading(true);
-        setError('');
         try {
-            const data = await getEquipos(token, proyectoIdNum, adminUsername);
+            setLoading(true);
+            const data = await getEquipos(token, parseInt(id), currentUser.username);
             setEquipos(data.equipos || []);
         } catch (err) {
-            setError(err.message || 'Error al cargar equipos.');
+            setError(err.message || "Error al cargar equipos");
         } finally {
             setLoading(false);
         }
-    }, [token, adminUsername, proyectoIdNum]);
+    }, [id, token, currentUser]);
 
     useEffect(() => {
         fetchEquipos();
     }, [fetchEquipos]);
 
-    // Handlers CRUD
-    const handleCreateEquipo = async (e) => {
+    // Manejador del formulario de nuevo equipo
+    const handleNewDataChange = (e) => {
+        const { name, value } = e.target;
+        setNewEquipoData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    // Guardar nuevo equipo
+    const handleSaveNewEquipo = async (e) => {
         e.preventDefault();
-        if (newEquipoNombre.trim() === '' || newEquipoCodigo.trim() === '') {
-            setError('El Código y el Nombre no pueden estar vacíos.');
-            return;
-        }
         setError('');
-
-        // ⭐️ CAMBIO: Se pasa el 'codigo_equipo'
-        const equipoData = {
-            proyecto_id: proyectoIdNum,
-            codigo_equipo: newEquipoCodigo,
-            nombre: newEquipoNombre,
-            tipo: newEquipoTipo,
-            estado: 'disponible'
-        };
-
         try {
-            const nuevoEquipo = await createEquipo(token, equipoData, adminUsername);
-            setEquipos([nuevoEquipo, ...equipos]);
-            setNewEquipoNombre('');
-            setNewEquipoCodigo('');
-            setNewEquipoTipo('implemento');
+            const nuevoEquipo = await createEquipo(
+                token,
+                { proyecto_id: parseInt(id), ...newEquipoData },
+                currentUser.username
+            );
+            setEquipos(prev => [nuevoEquipo, ...prev]);
+            // Limpiar formulario
+            setNewEquipoData({
+                codigo_equipo: '',
+                nombre: '',
+                tipo: 'Equipo', // Resetear al valor por defecto
+                estado: 'Activo'
+            });
         } catch (err) {
-            setError(err.message || 'Error al crear el equipo.');
+            setError(err.message || "Error al guardar el equipo");
         }
     };
 
-    const handleDeleteEquipo = async (equipoId) => {
-        if (!window.confirm('¿Estás seguro de que quieres borrar este equipo?')) {
-            return;
-        }
-
-        try {
-            await deleteEquipo(token, equipoId, adminUsername);
-            setEquipos(equipos.filter(equipo => equipo.id !== equipoId));
-        } catch (err) {
-            setError(err.message || 'Error al borrar el equipo.');
-        }
-    };
-
-    // Handlers de Edición En Línea
+    // Manejadores de edición
     const handleEditClick = (equipo) => {
         setEditingId(equipo.id);
         setEditFormData({
@@ -119,103 +111,112 @@ const EquiposEImplementos = () => {
         });
     };
 
+    const handleEditDataChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
     const handleCancelClick = () => {
         setEditingId(null);
     };
 
-    const handleEditFormChange = (e) => {
-        const { name, value } = e.target;
-        setEditFormData({ ...editFormData, [name]: value });
-    };
-
     const handleUpdateEquipo = async (equipoId) => {
-        const equipoData = {
-            id: equipoId,
-            ...editFormData // { codigo_equipo, nombre, tipo, estado }
-        };
-
-        if (equipoData.codigo_equipo.trim() === '' || equipoData.nombre.trim() === '') {
-            setError('El Código y el Nombre no pueden estar vacíos.');
-            return;
-        }
         setError('');
-
         try {
-            await updateEquipo(token, equipoData, adminUsername);
-            const updatedEquipos = equipos.map(equipo =>
-                equipo.id === equipoId ? { ...equipo, ...editFormData } : equipo
+            await updateEquipo(
+                token,
+                { id: equipoId, ...editFormData },
+                currentUser.username
             );
-            setEquipos(updatedEquipos);
             setEditingId(null);
+            fetchEquipos(); // Recargar la lista
         } catch (err) {
-            setError(err.message || 'Error al actualizar el equipo.');
+            setError(err.message || "Error al actualizar el equipo");
         }
     };
 
+    // Borrar equipo
+    const handleDeleteEquipo = async (equipoId) => {
+        if (window.confirm('¿Estás seguro de que quieres borrar este equipo?')) {
+            setError('');
+            try {
+                await deleteEquipo(token, equipoId, currentUser.username);
+                fetchEquipos(); // Recargar la lista
+            } catch (err) {
+                setError(err.message || "Error al borrar el equipo");
+            }
+        }
+    };
 
-    // Renderizado
     return (
         <div style={styles.container}>
-            <h2 style={styles.h2}>Gestión de Equipos e Implementos</h2>
-            <p style={styles.p}>Administrando equipos para el Proyecto ID: <strong>{id}</strong></p>
+            <h2 style={styles.h2}>Equipos e Implementos</h2>
+            <p style={styles.p}>Configuración de equipos e implementos para el Proyecto (ID: {id})</p>
 
-            {/* Formulario de Creación */}
-            <div style={styles.formContainer}>
-                <h3 style={styles.h3}>Nuevo Equipo o Implemento</h3>
-                <form onSubmit={handleCreateEquipo}>
-                    {/* ⭐️ CAMBIO: Formulario en grid */}
-                    <div style={styles.formGrid}>
-                        <div>
-                            <label htmlFor="codigo_equipo" style={{ display: 'block', marginBottom: '0.5rem' }}>Código</label>
-                            <input
-                                id="codigo_equipo"
-                                type="text"
-                                value={newEquipoCodigo}
-                                onChange={(e) => setNewEquipoCodigo(e.target.value)}
-                                style={styles.input}
-                                placeholder="Ej: EQ-001"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="nombre" style={{ display: 'block', marginBottom: '0.5rem' }}>Nombre</label>
-                            <input
-                                id="nombre"
-                                type="text"
-                                value={newEquipoNombre}
-                                onChange={(e) => setNewEquipoNombre(e.target.value)}
-                                style={styles.input}
-                                placeholder="Ej: Tractor John Deere"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="tipo" style={{ display: 'block', marginBottom: '0.5rem' }}>Tipo</label>
-                            <select
-                                id="tipo"
-                                value={newEquipoTipo}
-                                onChange={(e) => setNewEquipoTipo(e.target.value)}
-                                style={styles.select}
-                            >
-                                <option value="implemento">Implemento</option>
-                                <option value="equipo">Equipo</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" style={styles.button}>
-                        Crear Equipo
-                    </button>
-                </form>
-            </div>
+            {/* --- Formulario de Nuevo Equipo --- */}
+            <form onSubmit={handleSaveNewEquipo} style={styles.formContainer}>
+                <h3 style={styles.h3}>Añadir Nuevo Equipo o Implemento</h3>
+                <div style={styles.grid}>
+                    {/* Codigo */}
+                    <input
+                        name="codigo_equipo"
+                        value={newEquipoData.codigo_equipo}
+                        onChange={handleNewDataChange}
+                        placeholder="Código"
+                        required
+                        style={styles.input}
+                    />
+                    {/* Nombre */}
+                    <input
+                        name="nombre"
+                        value={newEquipoData.nombre}
+                        onChange={handleNewDataChange}
+                        placeholder="Nombre descriptivo"
+                        required
+                        style={styles.input}
+                    />
+                    {/* Tipo */}
+                    <select
+                        name="tipo"
+                        value={newEquipoData.tipo}
+                        onChange={handleNewDataChange}
+                        required
+                        style={styles.select}
+                    >
+                        {/* ⭐️ NOTA: El valor 'Equipo' aquí coincide 
+                          con el estado inicial 'Equipo',
+                          por eso se selecciona por defecto.
+                        */}
+                        <option value="Equipo">Equipo</option>
+                        <option value="Implemento">Implemento</option>
+                    </select>
+                    {/* Estado */}
+                    <select
+                        name="estado"
+                        value={newEquipoData.estado}
+                        onChange={handleNewDataChange}
+                        required
+                        style={styles.select}
+                    >
+                        <option value="Activo">Activo</option>
+                        <option value="Inactivo">Inactivo</option>
+                    </select>
+                </div>
+                <button type="submit" style={styles.button}>Guardar Nuevo</button>
+            </form>
 
-            {error && <p style={styles.errorText}>{error}</p>}
+            {error && <p style={styles.error}>{error}</p>}
 
-            {/* Tabla de Equipos */}
+            {/* --- Tabla de Equipos --- */}
             {loading ? (
-                <p>Cargando equipos...</p>
+                <p style={styles.loading}>Cargando...</p>
             ) : (
-                <table style={styles.table}>
+                <table style={{ ...styles.table, marginTop: '2rem' }}>
                     <thead>
                         <tr>
-                            {/* ⭐️ CAMBIO: Se añade columna Código */}
                             <th style={styles.th}>Código</th>
                             <th style={styles.th}>Nombre</th>
                             <th style={styles.th}>Tipo</th>
@@ -227,8 +228,8 @@ const EquiposEImplementos = () => {
                     <tbody>
                         {equipos.length === 0 ? (
                             <tr>
-                                <td colSpan="6" style={{ ...styles.td, textAlign: 'center' }}>
-                                    No hay equipos registrados para este proyecto.
+                                <td colSpan="6" style={{ ...styles.td, textAlign: 'center', color: '#6b7280' }}>
+                                    No hay equipos o implementos definidos para este proyecto.
                                 </td>
                             </tr>
                         ) : (
@@ -237,45 +238,18 @@ const EquiposEImplementos = () => {
                                     {editingId === equipo.id ? (
                                         // --- Fila en Modo Edición ---
                                         <>
+                                            <td style={styles.td}><input name="codigo_equipo" value={editFormData.codigo_equipo} onChange={handleEditDataChange} style={styles.input} /></td>
+                                            <td style={styles.td}><input name="nombre" value={editFormData.nombre} onChange={handleEditDataChange} style={styles.input} /></td>
                                             <td style={styles.td}>
-                                                <input
-                                                    type="text"
-                                                    name="codigo_equipo"
-                                                    value={editFormData.codigo_equipo}
-                                                    onChange={handleEditFormChange}
-                                                    style={styles.input}
-                                                />
-                                            </td>
-                                            <td style={styles.td}>
-                                                <input
-                                                    type="text"
-                                                    name="nombre"
-                                                    value={editFormData.nombre}
-                                                    onChange={handleEditFormChange}
-                                                    style={styles.input}
-                                                />
-                                            </td>
-                                            <td style={styles.td}>
-                                                <select
-                                                    name="tipo"
-                                                    value={editFormData.tipo}
-                                                    onChange={handleEditFormChange}
-                                                    style={styles.select}
-                                                >
-                                                    <option value="implemento">Implemento</option>
-                                                    <option value="equipo">Equipo</option>
+                                                <select name="tipo" value={editFormData.tipo} onChange={handleEditDataChange} style={styles.select}>
+                                                    <option value="Equipo">Equipo</option>
+                                                    <option value="Implemento">Implemento</option>
                                                 </select>
                                             </td>
                                             <td style={styles.td}>
-                                                <select
-                                                    name="estado"
-                                                    value={editFormData.estado}
-                                                    onChange={handleEditFormChange}
-                                                    style={styles.select}
-                                                >
-                                                    <option value="disponible">Disponible</option>
-                                                    <option value="en uso">En Uso</option>
-                                                    <option value="mantenimiento">Mantenimiento</option>
+                                                <select name="estado" value={editFormData.estado} onChange={handleEditDataChange} style={styles.select}>
+                                                    <option value="Activo">Activo</option>
+                                                    <option value="Inactivo">Inactivo</option>
                                                 </select>
                                             </td>
                                             <td style={styles.td}>{new Date(equipo.fecha_creacion).toLocaleDateString()}</td>
