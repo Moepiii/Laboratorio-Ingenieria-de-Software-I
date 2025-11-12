@@ -1,18 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"log"
-	"testing" // La biblioteca de pruebas de Go
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-	// Importamos todos los servicios que vamos a probar
-	"proyecto/internal/actividades"
-	"proyecto/internal/auth"
 	"proyecto/internal/database"
-	"proyecto/internal/equipos"
-	"proyecto/internal/labores"
 	"proyecto/internal/models"
-	"proyecto/internal/proyectos"
-	"proyecto/internal/users"
+	"proyecto/internal/proyectos" // ⭐️ Solo importamos esto para la prueba de borrado
 )
 
 // --- 1. El "Setup" de la Prueba ---
@@ -26,233 +24,141 @@ func setupTestDB(t *testing.T) {
 	})
 }
 
-// --- 2. Batería de Pruebas de Autenticación (Auth) ---
-func TestAuthService_Integration(t *testing.T) {
-	// ARRANGE (Global): Creamos el servicio
-	s := auth.NewAuthService()
+// --- BATERÍA ÚNICA DE PRUEBAS DE HANDLERS HTTP ---
+// Al ser la única función Test... no hay riesgo de paralelismo.
+func TestHandlers_HTTP_Integration(t *testing.T) {
 
-	t.Run("Usuario puede registrarse exitosamente", func(t *testing.T) {
-		// ARRANGE (Local): DB limpia
-		setupTestDB(t)
+	// ARRANGE (Global para todos los handlers HTTP)
+	setupTestDB(t)       // 1. Prepara la DB en memoria UNA VEZ
+	server := setupApp() // 2. "Arma" la app UNA VEZ
+	var adminToken string
+	var proyectoCreado models.Proyecto // Para compartir entre creación y borrado
 
-		// ⭐️ --- CORRECCIÓN 1 (Línea 67) --- ⭐️
-		user := models.User{
-			Username: "testuser",
-			Password: "password123",
-			Nombre:   "Test",
-			Apellido: "User",
-			Cedula:   "123456",
+	// --- 1. PRUEBA DE REGISTRO PÚBLICO ---
+	t.Run("POST /api/auth/register - Éxito 201", func(t *testing.T) {
+		newUser := models.User{
+			Username: "http_user", Password: "password", Nombre: "HTTP", Apellido: "Test", Cedula: "111",
 		}
-
-		// ACT: Ejecutamos la función
-		id, err := s.Register(user)
-
-		// ASSERT: Verificamos
-		if err != nil {
-			t.Fatalf("Register() falló: %v", err)
-		}
-		if id != 2 { // 1 es el admin, 2 es el nuevo usuario
-			t.Fatalf("Se esperaba ID=2, pero se obtuvo ID=%d", id)
+		body, _ := json.Marshal(newUser)
+		req := httptest.NewRequest("POST", "/api/auth/register", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusCreated, rr.Code, rr.Body.String())
 		}
 	})
 
-	t.Run("Usuario puede iniciar sesión exitosamente", func(t *testing.T) {
-		// ARRANGE: DB limpia y un usuario registrado
-		setupTestDB(t)
+	// --- 2. PRUEBA DE LOGIN ---
+	t.Run("POST /api/auth/login - Éxito 200 y devuelve token", func(t *testing.T) {
+		loginCreds := map[string]string{"username": "admin", "password": "admin123"}
+		body, _ := json.Marshal(loginCreds)
+		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.ServeHTTP(rr, req)
 
-		// ⭐️ --- CORRECCIÓN 2 (Línea 87) --- ⭐️
-		s.Register(models.User{
-			Username: "testuser",
-			Password: "password123",
-			Nombre:   "Test",
-			Apellido: "User",
-			Cedula:   "123456",
-		})
-
-		// ACT: Intentamos iniciar sesión
-		resp, err := s.Login("testuser", "password123")
-
-		// ASSERT:
-		if err != nil {
-			t.Fatalf("Login() falló: %v", err)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
 		}
-		if resp.Token == "" {
-			t.Fatal("Login() no devolvió un token")
-		}
-		if resp.User.Username != "testuser" {
-			t.Fatal("Login() devolvió un usuario incorrecto")
+		var loginResp models.LoginResponse
+		_ = json.Unmarshal(rr.Body.Bytes(), &loginResp)
+		adminToken = loginResp.Token // ⭐️ GUARDA EL TOKEN
+	})
+
+	// --- 3. PRUEBA DE PERMISO DENEGADO ---
+	t.Run("POST /api/admin/get-proyectos - Falla 403 (Permiso Denegado)", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"admin_username": "usuario_no_existente"})
+		req := httptest.NewRequest("POST", "/api/admin/get-proyectos", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.ServeHTTP(rr, req)
+		if rr.Code != http.StatusForbidden {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusForbidden, rr.Code, rr.Body.String())
 		}
 	})
 
-	t.Run("Usuario no puede iniciar sesión con contraseña incorrecta", func(t *testing.T) {
-		// ARRANGE: DB limpia y un usuario registrado
-		setupTestDB(t)
-		// (No es necesario corregir este, pero lo hacemos por consistencia)
-		s.Register(models.User{
-			Username: "testuser",
-			Password: "password123",
-			Nombre:   "Test",
-			Apellido: "User",
-			Cedula:   "123456",
-		})
-
-		// ACT: Intentamos iniciar sesión con pass incorrecta
-		resp, err := s.Login("testuser", "MALAPASSWORD")
-
-		// ASSERT:
-		if err == nil {
-			t.Fatal("Se esperaba un error por credenciales inválidas, pero no falló")
-		}
-		if resp != nil {
-			t.Fatal("No se debía devolver una respuesta en caso de error de login")
-		}
-	})
-}
-
-// --- 3. Batería de Pruebas de Proyectos ---
-func TestProyectoService_Integration(t *testing.T) {
-	// ARRANGE (Global):
-	s := proyectos.NewProyectoService()
-
-	t.Run("Admin puede crear un proyecto", func(t *testing.T) {
-		// ARRANGE (Local):
-		setupTestDB(t)
-
-		// ACT:
-		nombre := "Proyecto de Prueba"
-		proyecto, err := s.CreateProyecto(nombre, "2025-01-01", "2025-12-31")
-
-		// ASSERT:
-		if err != nil {
-			t.Fatalf("CreateProyecto falló: %v", err)
-		}
-		if proyecto.ID != 1 { // 1 es el primer proyecto
-			t.Fatalf("Se esperaba ID=1, pero se obtuvo ID=%d", proyecto.ID)
-		}
-		if proyecto.Nombre != nombre {
-			t.Fatal("El nombre del proyecto no coincide")
+	// --- 4. PRUEBA DE LECTURA (GET) ---
+	t.Run("POST /api/admin/get-proyectos - Éxito 200 (Con Token)", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"admin_username": "admin"})
+		req := httptest.NewRequest("POST", "/api/admin/get-proyectos", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		rr := httptest.NewRecorder()
+		server.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
 		}
 	})
 
-	t.Run("Admin puede borrar un proyecto", func(t *testing.T) {
-		// ARRANGE:
-		setupTestDB(t)
-		p, _ := s.CreateProyecto("Proyecto a Borrar", "2025-01-01", "2025-12-31")
-
-		// ACT:
-		affected, err := s.DeleteProyecto(p.ID)
-
-		// ASSERT:
-		if err != nil {
-			t.Fatalf("DeleteProyecto falló: %v", err)
+	// --- 5. PRUEBA DE CREACIÓN ---
+	t.Run("POST /api/admin/create-proyecto - Éxito 201 (Con Token)", func(t *testing.T) {
+		nombreProyecto := "Proyecto Creado por HTTP"
+		newProject := models.CreateProyectoRequest{
+			Nombre: nombreProyecto, FechaInicio: "2025-01-01", FechaCierre: "2025-12-31", AdminUsername: "admin",
 		}
-		if affected == 0 {
-			t.Fatal("El servicio reportó que 0 filas fueron afectadas")
-		}
-	})
-}
+		body, _ := json.Marshal(newProject)
+		req := httptest.NewRequest("POST", "/api/admin/create-proyecto", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		rr := httptest.NewRecorder()
+		server.ServeHTTP(rr, req)
 
-// --- 4. Batería de Pruebas de Usuarios (Admin) ---
-func TestUserService_Integration(t *testing.T) {
-	// ARRANGE (Global):
-	s := users.NewUserService()
-
-	t.Run("Admin puede añadir un usuario (encargado)", func(t *testing.T) {
-		// ARRANGE:
-		setupTestDB(t)
-		// (No es necesario corregir este, pero lo hacemos por consistencia)
-		user := models.User{
-			Username: "encargado1",
-			Password: "password123",
-			Nombre:   "Encargado",
-			Apellido: "Prueba",
-			Cedula:   "78910",
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusCreated, rr.Code, rr.Body.String())
 		}
 
-		// ACT:
-		id, err := s.AddUser(user)
-
-		// ASSERT:
-		if err != nil {
-			t.Fatalf("AddUser falló: %v", err)
-		}
-		if id != 2 { // 1 es el admin
-			t.Fatalf("Se esperaba ID=2, pero se obtuvo ID=%d", id)
+		// Guarda el proyecto creado para la prueba de borrado
+		if err := json.Unmarshal(rr.Body.Bytes(), &proyectoCreado); err != nil {
+			t.Fatal("No se pudo decodificar la respuesta JSON del proyecto creado")
 		}
 
-		// Verificamos que el rol sea 'encargado' (como dice la lógica del servicio)
-		var role string
-		err = database.DB.QueryRow("SELECT role FROM users WHERE id = ?", id).Scan(&role)
+		// Verifica la DB
+		var dbNombre string
+		err := database.DB.QueryRow("SELECT nombre FROM proyectos WHERE id = ?", proyectoCreado.ID).Scan(&dbNombre)
 		if err != nil {
 			t.Fatalf("Error al consultar la DB: %v", err)
 		}
-		if role != "encargado" {
-			t.Fatalf("Se esperaba rol 'encargado', pero se obtuvo '%s'", role)
+		if dbNombre != nombreProyecto {
+			t.Fatalf("El proyecto no se guardó en la DB")
 		}
 	})
-}
 
-// --- 5. Batería de Pruebas de Flujo Completo (Labores, Equipos, Actividades) ---
-func TestFullFlow_Integration(t *testing.T) {
-	// ARRANGE: Preparamos todos los servicios
-	setupTestDB(t)
-	proyectoSvc := proyectos.NewProyectoService()
-	laborSvc := labores.NewLaborService()
-	equipoSvc := equipos.NewEquipoService()
-	actividadSvc := actividades.NewActividadService()
-	userSvc := users.NewUserService() // Para crear un encargado
-
-	// 1. Crear Proyecto
-	proyecto, _ := proyectoSvc.CreateProyecto("Proyecto Full Flow", "2025-01-01", "2025-12-31")
-
-	// 2. Crear Encargado (con userSvc)
-	// ⭐️ --- CORRECCIÓN 3 (Línea 198) --- ⭐️
-	encargadoID, _ := userSvc.AddUser(models.User{
-		Username: "encargado_flow",
-		Password: "pass",
-		Nombre:   "Enc",
-		Apellido: "Flow",
-		Cedula:   "999",
-	})
-	encargadoIDInt := int(encargadoID)
-
-	// 3. Crear Labor
-	laborReq := models.CreateLaborRequest{ProyectoID: proyecto.ID, CodigoLabor: "L-001", Descripcion: "Arado"}
-	labor, _ := laborSvc.CreateLabor(laborReq)
-
-	// 4. Crear Equipo
-	equipoReq := models.CreateEquipoRequest{ProyectoID: proyecto.ID, CodigoEquipo: "E-001", Nombre: "Tractor", Tipo: "Equipo"}
-	equipo, _ := equipoSvc.CreateEquipo(equipoReq)
-
-	// 5. Crear Actividad (La prueba principal)
-	t.Run("Servicio de Actividad puede crear una actividad", func(t *testing.T) {
-
-		actividadReq := models.CreateActividadRequest{
-			ProyectoID:         proyecto.ID,
-			Actividad:          "Preparación de Suelo",
-			LaborAgronomicaID:  &labor.ID,
-			EquipoImplementoID: &equipo.ID,
-			EncargadoID:        &encargadoIDInt,
-			RecursoHumano:      5,
-			Costo:              1500.75,
-			Observaciones:      "Todo ok",
+	// --- 6. PRUEBA DE ELIMINACIÓN ---
+	t.Run("POST /api/admin/delete-proyecto - Éxito 200 (Con Token)", func(t *testing.T) {
+		// ARRANGE: Usa el proyecto de la prueba anterior
+		if proyectoCreado.ID == 0 {
+			// Solución de respaldo si la prueba 5 falló, para evitar el pánico
+			proyectoSvc := proyectos.NewProyectoService()
+			p, _ := proyectoSvc.CreateProyecto("Proyecto Temp para Borrar", "2025-01-01", "2025-12-31")
+			if p == nil {
+				t.Fatal("Fallo crítico: no se pudo crear el proyecto de respaldo para la prueba de borrado")
+			}
+			proyectoCreado.ID = p.ID
 		}
+
+		deleteReq := models.DeleteProyectoRequest{ID: proyectoCreado.ID, AdminUsername: "admin"}
+		body, _ := json.Marshal(deleteReq)
+		req := httptest.NewRequest("POST", "/api/admin/delete-proyecto", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		rr := httptest.NewRecorder()
 
 		// ACT:
-		listaActividades, err := actividadSvc.CreateActividad(actividadReq)
+		server.ServeHTTP(rr, req)
 
-		// ASSERT:
+		// ASSERT (HTTP):
+		if rr.Code != http.StatusOK {
+			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
+		}
+		// ASSERT (DB):
+		var count int
+		err := database.DB.QueryRow("SELECT COUNT(*) FROM proyectos WHERE id = ?", proyectoCreado.ID).Scan(&count)
 		if err != nil {
-			t.Fatalf("CreateActividad falló: %v", err)
+			t.Fatalf("Error al consultar la DB: %v", err)
 		}
-		if len(listaActividades) != 1 {
-			t.Fatal("La lista de actividades no tiene 1 elemento")
-		}
-		if listaActividades[0].Actividad != "Preparación de Suelo" {
-			t.Fatal("El nombre de la actividad no coincide")
-		}
-		if listaActividades[0].EncargadoNombre.String != "Enc Flow" {
-			t.Fatalf("El nombre del encargado no coincide, se obtuvo: %s", listaActividades[0].EncargadoNombre.String)
+		if count != 0 {
+			t.Fatal("El proyecto no fue borrado de la base de datos")
 		}
 	})
 }

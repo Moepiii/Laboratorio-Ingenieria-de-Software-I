@@ -1,17 +1,16 @@
 package auth
 
 import (
-	"database/sql"
 	"errors"
 	"log"
-	"strings"
+	"strings" // ⭐️ 1. IMPORTAMOS "strings"
 	"time"
 
 	"proyecto/internal/database"
 	"proyecto/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt" // ⭐️ CORRECCIÓN: Importamos bcrypt
+	"golang.org/x/crypto/bcrypt"
 )
 
 // jwtKey se mueve del handler al servicio.
@@ -38,43 +37,36 @@ func NewAuthService() AuthService {
 
 func (s *authService) Register(user models.User) (int64, error) {
 	if user.Username == "" || user.Password == "" || user.Nombre == "" || user.Apellido == "" || user.Cedula == "" {
-		return 0, errors.New("Todos los campos (username, password, nombre, apellido, cedula) son requeridos.")
+		return 0, errors.New("todos los campos (username, password, nombre, apellido, cedula) son requeridos")
 	}
 
 	// Validar longitud de contraseña
 	if len(user.Password) < 6 {
-		return 0, errors.New("La contraseña debe tener al menos 6 caracteres.")
+		return 0, errors.New("la contraseña debe tener al menos 6 caracteres")
 	}
 
-	// La función 'database.RegisterUser' se encarga de la encriptación
 	id, err := database.RegisterUser(user.Username, user.Password, user.Nombre, user.Apellido, user.Cedula)
 	if err != nil {
 		log.Printf("Error en authService.Register: %v", err)
-		// El error de "UNIQUE constraint" ya viene de la base de datos
 		return 0, err
 	}
 
 	return id, nil
 }
 
-// ⭐️ CORRECCIÓN AQUÍ ⭐️
 func (s *authService) Login(username, password string) (*models.LoginResponse, error) {
 	if username == "" || password == "" {
-		return nil, errors.New("Usuario y contraseña son requeridos.")
+		return nil, errors.New("usuario y contraseña son requeridos")
 	}
 
 	user, err := database.GetUserByUsername(username)
 	if err != nil {
-		// No reveles si el usuario existe o no
-		return nil, errors.New("Credenciales inválidas.")
+		return nil, errors.New("credenciales inválidas")
 	}
 
-	// Aquí es donde se usa bcrypt, en el servicio
-	// Comparamos el hash de la BD (user.HashedPassword) con la contraseña (password)
 	err = bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(password))
 	if err != nil {
-		// El hash no coincide
-		return nil, errors.New("Credenciales inválidas.")
+		return nil, errors.New("credenciales inválidas")
 	}
 
 	// --- Si la contraseña es correcta, genera el token ---
@@ -91,7 +83,7 @@ func (s *authService) Login(username, password string) (*models.LoginResponse, e
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
 		log.Printf("Error en authService.Login (SignedString): %v", err)
-		return nil, errors.New("Error al generar el token.")
+		return nil, errors.New("error al generar el token")
 	}
 
 	userDetails := models.UserDetails{
@@ -112,17 +104,27 @@ func (s *authService) Login(username, password string) (*models.LoginResponse, e
 }
 
 // CheckPermission - Lógica movida de tu auth.go
+// ⭐️ --- INICIO DE LA CORRECCIÓN --- ⭐️
 func (s *authService) CheckPermission(username string, requiredRoles ...string) (bool, error) {
 	role, err := database.GetUserRole(username)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		// Si el error es "Usuario no encontrado", no es un error 500.
+		// Es un simple "no tiene permiso".
+		// Comparamos contra el string de error que definimos en user_queries.go
+		if strings.Contains(err.Error(), "Usuario no encontrado") {
 			log.Printf("CheckPermission: Usuario no encontrado '%s'", username)
-			return false, nil // Usuario no existe, no tiene permiso
+			return false, nil // ⬅️ Devolvemos (false, nil)
 		}
+
+		// (Tu log original de sql.ErrNoRows ya no era necesario porque
+		// GetUserRole devuelve un error personalizado)
+
+		// Otro error (ej. DB desconectada) SÍ es un 500.
 		log.Printf("CheckPermission: Error al obtener rol de '%s': %v", username, err)
-		return false, err // Otro error de DB
+		return false, err // ⬅️ Devolvemos (false, err)
 	}
 
+	// (El resto de la función es idéntica)
 	for _, reqRole := range requiredRoles {
 		if strings.EqualFold(role, reqRole) {
 			return true, nil // El usuario tiene el rol
@@ -132,3 +134,5 @@ func (s *authService) CheckPermission(username string, requiredRoles ...string) 
 	log.Printf("CheckPermission: Acceso denegado. Usuario '%s' (Rol: '%s') no tiene rol requerido (%v)", username, role, requiredRoles)
 	return false, nil // No se encontró el rol
 }
+
+// ⭐️ --- FIN DE LA CORRECCIÓN --- ⭐️
