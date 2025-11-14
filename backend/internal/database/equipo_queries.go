@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 
@@ -12,8 +11,15 @@ import (
 
 // --- QUERIES DE EQUIPOS E IMPLEMENTOS ---
 
+// GetEquiposByProyectoID obtiene todos los equipos de un proyecto
 func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
-	rows, err := DB.Query("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE proyecto_id = ? ORDER BY id ASC", proyectoID)
+	query := `
+        SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion 
+        FROM equipos_implementos 
+        WHERE proyecto_id = ? 
+        ORDER BY fecha_creacion DESC
+    `
+	rows, err := DB.Query(query, proyectoID)
 	if err != nil {
 		log.Printf("Error en GetEquiposByProyectoID (Query): %v", err)
 		return nil, err
@@ -29,88 +35,132 @@ func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 		}
 		equipos = append(equipos, e)
 	}
+
 	return equipos, nil
 }
 
+// GetEquipoByID obtiene un equipo específico por su ID
 func GetEquipoByID(id int) (*models.EquipoImplemento, error) {
-	row := DB.QueryRow("SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion FROM equipos_implementos WHERE id = ?", id)
+	query := `
+        SELECT id, proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion 
+        FROM equipos_implementos 
+        WHERE id = ?
+    `
+	row := DB.QueryRow(query, id)
 	var e models.EquipoImplemento
 	err := row.Scan(&e.ID, &e.ProyectoID, &e.CodigoEquipo, &e.Nombre, &e.Tipo, &e.Estado, &e.FechaCreacion)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.New("Equipo no encontrado.")
+			return nil, errors.New("equipo no encontrado")
 		}
-		log.Printf("Error al escanear equipo (GetEquipoByID): %v", err)
-		return nil, fmt.Errorf("Error al buscar equipo: %w", err)
+		log.Printf("Error en GetEquipoByID: %v", err)
+		return nil, err
 	}
 	return &e, nil
 }
 
+// CreateEquipo inserta un nuevo equipo en la DB
 func CreateEquipo(equipo models.EquipoImplemento) (int64, error) {
-	stmt, err := DB.Prepare("INSERT INTO equipos_implementos (proyecto_id, codigo_equipo, nombre, tipo, estado) VALUES (?, ?, ?, ?, ?)")
+	// Comprobación de unicidad para (proyecto_id, codigo_equipo)
+	var exists int
+	err := DB.QueryRow("SELECT COUNT(*) FROM equipos_implementos WHERE proyecto_id = ? AND codigo_equipo = ?", equipo.ProyectoID, equipo.CodigoEquipo).Scan(&exists)
 	if err != nil {
-		return 0, fmt.Errorf("error al preparar inserción (CreateEquipo): %w", err)
+		log.Printf("Error chequeando unicidad de equipo: %v", err)
+		return 0, err
+	}
+	if exists > 0 {
+		return 0, errors.New("el código de equipo ya existe para este proyecto")
+	}
+
+	// Inserción
+	stmt, err := DB.Prepare(`
+        INSERT INTO equipos_implementos 
+        (proyecto_id, codigo_equipo, nombre, tipo, estado, fecha_creacion) 
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `)
+	if err != nil {
+		log.Printf("Error en CreateEquipo (Prepare): %v", err)
+		return 0, err
 	}
 	defer stmt.Close()
 
-	// ⭐️ MODIFICADO: Se añade el 'estado' por defecto si no viene
-	estado := equipo.Estado
-	if estado == "" {
-		estado = "Activo"
-	}
-
-	res, err := stmt.Exec(equipo.ProyectoID, equipo.CodigoEquipo, equipo.Nombre, equipo.Tipo, estado)
+	res, err := stmt.Exec(equipo.ProyectoID, equipo.CodigoEquipo, equipo.Nombre, equipo.Tipo, equipo.Estado)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed: equipos_implementos.proyecto_id, equipos_implementos.codigo_equipo") {
-			return 0, errors.New("El código de equipo ya existe para este proyecto.")
+		log.Printf("Error en CreateEquipo (Exec): %v", err)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, errors.New("el código de equipo ya existe para este proyecto")
 		}
-		return 0, fmt.Errorf("error al ejecutar inserción (CreateEquipo): %w", err)
+		return 0, err
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("error al obtener último ID (CreateEquipo): %w", err)
-	}
-	return id, nil
+	return res.LastInsertId()
 }
 
-func UpdateEquipo(id int, codigo, nombre, tipo, estado string) (int64, error) {
-	stmt, err := DB.Prepare("UPDATE equipos_implementos SET codigo_equipo = ?, nombre = ?, tipo = ?, estado = ? WHERE id = ?")
+// UpdateEquipo actualiza un equipo existente
+func UpdateEquipo(id int, codigoEquipo, nombre, tipo, estado string) (int64, error) {
+	stmt, err := DB.Prepare(`
+        UPDATE equipos_implementos 
+        SET codigo_equipo = ?, nombre = ?, tipo = ?, estado = ?
+        WHERE id = ?
+    `)
 	if err != nil {
-		return 0, fmt.Errorf("error al preparar update (UpdateEquipo): %w", err)
+		log.Printf("Error en UpdateEquipo (Prepare): %v", err)
+		return 0, err
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(codigo, nombre, tipo, estado, id)
+	res, err := stmt.Exec(codigoEquipo, nombre, tipo, estado, id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed: equipos_implementos.proyecto_id, equipos_implementos.codigo_equipo") {
-			return 0, errors.New("El código de equipo ya existe para este proyecto.")
+		log.Printf("Error en UpdateEquipo (Exec): %v", err)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, errors.New("el código de equipo ya existe para este proyecto")
 		}
-		return 0, fmt.Errorf("error al ejecutar update (UpdateEquipo): %w", err)
+		return 0, err
 	}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("error al obtener filas afectadas (UpdateEquipo): %w", err)
-	}
-	return affected, nil
+	return res.RowsAffected()
 }
 
+// DeleteEquipo borra un equipo de la DB
 func DeleteEquipo(id int) (int64, error) {
 	stmt, err := DB.Prepare("DELETE FROM equipos_implementos WHERE id = ?")
 	if err != nil {
-		return 0, fmt.Errorf("error al preparar delete (DeleteEquipo): %w", err)
+		log.Printf("Error en DeleteEquipo (Prepare): %v", err)
+		return 0, err
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(id)
 	if err != nil {
-		return 0, fmt.Errorf("error al ejecutar delete (DeleteEquipo): %w", err)
+		log.Printf("Error en DeleteEquipo (Exec): %v", err)
+		return 0, err
 	}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("error al obtener filas afectadas (DeleteEquipo): %w", err)
-	}
-	return affected, nil
+	return res.RowsAffected()
 }
+
+// ⭐️ --- INICIO: NUEVA FUNCIÓN AÑADIDA --- ⭐️
+
+// GetNextEquipoCodigo calcula el siguiente código secuencial para un proyecto.
+// Trata el 'codigo_equipo' como un número.
+func GetNextEquipoCodigo(proyectoID int) (int, error) {
+	var nextCodigo int
+
+	// Esta consulta es idéntica a la de Labores, pero
+	// apunta a la tabla 'equipos_implementos' y 'codigo_equipo'
+	query := `
+		SELECT IFNULL(MAX(CAST(codigo_equipo AS INTEGER)), 0) + 1 
+		FROM equipos_implementos 
+		WHERE proyecto_id = ?;
+	`
+
+	err := DB.QueryRow(query, proyectoID).Scan(&nextCodigo)
+	if err != nil {
+		log.Printf("Error en GetNextEquipoCodigo: %v", err)
+		return 0, err
+	}
+
+	return nextCodigo, nil
+}
+
+// ⭐️ --- FIN: NUEVA FUNCIÓN AÑADIDA --- ⭐️

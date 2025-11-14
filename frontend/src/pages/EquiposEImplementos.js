@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+// Importamos el servicio de equipos que acabamos de modificar
 import { getEquipos, createEquipo, updateEquipo, deleteEquipo } from '../services/equipoService';
 
-// (Todos tus estilos 'styles' van aquí... los omito por brevedad)
-// ...
+// (Todos tus estilos 'styles' van aquí...)
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
     h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem' },
@@ -13,6 +13,7 @@ const styles = {
     h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
     input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
     select: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' },
+    // El grid se adaptará solo a 3 columnas al quitar un elemento
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' },
     button: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '1rem' },
     tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
@@ -37,21 +38,21 @@ const EquiposEImplementos = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // ⭐️ --- (INICIO) CAMBIO EN EL ESTADO --- ⭐️
     // Estado para el formulario de nuevo equipo
     const [newEquipoData, setNewEquipoData] = useState({
-        codigo_equipo: '',
+        // 'codigo_equipo' eliminado
         nombre: '',
-        // ⭐️ --- CORRECCIÓN AQUÍ --- ⭐️
-        // El estado 'tipo' no puede ser '', debe ser uno de los valores válidos
         tipo: 'Equipo',
         estado: 'Activo'
     });
+    // ⭐️ --- (FIN) CAMBIO EN EL ESTADO --- ⭐️
 
     // Estado para la edición
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
-    // Cargar Labores
+    // Cargar Equipos
     const fetchEquipos = useCallback(async () => {
         try {
             setLoading(true);
@@ -77,20 +78,23 @@ const EquiposEImplementos = () => {
         }));
     };
 
+    // ⭐️ --- (INICIO) CAMBIO EN EL GUARDADO --- ⭐️
     // Guardar nuevo equipo
     const handleSaveNewEquipo = async (e) => {
         e.preventDefault();
         setError('');
         try {
+            // El servicio 'createEquipo' (archivo anterior) ya espera
+            // que 'newEquipoData' NO tenga 'codigo_equipo'.
             const nuevoEquipo = await createEquipo(
                 token,
                 { proyecto_id: parseInt(id), ...newEquipoData },
                 currentUser.username
             );
             setEquipos(prev => [nuevoEquipo, ...prev]);
-            // Limpiar formulario
+
+            // Limpiar formulario (ya no se resetea el código)
             setNewEquipoData({
-                codigo_equipo: '',
                 nombre: '',
                 tipo: 'Equipo', // Resetear al valor por defecto
                 estado: 'Activo'
@@ -99,8 +103,9 @@ const EquiposEImplementos = () => {
             setError(err.message || "Error al guardar el equipo");
         }
     };
+    // ⭐️ --- (FIN) CAMBIO EN EL GUARDADO --- ⭐️
 
-    // Manejadores de edición
+    // Manejadores de edición (sin cambios)
     const handleEditClick = (equipo) => {
         setEditingId(equipo.id);
         setEditFormData({
@@ -138,7 +143,7 @@ const EquiposEImplementos = () => {
         }
     };
 
-    // Borrar equipo
+    // Borrar equipo (sin cambios)
     const handleDeleteEquipo = async (equipoId) => {
         if (window.confirm('¿Estás seguro de que quieres borrar este equipo?')) {
             setError('');
@@ -156,19 +161,13 @@ const EquiposEImplementos = () => {
             <h2 style={styles.h2}>Equipos e Implementos</h2>
             <p style={styles.p}>Configuración de equipos e implementos para el Proyecto (ID: {id})</p>
 
-            {/* --- Formulario de Nuevo Equipo --- */}
+            {/* ⭐️ --- (INICIO) CAMBIO EN EL FORMULARIO --- ⭐️ */}
             <form onSubmit={handleSaveNewEquipo} style={styles.formContainer}>
                 <h3 style={styles.h3}>Añadir Nuevo Equipo o Implemento</h3>
                 <div style={styles.grid}>
-                    {/* Codigo */}
-                    <input
-                        name="codigo_equipo"
-                        value={newEquipoData.codigo_equipo}
-                        onChange={handleNewDataChange}
-                        placeholder="Código"
-                        required
-                        style={styles.input}
-                    />
+
+                    {/* Campo "Codigo" ELIMINADO */}
+
                     {/* Nombre */}
                     <input
                         name="nombre"
@@ -186,10 +185,6 @@ const EquiposEImplementos = () => {
                         required
                         style={styles.select}
                     >
-                        {/* ⭐️ NOTA: El valor 'Equipo' aquí coincide 
-                          con el estado inicial 'Equipo',
-                          por eso se selecciona por defecto.
-                        */}
                         <option value="Equipo">Equipo</option>
                         <option value="Implemento">Implemento</option>
                     </select>
@@ -207,6 +202,7 @@ const EquiposEImplementos = () => {
                 </div>
                 <button type="submit" style={styles.button}>Guardar Nuevo</button>
             </form>
+            {/* ⭐️ --- (FIN) CAMBIO EN EL FORMULARIO --- ⭐️ */}
 
             {error && <p style={styles.error}>{error}</p>}
 
@@ -261,6 +257,7 @@ const EquiposEImplementos = () => {
                                     ) : (
                                         // --- Fila en Modo Lectura ---
                                         <>
+                                            {/* La tabla SÍ muestra el código que generó el backend */}
                                             <td style={styles.td}>{equipo.codigo_equipo}</td>
                                             <td style={styles.td}>{equipo.nombre}</td>
                                             <td style={styles.td}>{equipo.tipo}</td>

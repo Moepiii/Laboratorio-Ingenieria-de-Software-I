@@ -13,10 +13,11 @@ export const getEquipos = (token, proyectoId, adminUsername) => {
 
 /**
  * Crea un nuevo equipo.
- * ⭐️ MODIFICADO: El 'equipoData' ahora incluye 'codigo_equipo'
+ * ⭐️ MODIFICADO: El 'equipoData' YA NO incluye 'codigo_equipo'.
  */
 export const createEquipo = (token, equipoData, adminUsername) => {
-    // equipoData ahora es { proyecto_id, codigo_equipo, nombre, tipo, estado }
+    // equipoData ahora es { proyecto_id, nombre, tipo, estado }
+    // El backend generará el 'codigo_equipo' automáticamente.
     const body = {
         ...equipoData,
         admin_username: adminUsername
@@ -26,7 +27,7 @@ export const createEquipo = (token, equipoData, adminUsername) => {
 
 /**
  * Actualiza un equipo existente.
- * ⭐️ MODIFICADO: El 'equipoData' ahora incluye 'codigo_equipo'
+ * ⭐️ (Sin cambios, la actualización aún envía el código)
  */
 export const updateEquipo = (token, equipoData, adminUsername) => {
     // equipoData ahora es { id, codigo_equipo, nombre, tipo, estado }

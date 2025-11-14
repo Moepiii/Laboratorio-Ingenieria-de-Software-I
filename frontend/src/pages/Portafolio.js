@@ -10,23 +10,15 @@ import {
 } from '../services/projectService';
 
 // ⭐️ --- (INICIO) COMPONENTE INTERNO LISTA PROYECTOS --- ⭐️
-// La corrección está aquí
 const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, searchTerm, showToolbar, navigate }) => {
 
   const filteredProyectos = useMemo(() => {
     return proyectos.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [proyectos, searchTerm]);
 
-  // ⭐️ ESTA ES LA LÓGICA CORREGIDA ⭐️
   const handleRowClick = (proyecto) => {
-    // 1. Siempre selecciona el proyecto en el estado
     setSelectedProyectoId(proyecto.id);
-
-    // 2. Comprueba si estamos en la vista de "Configuraciones"
-    //    (showToolbar es 'false' cuando estamos en /admin/configuraciones)
     if (!showToolbar) {
-      // 3. Si es así, NAVEGA a la sub-página del proyecto
-      //    Esto activará el Sidebar para que muestre el submenú
       navigate(`/admin/configuraciones/proyecto/${proyecto.id}/labores`);
     }
   };
@@ -48,14 +40,14 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
             filteredProyectos.map(proyecto => (
               <tr
                 key={proyecto.id}
-                onClick={() => handleRowClick(proyecto)} // ⭐️ USA EL NUEVO HANDLER
+                onClick={() => handleRowClick(proyecto)}
                 style={selectedProyectoId === proyecto.id ? styles.trSelected : styles.tr}
               >
                 <td style={styles.td}>
                   <input
                     type="radio"
                     checked={selectedProyectoId === proyecto.id}
-                    onChange={() => handleRowClick(proyecto)} // También aquí
+                    onChange={() => handleRowClick(proyecto)}
                   />
                 </td>
                 <td style={styles.td}>{proyecto.nombre}</td>
@@ -190,8 +182,32 @@ const Portafolio = () => {
   return (
     <div style={styles.container}>
       {showForm ? (
+        // ⭐️ --- (INICIO) FORMULARIO MODIFICADO --- ⭐️
         <div style={styles.adminFormContainer}>
           <form onSubmit={handleSubmit}>
+
+            {/* 1. CABECERA (SOLO TÍTULO) */}
+            <div style={styles.formHeader}>
+              <h3 style={styles.formTitle}>
+                {selectedProyectoId ? 'Actualizar Proyecto' : 'Crear Nuevo Proyecto'}
+              </h3>
+            </div>
+
+            {/* 2. BOTONES MOVIDOS AQUÍ */}
+            <div style={styles.buttonGroup}>
+              <button type="submit" style={styles.button}>
+                {selectedProyectoId ? 'Actualizar' : 'Guardar'}
+              </button>
+              <button
+                type="button"
+                style={styles.buttonWarning}
+                onClick={() => { setShowForm(false); setSelectedProyectoId(null); }}
+              >
+                Cancelar
+              </button>
+            </div>
+
+            {/* 3. CAMPOS DEL FORMULARIO */}
             <div style={styles.inputGroup}>
               <label style={styles.label}>Nombre del Proyecto</label>
               <input type="text" style={styles.input} value={nombre} onChange={(e) => setNombre(e.target.value)} required />
@@ -204,13 +220,12 @@ const Portafolio = () => {
               <label style={styles.label}>Fecha Cierre</label>
               <input type="date" style={styles.input} value={fechaCierre} onChange={(e) => setFechaCierre(e.target.value)} required />
             </div>
+
             {error && <p style={styles.error}>{error}</p>}
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button type="submit" style={styles.button}>{selectedProyectoId ? 'Actualizar' : 'Guardar'}</button>
-              <button type="button" style={styles.buttonWarning} onClick={() => { setShowForm(false); setSelectedProyectoId(null); }}>Cancelar</button>
-            </div>
+
           </form>
         </div>
+        // ⭐️ --- (FIN) FORMULARIO MODIFICADO --- ⭐️
       ) : (
         <>
           <h2 style={styles.h2}>{showToolbar ? 'Portafolio de Proyectos' : 'Configuraciones'}</h2>
@@ -276,7 +291,7 @@ const Portafolio = () => {
   );
 };
 
-// (Los estilos se mantienen igual que en el paso anterior)
+// --- ESTILOS (CON NUEVOS ESTILOS AÑADIDOS) ---
 const styles = {
   container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
   h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem' },
@@ -286,6 +301,27 @@ const styles = {
   searchInput: { padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', minWidth: '250px', marginLeft: 'auto' },
   inputGroup: { marginBottom: '1.25rem' },
   label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
+
+  // ⭐️ --- (INICIO) ESTILOS MODIFICADOS PARA EL FORMULARIO --- ⭐️
+  formHeader: {
+    // Ya no es 'flex', solo un bloque normal
+    marginBottom: '1.5rem', // Espacio después del título
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '1rem'
+  },
+  formTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '600',
+    color: '#111827',
+    margin: 0
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '0.75rem', // Espacio entre botones
+    marginBottom: '1.5rem' // Espacio ANTES del primer campo "Nombre del Proyecto"
+  },
+  // ⭐️ --- (FIN) ESTILOS MODIFICADOS PARA EL FORMULARIO --- ⭐️
+
   button: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', display: 'inline-flex', alignItems: 'center' },
   buttonSuccess: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#22c55e', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', display: 'inline-flex', alignItems: 'center' },
   buttonWarning: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#f59e0b', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', display: 'inline-flex', alignItems: 'center' },

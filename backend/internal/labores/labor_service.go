@@ -3,6 +3,7 @@ package labores
 import (
 	"errors"
 	"log"
+	"strconv" // ⭐️ 1. IMPORTAMOS strconv
 	"strings"
 
 	"proyecto/internal/database"
@@ -31,76 +32,92 @@ func NewLaborService() LaborService {
 
 func (s *laborService) GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	if proyectoID == 0 {
-		return nil, errors.New("ID de proyecto requerido.")
+		return nil, errors.New("id de proyecto requerido")
 	}
 	labores, err := database.GetLaboresByProyectoID(proyectoID)
 	if err != nil {
 		log.Printf("Error en laborService.GetLaboresByProyectoID: %v", err)
-		return nil, errors.New("Error al obtener labores.")
+		return nil, errors.New("error al obtener labores")
 	}
 	return labores, nil
 }
 
+// ⭐️ --- INICIO: FUNCIÓN CreateLabor MODIFICADA --- ⭐️
 func (s *laborService) CreateLabor(req models.CreateLaborRequest) (*models.LaborAgronomica, error) {
-	if req.ProyectoID == 0 || req.Descripcion == "" || req.CodigoLabor == "" {
-		return nil, errors.New("ProyectoID, Código y Descripción son requeridos.")
+	// 1. Validación (ya no se valida CodigoLabor)
+	if req.ProyectoID == 0 || req.Descripcion == "" {
+		return nil, errors.New("ProyectoID y Descripcion son requeridos")
 	}
 
-	estado := req.Estado
-	if estado == "" {
-		estado = "activa" // Valor por defecto
+	// 2. LÓGICA NUEVA: Obtener el siguiente código
+	nextCodigoInt, err := database.GetNextLaborCodigo(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error en laborService.CreateLabor (GetNextLaborCodigo): %v", err)
+		return nil, errors.New("error al generar el código de labor")
 	}
 
+	// 3. Convertir el número (ej: 1, 2, 3) a un string ("1", "2", "3")
+	nextCodigoStr := strconv.Itoa(nextCodigoInt)
+
+	// 4. Construir el struct LaborAgronomica completo
+	// El servicio es ahora responsable de asignar el código.
 	labor := models.LaborAgronomica{
 		ProyectoID:  req.ProyectoID,
-		CodigoLabor: req.CodigoLabor,
+		CodigoLabor: nextCodigoStr, // ⬅️ Asignamos el nuevo código
 		Descripcion: req.Descripcion,
-		Estado:      estado,
+		Estado:      req.Estado,
 	}
 
+	// 5. Llamada a la base de datos (esta función no cambia)
 	laborID, err := database.CreateLabor(labor)
 	if err != nil {
-		log.Printf("Error en laborService.CreateLabor: %v", err)
+		log.Printf("Error en laborService.CreateLabor (CreateLabor): %v", err)
+		// Este error es menos probable ahora, pero lo mantenemos por si acaso
 		if strings.Contains(err.Error(), "ya existe") {
-			return nil, err
+			return nil, errors.New("el código de labor ya existe")
 		}
-		return nil, errors.New("Error al crear labor.")
+		return nil, errors.New("error al crear la labor")
 	}
 
-	// Devolvemos la labor recién creada
+	// 6. Devolver el objeto creado
 	nuevaLabor, err := database.GetLaborByID(int(laborID))
 	if err != nil {
 		log.Printf("Error al obtener labor recién creada (ID: %d): %v", laborID, err)
-		return nil, errors.New("Labor creada con éxito, pero no se pudo recuperar.")
+		return nil, errors.New("labor creada con éxito, pero no se pudo recuperar")
 	}
 
 	return nuevaLabor, nil
 }
 
+// ⭐️ --- FIN: FUNCIÓN CreateLabor MODIFICADA --- ⭐️
+
 func (s *laborService) UpdateLabor(req models.UpdateLaborRequest) (int64, error) {
 	if req.ID == 0 || req.CodigoLabor == "" || req.Descripcion == "" || req.Estado == "" {
-		return 0, errors.New("ID, Código, Descripción y Estado son requeridos.")
+		return 0, errors.New("ID, Código, Descripcion y Estado son requeridos")
 	}
 
 	affected, err := database.UpdateLabor(req.ID, req.CodigoLabor, req.Descripcion, req.Estado)
 	if err != nil {
 		log.Printf("Error en laborService.UpdateLabor (ID %d): %v", req.ID, err)
 		if strings.Contains(err.Error(), "ya existe") {
-			return 0, err
+			return 0, errors.New("el código de labor ya existe para este proyecto")
 		}
-		return 0, errors.New("Error al actualizar la labor.")
+		return 0, errors.New("error al actualizar la labor")
+	}
+	if affected == 0 {
+		return 0, errors.New("labor no encontrada")
 	}
 	return affected, nil
 }
 
 func (s *laborService) DeleteLabor(id int) (int64, error) {
 	if id == 0 {
-		return 0, errors.New("ID de labor requerido.")
+		return 0, errors.New("id de labor requerido")
 	}
 	affected, err := database.DeleteLabor(id)
 	if err != nil {
 		log.Printf("Error en laborService.DeleteLabor (ID %d): %v", id, err)
-		return 0, errors.New("Error al borrar la labor.")
+		return 0, errors.New("error al borrar la labor")
 	}
 	return affected, nil
 }

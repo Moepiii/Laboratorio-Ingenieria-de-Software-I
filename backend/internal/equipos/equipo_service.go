@@ -3,6 +3,7 @@ package equipos
 import (
 	"errors"
 	"log"
+	"strconv" // ⭐️ 1. IMPORTAMOS strconv
 	"strings"
 
 	"proyecto/internal/database"
@@ -41,36 +42,44 @@ func (s *equipoService) GetEquiposByProyectoID(proyectoID int) ([]models.EquipoI
 	return equipos, nil
 }
 
+// ⭐️ --- INICIO: FUNCIÓN CreateEquipo MODIFICADA --- ⭐️
 func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.EquipoImplemento, error) {
-	// 1. Validación (ST1005 corregido)
-	if req.ProyectoID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" {
-		return nil, errors.New("ProyectoID, Código, Nombre y Tipo son requeridos")
+	// 1. Validación (ya no se valida CodigoEquipo)
+	if req.ProyectoID == 0 || req.Nombre == "" || req.Tipo == "" {
+		return nil, errors.New("ProyectoID, Nombre y Tipo son requeridos")
 	}
 
-	// ⭐️ --- INICIO DE LA CORRECCIÓN --- ⭐️
-	// El error estaba aquí. Probablemente decía "models.LaborAgronomica"
-	// en lugar de "models.EquipoImplemento"
+	// 2. LÓGICA NUEVA: Obtener el siguiente código
+	nextCodigoInt, err := database.GetNextEquipoCodigo(req.ProyectoID)
+	if err != nil {
+		log.Printf("Error en equipoService.CreateEquipo (GetNextEquipoCodigo): %v", err)
+		return nil, errors.New("error al generar el código de equipo")
+	}
+
+	// 3. Convertir el número (ej: 1, 2, 3) a un string ("1", "2", "3")
+	nextCodigoStr := strconv.Itoa(nextCodigoInt)
+
+	// 4. Construir el struct EquipoImplemento completo
+	// El servicio es ahora responsable de asignar el código.
 	equipo := models.EquipoImplemento{
 		ProyectoID:   req.ProyectoID,
-		CodigoEquipo: req.CodigoEquipo,
+		CodigoEquipo: nextCodigoStr, // ⬅️ Asignamos el nuevo código
 		Nombre:       req.Nombre,
 		Tipo:         req.Tipo,
-		Estado:       req.Estado, // 'Estado' también es parte del request
+		Estado:       req.Estado,
 	}
-	// ⭐️ --- FIN DE LA CORRECCIÓN --- ⭐️
 
-	// 2. Llamada a la base de datos
+	// 5. Llamada a la base de datos (esta función no cambia)
 	equipoID, err := database.CreateEquipo(equipo)
 	if err != nil {
-		log.Printf("Error en equipoService.CreateEquipo: %v", err)
+		log.Printf("Error en equipoService.CreateEquipo (CreateEquipo): %v", err)
 		if strings.Contains(err.Error(), "ya existe") {
 			return nil, err
 		}
-		// Este es el error que estás viendo
 		return nil, errors.New("error al crear equipo")
 	}
 
-	// 3. Devolver el objeto creado
+	// 6. Devolver el objeto creado
 	nuevoEquipo, err := database.GetEquipoByID(int(equipoID))
 	if err != nil {
 		log.Printf("Error al obtener equipo recién creado (ID: %d): %v", equipoID, err)
@@ -79,6 +88,8 @@ func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.Eq
 
 	return nuevoEquipo, nil
 }
+
+// ⭐️ --- FIN: FUNCIÓN CreateEquipo MODIFICADA --- ⭐️
 
 func (s *equipoService) UpdateEquipo(req models.UpdateEquipoRequest) (int64, error) {
 	if req.ID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {

@@ -13,10 +13,11 @@ export const getLabores = (token, proyectoId, adminUsername) => {
 
 /**
  * Crea una nueva labor.
- * ⭐️ MODIFICADO: El 'laborData' ahora incluye 'codigo_labor'
+ * ⭐️ MODIFICADO: El 'laborData' ya NO incluye 'codigo_labor'.
  */
 export const createLabor = (token, laborData, adminUsername) => {
-    // laborData ahora es { proyecto_id, codigo_labor, descripcion, estado }
+    // laborData ahora es { proyecto_id, descripcion, estado }
+    // El backend generará el 'codigo_labor' automáticamente.
     const body = {
         ...laborData,
         admin_username: adminUsername
@@ -26,7 +27,7 @@ export const createLabor = (token, laborData, adminUsername) => {
 
 /**
  * Actualiza una labor existente.
- * ⭐️ MODIFICADO: El 'laborData' ahora incluye 'codigo_labor'
+ * ⭐️ (Sin cambios, la actualización aún envía el código)
  */
 export const updateLabor = (token, laborData, adminUsername) => {
     // laborData ahora es { id, codigo_labor, descripcion, estado }

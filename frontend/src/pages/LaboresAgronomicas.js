@@ -12,8 +12,8 @@ const styles = {
     h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
     input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
     button: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '1rem' },
-    // ⭐️ CAMBIO: Se añade el grid para el formulario
-    formGrid: { display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' },
+    // ⭐️ CAMBIO: El grid ahora es de 1 sola columna
+    formGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
@@ -34,8 +34,7 @@ const LaboresAgronomicas = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // ⭐️ CAMBIO: Se añade estado para el código
-    const [newLaborCodigo, setNewLaborCodigo] = useState('');
+    // ⭐️ CAMBIO: Se elimina el estado 'newLaborCodigo'
     const [newLaborDesc, setNewLaborDesc] = useState('');
 
     const [editingId, setEditingId] = useState(null);
@@ -66,25 +65,25 @@ const LaboresAgronomicas = () => {
     // Handlers CRUD
     const handleCreateLabor = async (e) => {
         e.preventDefault();
-        if (newLaborDesc.trim() === '' || newLaborCodigo.trim() === '') {
-            setError('El Código y la Descripción no pueden estar vacíos.');
+        // ⭐️ CAMBIO: Ya no se valida el código
+        if (newLaborDesc.trim() === '') {
+            setError('La Descripción no puede estar vacía.');
             return;
         }
         setError('');
 
-        // ⭐️ CAMBIO: Se pasa el 'codigo_labor'
+        // ⭐️ CAMBIO: 'codigo_labor' eliminado de 'laborData'
         const laborData = {
             proyecto_id: proyectoIdNum,
-            codigo_labor: newLaborCodigo,
             descripcion: newLaborDesc,
-            estado: 'activa'
+            estado: 'activa' // O 'Activo' si así lo definiste en el backend
         };
 
         try {
+            // El 'laborService' (archivo anterior) ya está listo para esto
             const nuevaLabor = await createLabor(token, laborData, adminUsername);
             setLabores([nuevaLabor, ...labores]);
-            setNewLaborDesc('');
-            setNewLaborCodigo(''); // Limpia el código también
+            setNewLaborDesc(''); // Limpia solo la descripción
         } catch (err) {
             setError(err.message || 'Error al crear la labor.');
         }
@@ -156,19 +155,11 @@ const LaboresAgronomicas = () => {
             <div style={styles.formContainer}>
                 <h3 style={styles.h3}>Nueva Labor</h3>
                 <form onSubmit={handleCreateLabor}>
-                    {/* ⭐️ CAMBIO: Formulario en grid */}
+                    {/* ⭐️ CAMBIO: Formulario en grid de 1 columna */}
                     <div style={styles.formGrid}>
-                        <div>
-                            <label htmlFor="codigo_labor" style={{ display: 'block', marginBottom: '0.5rem' }}>Código</label>
-                            <input
-                                id="codigo_labor"
-                                type="text"
-                                value={newLaborCodigo}
-                                onChange={(e) => setNewLaborCodigo(e.target.value)}
-                                style={styles.input}
-                                placeholder="Ej: LAB-001"
-                            />
-                        </div>
+
+                        {/* ⭐️ CAMBIO: Input de Código ELIMINADO */}
+
                         <div>
                             <label htmlFor="descripcion" style={{ display: 'block', marginBottom: '0.5rem' }}>Descripción</label>
                             <input
@@ -197,7 +188,6 @@ const LaboresAgronomicas = () => {
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            {/* ⭐️ CAMBIO: Se añade columna Código */}
                             <th style={styles.th}>Código</th>
                             <th style={styles.th}>Descripción</th>
                             <th style={styles.th}>Estado</th>
@@ -257,6 +247,7 @@ const LaboresAgronomicas = () => {
                                     ) : (
                                         // --- Fila en Modo Lectura ---
                                         <>
+                                            {/* La tabla SÍ muestra el código que generó el backend */}
                                             <td style={styles.td}>{labor.codigo_labor}</td>
                                             <td style={styles.td}>{labor.descripcion}</td>
                                             <td style={styles.td}>{labor.estado}</td>

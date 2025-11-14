@@ -135,7 +135,6 @@ type GetLaboresRequest struct {
 
 type CreateLaborRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
-	CodigoLabor   string `json:"codigo_labor"`
 	Descripcion   string `json:"descripcion"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
@@ -170,14 +169,18 @@ type GetEquiposRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
+// ⭐️ --- INICIO DEL CAMBIO --- ⭐️
+// Este es el struct que hemos modificado
 type CreateEquipoRequest struct {
-	ProyectoID    int    `json:"proyecto_id"`
-	CodigoEquipo  string `json:"codigo_equipo"`
+	ProyectoID int `json:"proyecto_id"`
+	// CodigoEquipo  string `json:"codigo_equipo"` // CAMPO ELIMINADO
 	Nombre        string `json:"nombre"`
 	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
+
+// ⭐️ --- FIN DEL CAMBIO --- ⭐️
 
 type UpdateEquipoRequest struct {
 	ID            int    `json:"id"`
@@ -292,20 +295,17 @@ type SimpleResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// ⭐️ --- INICIO: NUEVAS STRUCTS PARA EL LOGGER --- ⭐️
-
-// EventLog representa una entrada en la tabla event_logs
+// --- Logger ---
 type EventLog struct {
 	ID              int
-	Timestamp       string // Se guardará como string
+	Timestamp       string
 	UsuarioUsername string
 	UsuarioRol      string
-	Accion          string // Ej: "CREACIÓN", "MODIFICACIÓN", "ELIMINACIÓN"
-	Entidad         string // Ej: "Proyectos", "Usuarios", "Actividades"
+	Accion          string
+	Entidad         string
 	EntidadID       int
 }
 
-// EventLogResponse es lo que se envía al frontend
 type EventLogResponse struct {
 	ID              int    `json:"id"`
 	Timestamp       string `json:"timestamp"`
@@ -316,14 +316,11 @@ type EventLogResponse struct {
 	EntidadID       int    `json:"entidad_id"`
 }
 
-// GetLogsRequest es lo que se recibe del frontend (con filtros)
 type GetLogsRequest struct {
 	AdminUsername   string `json:"admin_username"`
-	FechaInicio     string `json:"fecha_inicio"`     // Filtro opcional
-	FechaCierre     string `json:"fecha_cierre"`     // Filtro opcional
-	UsuarioUsername string `json:"usuario_username"` // Filtro opcional
-	Accion          string `json:"accion"`           // Filtro opcional
-	Entidad         string `json:"entidad"`          // Filtro opcional
+	FechaInicio     string `json:"fecha_inicio"`
+	FechaCierre     string `json:"fecha_cierre"`
+	UsuarioUsername string `json:"usuario_username"`
+	Accion          string `json:"accion"`
+	Entidad         string `json:"entidad"`
 }
-
-// ⭐️ --- FIN: NUEVAS STRUCTS PARA EL LOGGER --- ⭐️
