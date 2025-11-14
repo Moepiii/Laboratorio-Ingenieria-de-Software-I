@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin_test",
+      "nombre": "Admin",
+      "apellido": "Tester",
+      "role": "admin",
+      "cedula": "V-111",
+      "proyecto_id": null
+    },
+    {
+      "id": 2,
+      "username": "usuario_prueba",
+      "nombre": "Usuario",
+      "apellido": "de Prueba",
+      "role": "user",
+      "cedula": "V-222",
+      "proyecto_id": 1
+    }
+  ]
+}

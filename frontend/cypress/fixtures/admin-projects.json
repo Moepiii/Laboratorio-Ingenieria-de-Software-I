@@ -1,0 +1,14 @@
+{
+  "proyectos": [
+    {
+      "id": 1,
+      "nombre": "Proyecto Demo",
+      "estado": "Activo"
+    },
+    {
+      "id": 2,
+      "nombre": "Proyecto Secundario",
+      "estado": "Inactivo"
+    }
+  ]
+}

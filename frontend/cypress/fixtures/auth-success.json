@@ -1,0 +1,11 @@
+{
+  "token": "jwt.token.simulado.aqui",
+  "user": {
+    "id": 1,
+    "username": "admin_valido",
+    "nombre": "Admin",
+    "apellido": "Principal"
+  },
+  "role": "admin",
+  "userId": 1
+}
