@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import './AdminDashboard.css'; // Asumiendo que AdminDashboard.css está un nivel arriba
+import './AdminDashboard.css';
 import { useAuth } from './context/AuthContext';
 
 const Sidebar = () => {
@@ -8,9 +8,8 @@ const Sidebar = () => {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // Verifica si estamos en una sub-página de configuración
+  // Verifica si estamos en una sub-página de configuración de proyecto
   const configMatch = currentPath.match(/\/admin\/configuraciones\/proyecto\/(\d+)/);
-  const isConfigProyectoPage = !!configMatch;
   const proyectoId = configMatch ? configMatch[1] : null;
 
   return (
@@ -33,7 +32,7 @@ const Sidebar = () => {
         Perfiles de usuarios
       </Link>
 
-      {/* Botón Configuraciones */}
+      {/* Botón Configuraciones (Proyectos) */}
       <Link
         to="/admin/configuraciones"
         className={`nav-button ${currentPath.startsWith('/admin/configuraciones') ? 'active' : ''}`}
@@ -41,9 +40,9 @@ const Sidebar = () => {
         Configuraciones
       </Link>
 
-      {/* ⭐️ SUB-MENÚ CONDICIONAL (CON ESPACIO) ⭐️ */}
-      {isConfigProyectoPage && (
-        <div style={{ paddingLeft: '1.5rem', borderLeft: '3px solid #4f46e5', margin: '0.5rem 0' }}>
+      {/* Sub-menú condicional (solo si estamos editando un proyecto específico) */}
+      {proyectoId && (
+        <div style={{ marginLeft: '1rem', borderLeft: '2px solid #e5e7eb', padding: '0.5rem 0' }}>
 
           {/* Sub-Botón Labores */}
           <Link
@@ -52,8 +51,8 @@ const Sidebar = () => {
             style={{
               fontSize: '0.9rem',
               padding: '0.5rem 1rem',
-              display: 'block', // Asegura que sea un bloque
-              marginBottom: '0.5rem' // ⭐️ ESTE ES EL ESPACIO QUE PEDISTE ⭐️
+              display: 'block',
+              marginBottom: '0.5rem'
             }}
           >
             ↳ Labores Agronómicas
@@ -66,7 +65,7 @@ const Sidebar = () => {
             style={{
               fontSize: '0.9rem',
               padding: '0.5rem 1rem',
-              display: 'block' // Asegura que sea un bloque
+              display: 'block'
             }}
           >
             ↳ Equipos e Implementos
@@ -74,7 +73,16 @@ const Sidebar = () => {
         </div>
       )}
 
-      {/* Botón Logs */}
+      {/* ⭐️ NUEVO BOTÓN: UNIDADES DE MEDIDA ⭐️ */}
+      {/* Se muestra para admins y gerentes (igual que los handlers) */}
+      <Link
+        to="/admin/unidades"
+        className={`nav-button ${currentPath.startsWith('/admin/unidades') ? 'active' : ''}`}
+      >
+        Unidades de Medida
+      </Link>
+
+      {/* Botón Logs (Solo Admin) */}
       {userRole === 'admin' && (
         <Link
           to="/admin/logs"
@@ -84,8 +92,10 @@ const Sidebar = () => {
         </Link>
       )}
 
-      {/* Botón de Logout */}
-      <button className="nav-button logout-button" onClick={logout}>
+      <div className="sidebar-spacer"></div>
+
+      {/* Botón Salir */}
+      <button onClick={logout} className="logout-button">
         Cerrar Sesión
       </button>
     </nav>

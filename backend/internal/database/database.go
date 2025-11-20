@@ -32,6 +32,9 @@ func InitDB(dbPath string) {
 	createUsersTable()
 	createProyectosTable()
 	createLaboresTable()
+
+	createUnidadesTable()
+
 	createEquiposTable()
 	createActividadesTable()
 
@@ -173,5 +176,23 @@ func createEventLogsTable() {
     `)
 	if err != nil {
 		log.Fatalf("Error al crear tabla event_logs: %v", err)
+	}
+}
+
+
+func createUnidadesTable() {
+	// ⭐️ SE AÑADIÓ: dimension REAL NOT NULL DEFAULT 0
+	_, err := DB.Exec(`
+    CREATE TABLE IF NOT EXISTS unidades_medida (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        abreviatura TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        dimension REAL NOT NULL DEFAULT 0, 
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `)
+	if err != nil {
+		log.Fatalf("Error al crear tabla unidades_medida: %v", err)
 	}
 }

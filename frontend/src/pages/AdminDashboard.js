@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+import UnidadesMedida from './UnidadesMedida';
+
 import Sidebar from '../Sidebar';
 import Portafolio from './Portafolio';
 import Usuarios from './Usuarios';
@@ -42,6 +44,8 @@ const AdminDashboard = () => {
             path="configuraciones/proyecto/:id/equipos"
             element={<EquiposEImplementos />}
           />
+
+          <Route path="unidades" element={<UnidadesMedida />} />
 
           {/* Ruta para la página de Datos del Proyecto */}
           <Route

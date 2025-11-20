@@ -2,34 +2,29 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"proyecto/internal/auth"
-	"proyecto/internal/logger" // ⭐️ 1. IMPORTAMOS EL LOGGER
+	"proyecto/internal/logger"
 	"proyecto/internal/models"
 	"proyecto/internal/proyectos"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---\
 type ProyectoHandler struct {
 	authSvc     auth.AuthService
 	proyectoSvc proyectos.ProyectoService
-	loggerSvc   logger.LoggerService // ⭐️ 2. AÑADIMOS EL SERVICIO DE LOGGER
+	loggerSvc   logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---
 func NewProyectoHandler(as auth.AuthService, ps proyectos.ProyectoService, ls logger.LoggerService) *ProyectoHandler {
 	return &ProyectoHandler{
 		authSvc:     as,
 		proyectoSvc: ps,
-		loggerSvc:   ls, // ⭐️ 3. INYECTAMOS EL SERVICIO
+		loggerSvc:   ls,
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---
-
+// --- AdminGetProyectosHandler: Obtiene lista de proyectos ---
 func (h *ProyectoHandler) AdminGetProyectosHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -37,13 +32,14 @@ func (h *ProyectoHandler) AdminGetProyectosHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Verificamos permisos (admin o gerente)
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
+		respondWithError(w, http.StatusForbidden, "acceso denegado")
 		return
 	}
 
@@ -52,45 +48,43 @@ func (h *ProyectoHandler) AdminGetProyectosHandler(w http.ResponseWriter, r *htt
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	respondWithJSON(w, http.StatusOK, map[string][]models.Proyecto{"proyectos": proyectos})
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"proyectos": proyectos})
 }
 
-func (h *ProyectoHandler) AdminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+// --- CreateProyectoHandler: Crea un nuevo proyecto ---
+func (h *ProyectoHandler) CreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
+	// Validar Permisos
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
+		respondWithError(w, http.StatusInternalServerError, "error de permisos")
 		return
 	}
 	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
+		respondWithError(w, http.StatusForbidden, "No autorizado")
 		return
 	}
 
-	proyecto, err := h.proyectoSvc.CreateProyecto(req.Nombre, req.FechaInicio, req.FechaCierre)
+	nuevoProyecto, err := h.proyectoSvc.CreateProyecto(req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
-		if strings.Contains(err.Error(), "ya existe") {
-			respondWithError(w, http.StatusConflict, err.Error())
-		} else {
-			respondWithError(w, http.StatusBadRequest, err.Error())
-		}
+		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
-	if proyecto != nil {
-		h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Proyectos", proyecto.ID)
-	}
+	// LOG
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Proyectos", nuevoProyecto.ID)
 
-	respondWithJSON(w, http.StatusCreated, proyecto)
+	respondWithJSON(w, http.StatusCreated, nuevoProyecto)
 }
 
-func (h *ProyectoHandler) AdminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+// --- UpdateProyectoHandler: Actualiza un proyecto ---
+func (h *ProyectoHandler) UpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
@@ -98,34 +92,25 @@ func (h *ProyectoHandler) AdminUpdateProyectoHandler(w http.ResponseWriter, r *h
 	}
 
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if err != nil || !hasPermission {
+		respondWithError(w, http.StatusForbidden, "No autorizado")
+		return
+	}
+
+	proyectoActualizado, err := h.proyectoSvc.UpdateProyecto(req.ID, req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
-		return
-	}
-	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
+		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	proyecto, err := h.proyectoSvc.UpdateProyecto(req.ID, req.Nombre, req.FechaInicio, req.FechaCierre)
-	if err != nil {
-		if strings.Contains(err.Error(), "ya existe") {
-			respondWithError(w, http.StatusConflict, err.Error())
-		} else {
-			respondWithError(w, http.StatusBadRequest, err.Error())
-		}
-		return
-	}
+	// LOG
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Proyectos", req.ID)
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
-	if proyecto != nil {
-		h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Proyectos", proyecto.ID)
-	}
-
-	respondWithJSON(w, http.StatusOK, proyecto)
+	respondWithJSON(w, http.StatusOK, proyectoActualizado)
 }
 
-func (h *ProyectoHandler) AdminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) {
+// --- DeleteProyectoHandler: Borra un proyecto ---
+func (h *ProyectoHandler) DeleteProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
@@ -133,31 +118,24 @@ func (h *ProyectoHandler) AdminDeleteProyectoHandler(w http.ResponseWriter, r *h
 	}
 
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
-		return
-	}
-	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin")
+	if err != nil || !hasPermission {
+		respondWithError(w, http.StatusForbidden, "No autorizado (Solo Admin)")
 		return
 	}
 
-	affected, err := h.proyectoSvc.DeleteProyecto(req.ID)
+	_, err = h.proyectoSvc.DeleteProyecto(req.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "proyecto no encontrado")
-		return
-	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
+	// LOG
 	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Proyectos", req.ID)
 
-	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Proyecto borrado."})
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Proyecto eliminado"})
 }
 
+// --- AdminSetProyectoEstadoHandler: Cambia estado (Activo/Cerrado) ---
 func (h *ProyectoHandler) AdminSetProyectoEstadoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.SetProyectoEstadoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -166,28 +144,18 @@ func (h *ProyectoHandler) AdminSetProyectoEstadoHandler(w http.ResponseWriter, r
 	}
 
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
-		return
-	}
-	if !hasPermission {
-		respondWithError(w, http.StatusForbidden, "acceso denegado. se requiere rol de admin o gerente")
+	if err != nil || !hasPermission {
+		respondWithError(w, http.StatusForbidden, "No autorizado")
 		return
 	}
 
-	affected, err := h.proyectoSvc.SetProyectoEstado(req.ID, req.Estado)
+	_, err = h.proyectoSvc.SetProyectoEstado(req.ID, req.Estado)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if affected == 0 {
-		respondWithError(w, http.StatusNotFound, "proyecto no encontrado")
-		return
-	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
-	logMsg := fmt.Sprintf("CAMBIO DE ESTADO (a %s)", req.Estado)
-	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", logMsg, "Proyectos", req.ID)
+	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CAMBIO ESTADO", "Proyectos", req.ID)
 
-	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Estado del proyecto actualizado."})
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Estado actualizado"})
 }

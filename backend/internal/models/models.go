@@ -324,3 +324,35 @@ type GetLogsRequest struct {
 	Accion          string `json:"accion"`
 	Entidad         string `json:"entidad"`
 }
+
+// --- Unidades de Medida ---
+type UnidadMedida struct {
+	ID            int    `json:"id"`
+	Nombre        string `json:"nombre"`
+	Abreviatura   string `json:"abreviatura"`
+	Tipo          string `json:"tipo"` // Peso, Líquido, Longitud
+	Dimension     float64 `json:"dimension"`
+	FechaCreacion string `json:"fecha_creacion"`
+}
+
+type CreateUnidadRequest struct {
+	Nombre        string `json:"nombre"`
+	Abreviatura   string `json:"abreviatura"`
+	Tipo          string `json:"tipo"`
+	Dimension     float64 `json:"dimension"`
+	AdminUsername string `json:"admin_username"`
+}
+
+type UpdateUnidadRequest struct {
+	ID            int    `json:"id"`
+	Nombre        string `json:"nombre"`
+	Abreviatura   string `json:"abreviatura"`
+	Tipo          string `json:"tipo"`
+	Dimension     float64 `json:"dimension"` //
+	AdminUsername string `json:"admin_username"`
+}
+
+type DeleteUnidadRequest struct {
+	ID            int    `json:"id"`
+	AdminUsername string `json:"admin_username"`
+}
