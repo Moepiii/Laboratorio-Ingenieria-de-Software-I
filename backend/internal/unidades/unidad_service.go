@@ -8,7 +8,7 @@ import (
 )
 
 type UnidadService interface {
-	GetAllUnidades() ([]models.UnidadMedida, error)
+	GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error) // ⭐️ Nombre cambiado
 	CreateUnidad(req models.CreateUnidadRequest) (*models.UnidadMedida, error)
 	UpdateUnidad(req models.UpdateUnidadRequest) (int64, error)
 	DeleteUnidad(id int) (int64, error)
@@ -20,17 +20,24 @@ func NewUnidadService() UnidadService {
 	return &unidadService{}
 }
 
-func (s *unidadService) GetAllUnidades() ([]models.UnidadMedida, error) {
-	return database.GetAllUnidades()
+// ⭐️ Acepta ID de proyecto
+func (s *unidadService) GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error) {
+	if proyectoID == 0 {
+		return nil, errors.New("ID de proyecto requerido")
+	}
+	return database.GetUnidadesByProyectoID(proyectoID)
 }
 
 func (s *unidadService) CreateUnidad(req models.CreateUnidadRequest) (*models.UnidadMedida, error) {
+	if req.ProyectoID == 0 {
+		return nil, errors.New("ID de proyecto requerido")
+	}
 	if req.Nombre == "" || req.Abreviatura == "" || req.Tipo == "" {
 		return nil, errors.New("nombre, abreviatura y tipo son requeridos")
 	}
 
-	// ⭐️ Pasamos Dimension a la DB
 	id, err := database.CreateUnidad(models.UnidadMedida{
+		ProyectoID:  req.ProyectoID, // ⭐️ Guardamos el ID
 		Nombre:      req.Nombre,
 		Abreviatura: req.Abreviatura,
 		Tipo:        req.Tipo,
@@ -43,15 +50,9 @@ func (s *unidadService) CreateUnidad(req models.CreateUnidadRequest) (*models.Un
 
 	return database.GetUnidadByID(int(id))
 }
-
+// Update y Delete quedan igual...
 func (s *unidadService) UpdateUnidad(req models.UpdateUnidadRequest) (int64, error) {
-	if req.ID == 0 || req.Nombre == "" || req.Abreviatura == "" {
-		return 0, errors.New("datos incompletos para actualizar")
-	}
-	// ⭐️ Pasamos Dimension a la DB
+	if req.ID == 0 || req.Nombre == "" || req.Abreviatura == "" { return 0, errors.New("datos incompletos") }
 	return database.UpdateUnidad(req.ID, req.Nombre, req.Abreviatura, req.Tipo, req.Dimension)
 }
-
-func (s *unidadService) DeleteUnidad(id int) (int64, error) {
-	return database.DeleteUnidad(id)
-}
+func (s *unidadService) DeleteUnidad(id int) (int64, error) { return database.DeleteUnidad(id) }

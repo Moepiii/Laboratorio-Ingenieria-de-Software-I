@@ -328,6 +328,7 @@ type GetLogsRequest struct {
 // --- Unidades de Medida ---
 type UnidadMedida struct {
 	ID            int    `json:"id"`
+	ProyectoID    int     `json:"proyecto_id"`
 	Nombre        string `json:"nombre"`
 	Abreviatura   string `json:"abreviatura"`
 	Tipo          string `json:"tipo"` // Peso, Líquido, Longitud
@@ -336,6 +337,7 @@ type UnidadMedida struct {
 }
 
 type CreateUnidadRequest struct {
+	ProyectoID    int     `json:"proyecto_id"` //
 	Nombre        string `json:"nombre"`
 	Abreviatura   string `json:"abreviatura"`
 	Tipo          string `json:"tipo"`
@@ -354,5 +356,9 @@ type UpdateUnidadRequest struct {
 
 type DeleteUnidadRequest struct {
 	ID            int    `json:"id"`
+	AdminUsername string `json:"admin_username"`
+}
+type GetUnidadesRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }

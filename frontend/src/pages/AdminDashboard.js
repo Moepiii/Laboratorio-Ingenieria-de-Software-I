@@ -2,8 +2,6 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-import UnidadesMedida from './UnidadesMedida';
-
 import Sidebar from '../Sidebar';
 import Portafolio from './Portafolio';
 import Usuarios from './Usuarios';
@@ -13,9 +11,9 @@ import '../AdminDashboard.css';
 import LaboresAgronomicas from './LaboresAgronomicas';
 import EquiposEImplementos from './EquiposEImplementos';
 import DatosProyecto from './DatosProyecto';
-import LoggerEventos from './LoggerEventos'; // ⭐️ 1. IMPORTAMOS EL NUEVO COMPONENTE
+import LoggerEventos from './LoggerEventos';
+import UnidadesMedida from './UnidadesMedida'; // Importamos
 
-// Componente principal del Dashboard
 const AdminDashboard = () => {
 
   const { userRole } = useAuth();
@@ -26,50 +24,37 @@ const AdminDashboard = () => {
 
       <main className="main-content">
         <Routes>
-          {/* Rutas existentes */}
           <Route path="proyectos" element={<Portafolio />} />
           <Route path="usuarios" element={<Usuarios />} />
-
-          {/* Ruta de Configuraciones (Muestra la lista de proyectos) */}
           <Route path="configuraciones" element={<Portafolio />} />
 
-          {/* Ruta para "Labores": /admin/configuraciones/proyecto/:id/labores */}
+          {/* Configuración: Labores */}
           <Route
             path="configuraciones/proyecto/:id/labores"
             element={<LaboresAgronomicas />}
           />
 
-          {/* Ruta para "Equipos\": /admin/configuraciones/proyecto/:id/equipos */}
+          {/* Configuración: Equipos */}
           <Route
             path="configuraciones/proyecto/:id/equipos"
             element={<EquiposEImplementos />}
           />
 
-          <Route path="unidades" element={<UnidadesMedida />} />
-
-          {/* Ruta para la página de Datos del Proyecto */}
+          {/* ⭐️ NUEVA RUTA ANIDADA: Unidades de Medida ⭐️ */}
+          {/* NOTA: Ya no es /admin/unidades, ahora es específica del proyecto */}
           <Route
-            path="proyectos/datos/:id"
-            element={<DatosProyecto />}
+            path="configuraciones/proyecto/:id/unidades"
+            element={<UnidadesMedida />}
           />
 
-          {/* Ruta de Logs (condicional) */}
+          <Route path="proyectos/datos/:id" element={<DatosProyecto />} />
+
           {userRole === 'admin' && (
-            // ⭐️ 2. REEMPLAZAMOS EL DIV DE RELLENO
             <Route path="logs" element={<LoggerEventos />} />
           )}
 
-          {/* Ruta por defecto (redirige a /admin/proyectos) */}
-          <Route
-            path="/"
-            element={<Navigate to="/admin/proyectos" replace />}
-          />
-
-          {/* Ruta "catch-all" (opcional) */}
-          <Route
-            path="*"
-            element={<Navigate to="/admin/proyectos" replace />}
-          />
+          <Route path="/" element={<Navigate to="/admin/proyectos" replace />} />
+          <Route path="*" element={<Navigate to="/admin/proyectos" replace />} />
         </Routes>
       </main>
     </div>

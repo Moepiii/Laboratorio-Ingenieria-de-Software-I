@@ -181,15 +181,17 @@ func createEventLogsTable() {
 
 
 func createUnidadesTable() {
-	// ⭐️ SE AÑADIÓ: dimension REAL NOT NULL DEFAULT 0
+	// ⭐️ AÑADIDO: proyecto_id y su FOREIGN KEY
 	_, err := DB.Exec(`
     CREATE TABLE IF NOT EXISTS unidades_medida (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        proyecto_id INTEGER NOT NULL,
         nombre TEXT NOT NULL,
         abreviatura TEXT NOT NULL,
         tipo TEXT NOT NULL,
         dimension REAL NOT NULL DEFAULT 0, 
-        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
     );
     `)
 	if err != nil {

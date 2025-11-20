@@ -9,6 +9,7 @@ const Sidebar = () => {
   const currentPath = location.pathname;
 
   // Verifica si estamos en una sub-página de configuración de proyecto
+  // Esto detecta URLs como: /admin/configuraciones/proyecto/1/labores
   const configMatch = currentPath.match(/\/admin\/configuraciones\/proyecto\/(\d+)/);
   const proyectoId = configMatch ? configMatch[1] : null;
 
@@ -32,7 +33,7 @@ const Sidebar = () => {
         Perfiles de usuarios
       </Link>
 
-      {/* Botón Configuraciones (Proyectos) */}
+      {/* Botón Configuraciones (Lista de Proyectos) */}
       <Link
         to="/admin/configuraciones"
         className={`nav-button ${currentPath.startsWith('/admin/configuraciones') ? 'active' : ''}`}
@@ -40,47 +41,39 @@ const Sidebar = () => {
         Configuraciones
       </Link>
 
-      {/* Sub-menú condicional (solo si estamos editando un proyecto específico) */}
+      {/* ⭐️ SUB-MENÚ DEL PROYECTO SELECCIONADO ⭐️ */}
       {proyectoId && (
         <div style={{ marginLeft: '1rem', borderLeft: '2px solid #e5e7eb', padding: '0.5rem 0' }}>
-
-          {/* Sub-Botón Labores */}
+          
+          {/* 1. Labores */}
           <Link
             to={`/admin/configuraciones/proyecto/${proyectoId}/labores`}
             className={`nav-button ${currentPath.includes('/labores') ? 'active' : ''}`}
-            style={{
-              fontSize: '0.9rem',
-              padding: '0.5rem 1rem',
-              display: 'block',
-              marginBottom: '0.5rem'
-            }}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block', marginBottom: '0.2rem' }}
           >
             ↳ Labores Agronómicas
           </Link>
 
-          {/* Sub-Botón Equipos */}
+          {/* 2. Equipos */}
           <Link
             to={`/admin/configuraciones/proyecto/${proyectoId}/equipos`}
             className={`nav-button ${currentPath.includes('/equipos') ? 'active' : ''}`}
-            style={{
-              fontSize: '0.9rem',
-              padding: '0.5rem 1rem',
-              display: 'block'
-            }}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block', marginBottom: '0.2rem' }}
           >
             ↳ Equipos e Implementos
           </Link>
+
+          {/* ⭐️ 3. UNIDADES DE MEDIDA (Ahora aquí dentro) ⭐️ */}
+          <Link
+            to={`/admin/configuraciones/proyecto/${proyectoId}/unidades`}
+            className={`nav-button ${currentPath.includes('/unidades') ? 'active' : ''}`}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
+          >
+            ↳ Unidades de Medida
+          </Link>
+
         </div>
       )}
-
-      {/* ⭐️ NUEVO BOTÓN: UNIDADES DE MEDIDA ⭐️ */}
-      {/* Se muestra para admins y gerentes (igual que los handlers) */}
-      <Link
-        to="/admin/unidades"
-        className={`nav-button ${currentPath.startsWith('/admin/unidades') ? 'active' : ''}`}
-      >
-        Unidades de Medida
-      </Link>
 
       {/* Botón Logs (Solo Admin) */}
       {userRole === 'admin' && (
@@ -94,7 +87,6 @@ const Sidebar = () => {
 
       <div className="sidebar-spacer"></div>
 
-      {/* Botón Salir */}
       <button onClick={logout} className="logout-button">
         Cerrar Sesión
       </button>
