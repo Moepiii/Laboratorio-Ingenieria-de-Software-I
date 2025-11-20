@@ -54,3 +54,29 @@ func (h *LoggerHandler) GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	// Respondemos con los logs
 	respondWithJSON(w, http.StatusOK, logs)
 }
+
+func (h *LoggerHandler) DeleteLogsHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.DeleteLogsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "JSON inválido")
+		return
+	}
+
+	// Solo Admin puede borrar logs
+	perm, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
+	if err != nil || !perm {
+		respondWithError(w, http.StatusForbidden, "No autorizado. Solo el administrador puede borrar logs.")
+		return
+	}
+
+	err = h.loggerSvc.DeleteLogs(req.IDs)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error al eliminar logs: "+err.Error())
+		return
+	}
+
+	// No registramos este evento en el log para no crear un bucle infinito de logs borrándose a sí mismos, 
+	// pero podrías hacerlo si quisieras.
+	
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Eventos eliminados correctamente"})
+}

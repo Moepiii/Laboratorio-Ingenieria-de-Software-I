@@ -98,6 +98,7 @@ func setupApp() http.Handler {
 
 	// -- Ruta Logger (Auditoría) --
 	mux.HandleFunc("/api/admin/get-logs", loggerHandler.GetLogsHandler)
+	mux.HandleFunc("/api/admin/delete-logs", loggerHandler.DeleteLogsHandler)
 
 	// 5. CONFIGURAR MIDDLEWARE CORS
 	// Permite que el Frontend (puerto 3000) hable con este Backend (puerto 8080)

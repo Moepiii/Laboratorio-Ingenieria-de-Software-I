@@ -25,3 +25,10 @@ export const getLogs = (token, adminUsername, filters = {}) => {
     // Llama al nuevo endpoint que creamos en Go
     return apiCall('/admin/get-logs', 'POST', body, token);
 };
+export const deleteLogs = (token, logIds, adminUsername) => {
+    const body = {
+        ids: logIds, // Array de números
+        admin_username: adminUsername
+    };
+    return apiCall('/admin/delete-logs', 'POST', body, token);
+};

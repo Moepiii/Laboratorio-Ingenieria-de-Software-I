@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getLogs } from '../services/loggerService'; // 1. Importamos el servicio
+import { getLogs, deleteLogs } from '../services/loggerService';
 
-// Estilos (los mismos que usamos en otras páginas)
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
-    h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.75rem' },
+    // Encabezado flex para poner el botón a la derecha
+    headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.75rem' },
+    h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 },
     
-    // Estilos para los filtros (basado en Screenshot_10.jpg)
     filterContainer: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -18,292 +18,221 @@ const styles = {
         marginBottom: '2rem',
         border: '1px solid #e5e7eb'
     },
-    filterGroup: {
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    label: { 
-        fontSize: '0.875rem', 
-        fontWeight: '500', 
-        color: '#374151', 
-        marginBottom: '0.5rem' 
-    },
-    input: { 
-        width: '100%', 
-        padding: '0.75rem 1rem', 
-        border: '1px solid #d1d5db', 
-        borderRadius: '8px', 
-        fontSize: '1rem', 
-        boxSizing: 'border-box' 
-    },
-    select: { 
-        width: '100%', 
-        padding: '0.75rem 1rem', 
-        border: '1px solid #d1d5db', 
-        borderRadius: '8px', 
-        fontSize: '1rem', 
-        boxSizing: 'border-box',
-        backgroundColor: 'white'
-    },
-    filterActions: {
-        gridColumn: '1 / -1', // Ocupa todo el ancho
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: '1rem',
-        marginTop: '1rem'
-    },
-    button: { 
-        padding: '0.75rem 1.5rem', 
-        fontSize: '1rem', 
-        fontWeight: '600', 
-        borderRadius: '8px', 
-        color: 'white', 
+    filterGroup: { display: 'flex', flexDirection: 'column' },
+    label: { fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
+    input: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
+    select: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', backgroundColor: 'white' },
+    
+    // Botones
+    buttonGroup: { display: 'flex', gap: '1rem', alignItems: 'flex-end' },
+    searchButton: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', backgroundColor: '#2563eb', color: 'white', cursor: 'pointer', fontWeight: '600' },
+    clearButton: { padding: '0.6rem 1.2rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', color: '#374151', cursor: 'pointer', fontWeight: '600' },
+    
+    // Botón de Eliminar (Rojo)
+    deleteButton: { 
+        padding: '0.6rem 1.2rem', 
         border: 'none', 
-        cursor: 'pointer' 
+        borderRadius: '6px', 
+        backgroundColor: '#ef4444', 
+        color: 'white', 
+        cursor: 'pointer', 
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem'
     },
 
-    // Estilos para la tabla (basado en Screenshot_9.jpg)
-    tableContainer: { 
-        overflowX: 'auto', 
-        borderRadius: '8px', 
-        border: '1px solid #e5e7eb', 
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
-    },
+    tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
     table: { width: '100%', borderCollapse: 'collapse' },
-    th: { 
-        padding: '0.75rem 1rem', 
-        textAlign: 'left', 
-        backgroundColor: '#f3f4f6', 
-        borderBottom: '2px solid #e5e7eb', 
-        color: '#374151', 
-        fontWeight: '600', 
-        fontSize: '0.875rem' 
-    },
-    td: { 
-        padding: '0.75rem 1rem', 
-        borderBottom: '1px solid #e5e7eb', 
-        color: '#111827',
-        fontSize: '0.9rem' // Un poco más pequeño para más datos
-    },
-    error: { color: 'red', marginTop: '1rem', textAlign: 'center' },
-    loading: { textAlign: 'center', padding: '2rem', fontSize: '1.2rem', color: '#6b7280' },
-    noResults: { textAlign: 'center', padding: '2rem', color: '#6b7280' }
+    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
+    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
+    noResults: { textAlign: 'center', padding: '2rem', color: '#6b7280' },
+    
+    // Checkbox styles
+    checkbox: { transform: 'scale(1.2)', cursor: 'pointer' }
 };
 
 const LoggerEventos = () => {
     const { token, currentUser } = useAuth();
-    
     const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    
-    // Estado para los filtros
+    const [selectedIds, setSelectedIds] = useState([]); // ⭐️ Estado para selección
+
+    // Filtros
     const [filters, setFilters] = useState({
+        fecha_inicio: '',
+        fecha_cierre: '',
         usuario_username: '',
         accion: '',
-        entidad: '',
-        fecha_inicio: '',
-        fecha_cierre: ''
+        entidad: ''
     });
 
-    // 2. Función para cargar los logs
-    const fetchLogs = useCallback(async (currentFilters) => {
-        setLoading(true);
-        setError('');
+    const fetchLogs = useCallback(async () => {
         try {
-            if (!currentUser?.username) {
-                throw new Error("No se pudo identificar al administrador");
-            }
-            // Pasa los filtros al servicio
-            const data = await getLogs(token, currentUser.username, currentFilters);
+            const data = await getLogs(token, currentUser.username, filters);
             setLogs(data || []);
-        } catch (err) {
-            setError(err.message || "Error al cargar la bitácora");
-        } finally {
-            setLoading(false);
+            setSelectedIds([]); // Limpiar selección al buscar de nuevo
+        } catch (error) {
+            console.error("Error obteniendo logs:", error);
         }
-    }, [token, currentUser]); // Depende de token y currentUser
+    }, [token, currentUser.username, filters]);
 
-    // 3. Cargar logs al montar el componente
+    // Cargar al inicio
     useEffect(() => {
-        fetchLogs(filters); // Carga inicial con filtros vacíos
-    }, [fetchLogs]); // 'filters' no se incluye aquí para evitar recarga en cada tecleo
+        // Una carga inicial sin filtros estrictos o con los defaults
+        getLogs(token, currentUser.username, {}).then(data => setLogs(data || []));
+        // eslint-disable-next-line
+    }, []); 
 
-    // 4. Manejadores de filtros
     const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFilters({ ...filters, [e.target.name]: e.target.value });
     };
 
-    const handleFilterSubmit = (e) => {
+    const handleSearch = (e) => {
         e.preventDefault();
-        fetchLogs(filters); // Llama al fetch con los filtros actuales
-    };
-    
-    const clearFilters = () => {
-        const clearedFilters = {
-            usuario_username: '',
-            accion: '',
-            entidad: '',
-            fecha_inicio: '',
-            fecha_cierre: ''
-        };
-        setFilters(clearedFilters);
-        fetchLogs(clearedFilters); // Carga con filtros limpios
+        fetchLogs();
     };
 
-    // Opciones para los <select>
-    const accionesOptions = [
-        "CREACIÓN", "MODIFICACIÓN", "ELIMINACIÓN", "CAMBIO DE ROL", 
-        "CAMBIO DE ESTADO", "ASIGNACIÓN DE PROYECTO", "DESASIGNACIÓN DE PROYECTO",
-        "INICIO DE SESIÓN", "REGISTRO"
-    ];
-    
-    const entidadesOptions = [
-        "Proyectos", "Usuarios", "Labores", 
-        "Equipos/Implementos", "Actividades", "Auth"
-    ];
+    const handleClearFilters = () => {
+        setFilters({ fecha_inicio: '', fecha_cierre: '', usuario_username: '', accion: '', entidad: '' });
+        // Opcional: recargar logs sin filtros automáticamente
+        getLogs(token, currentUser.username, {}).then(data => setLogs(data || []));
+    };
+
+    // ⭐️ MANEJO DE SELECCIÓN ⭐️
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            // Seleccionar todos los IDs visibles
+            const allIds = logs.map(log => log.id);
+            setSelectedIds(allIds);
+        } else {
+            // Deseleccionar todo
+            setSelectedIds([]);
+        }
+    };
+
+    const handleSelectOne = (id) => {
+        if (selectedIds.includes(id)) {
+            setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+        } else {
+            setSelectedIds([...selectedIds, id]);
+        }
+    };
+
+    // ⭐️ ELIMINAR SELECCIONADOS ⭐️
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return;
+
+        const confirmMessage = `¿Estás seguro de eliminar ${selectedIds.length} evento(s)? Esta acción no se puede deshacer.`;
+        if (window.confirm(confirmMessage)) {
+            try {
+                await deleteLogs(token, selectedIds, currentUser.username);
+                alert("Eventos eliminados correctamente.");
+                fetchLogs(); // Recargar tabla
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+    };
 
     return (
         <div style={styles.container}>
-            <h2 style={styles.h2}>Logger de Eventos (Bitácora)</h2>
+            <div style={styles.headerRow}>
+                <h2 style={styles.h2}>Logger de Eventos</h2>
+                
+                {/* ⭐️ Botón de Eliminar (Solo visible si hay selección) */}
+                {selectedIds.length > 0 && (
+                    <button style={styles.deleteButton} onClick={handleDeleteSelected}>
+                        🗑️ Eliminar Seleccionados ({selectedIds.length})
+                    </button>
+                )}
+            </div>
 
-            {/* --- Contenedor de Filtros --- */}
-            <form onSubmit={handleFilterSubmit}>
-                <div style={styles.filterContainer}>
-                    {/* Filtro Usuario */}
-                    <div style={styles.filterGroup}>
-                        <label htmlFor="usuario_username" style={styles.label}>Usuario</label>
-                        <input
-                            type="text"
-                            id="usuario_username"
-                            name="usuario_username"
-                            value={filters.usuario_username}
-                            onChange={handleFilterChange}
-                            style={styles.input}
-                            placeholder="Buscar por username..."
-                        />
-                    </div>
-
-                    {/* Filtro Acción */}
-                    <div style={styles.filterGroup}>
-                        <label htmlFor="accion" style={styles.label}>Acción</label>
-                        <select
-                            id="accion"
-                            name="accion"
-                            value={filters.accion}
-                            onChange={handleFilterChange}
-                            style={styles.select}
-                        >
-                            <option value="">Todas</option>
-                            {accionesOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                    
-                    {/* Filtro Entidad */}
-                    <div style={styles.filterGroup}>
-                        <label htmlFor="entidad" style={styles.label}>Entidad</label>
-                        <select
-                            id="entidad"
-                            name="entidad"
-                            value={filters.entidad}
-                            onChange={handleFilterChange}
-                            style={styles.select}
-                        >
-                            <option value="">Todas</option>
-                            {entidadesOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-
-                    {/* Filtro Fecha Inicio */}
-                    <div style={styles.filterGroup}>
-                        <label htmlFor="fecha_inicio" style={styles.label}>Fecha Inicio</label>
-                        <input
-                            type="date"
-                            id="fecha_inicio"
-                            name="fecha_inicio"
-                            value={filters.fecha_inicio}
-                            onChange={handleFilterChange}
-                            style={styles.input}
-                        />
-                    </div>
-                    
-                    {/* Filtro Fecha Cierre */}
-                    <div style={styles.filterGroup}>
-                        <label htmlFor="fecha_cierre" style={styles.label}>Fecha Cierre</label>
-                        <input
-                            type="date"
-                            id="fecha_cierre"
-                            name="fecha_cierre"
-                            value={filters.fecha_cierre}
-                            onChange={handleFilterChange}
-                            style={styles.input}
-                        />
-                    </div>
-                    
-                    {/* Botones */}
-                    <div style={styles.filterActions}>
-                        <button 
-                            type="button" 
-                            style={{ ...styles.button, backgroundColor: '#6b7280' }} // gray-500
-                            onClick={clearFilters}
-                        >
-                            Limpiar
-                        </button>
-                        <button 
-                            type="submit" 
-                            style={{ ...styles.button, backgroundColor: '#4f46e5' }} // indigo-600
-                        >
-                            Filtrar
-                        </button>
+            {/* Filtros (Igual que antes) */}
+            <form style={styles.filterContainer} onSubmit={handleSearch}>
+                <div style={styles.filterGroup}>
+                    <label style={styles.label}>Desde</label>
+                    <input type="date" name="fecha_inicio" value={filters.fecha_inicio} onChange={handleFilterChange} style={styles.input} />
+                </div>
+                <div style={styles.filterGroup}>
+                    <label style={styles.label}>Hasta</label>
+                    <input type="date" name="fecha_cierre" value={filters.fecha_cierre} onChange={handleFilterChange} style={styles.input} />
+                </div>
+                <div style={styles.filterGroup}>
+                    <label style={styles.label}>Usuario</label>
+                    <input type="text" name="usuario_username" placeholder="Username..." value={filters.usuario_username} onChange={handleFilterChange} style={styles.input} />
+                </div>
+                <div style={styles.filterGroup}>
+                    <label style={styles.label}>Acción</label>
+                    <select name="accion" value={filters.accion} onChange={handleFilterChange} style={styles.select}>
+                        <option value="">Todas</option>
+                        <option value="CREACIÓN">Creación</option>
+                        <option value="MODIFICACIÓN">Modificación</option>
+                        <option value="ELIMINACIÓN">Eliminación</option>
+                        <option value="REGISTRO">Registro</option>
+                        <option value="LOGIN">Login</option>
+                    </select>
+                </div>
+                <div style={{ ...styles.filterGroup, justifyContent: 'flex-end' }}>
+                    <div style={styles.buttonGroup}>
+                        <button type="button" onClick={handleClearFilters} style={styles.clearButton}>Limpiar</button>
+                        <button type="submit" style={styles.searchButton}>Buscar</button>
                     </div>
                 </div>
             </form>
 
-            {/* --- Contenedor de la Tabla --- */}
-            {loading ? (
-                <p style={styles.loading}>Cargando bitácora...</p>
-            ) : error ? (
-                <p style={styles.error}>{error}</p>
-            ) : (
-                <div style={styles.tableContainer}>
-                    <table style={styles.table}>
-                        <thead>
-                            <tr>
-                                <th style={styles.th}>ID</th>
-                                <th style={styles.th}>Timestamp</th>
-                                <th style={styles.th}>Usuario</th>
-                                <th style={styles.th}>Rol</th>
-                                <th style={styles.th}>Acción</th>
-                                <th style={styles.th}>Entidad</th>
-                                <th style={styles.th}>Entidad ID</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {logs.length > 0 ? (
-                                logs.map(log => (
-                                    <tr key={log.id}>
-                                        <td style={styles.td}>{log.id}</td>
-                                        <td style={styles.td}>{new Date(log.timestamp).toLocaleString()}</td>
-                                        <td style={styles.td}>{log.usuario_username}</td>
-                                        <td style={styles.td}>{log.usuario_rol}</td>
-                                        <td style={styles.td}>{log.accion}</td>
-                                        <td style={styles.td}>{log.entidad}</td>
-                                        <td style={styles.td}>{log.entidad_id}</td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="7" style={styles.noResults}>No se encontraron eventos.</td>
+            {/* Tabla */}
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                    <thead>
+                        <tr>
+                            {/* ⭐️ Checkbox Maestro */}
+                            <th style={styles.th}>
+                                <input 
+                                    type="checkbox" 
+                                    style={styles.checkbox}
+                                    onChange={handleSelectAll}
+                                    checked={logs.length > 0 && selectedIds.length === logs.length}
+                                />
+                            </th>
+                            <th style={styles.th}>ID</th>
+                            <th style={styles.th}>Fecha/Hora</th>
+                            <th style={styles.th}>Usuario</th>
+                            <th style={styles.th}>Rol</th>
+                            <th style={styles.th}>Acción</th>
+                            <th style={styles.th}>Entidad</th>
+                            <th style={styles.th}>Entidad ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {logs.length > 0 ? (
+                            logs.map(log => (
+                                <tr key={log.id}>
+                                    {/* ⭐️ Checkbox Individual */}
+                                    <td style={styles.td}>
+                                        <input 
+                                            type="checkbox" 
+                                            style={styles.checkbox}
+                                            checked={selectedIds.includes(log.id)}
+                                            onChange={() => handleSelectOne(log.id)}
+                                        />
+                                    </td>
+                                    <td style={styles.td}>{log.id}</td>
+                                    <td style={styles.td}>{new Date(log.timestamp).toLocaleString()}</td>
+                                    <td style={styles.td}>{log.usuario_username}</td>
+                                    <td style={styles.td}>{log.usuario_rol}</td>
+                                    <td style={styles.td}>{log.accion}</td>
+                                    <td style={styles.td}>{log.entidad}</td>
+                                    <td style={styles.td}>{log.entidad_id}</td>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="8" style={styles.noResults}>No se encontraron eventos.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };

@@ -106,3 +106,11 @@ func GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error) {
 
 	return logs, nil
 }
+
+func DeleteLog(id int) (int64, error) {
+	res, err := DB.Exec("DELETE FROM event_logs WHERE id = ?", id)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

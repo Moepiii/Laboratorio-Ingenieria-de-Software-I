@@ -362,3 +362,8 @@ type GetUnidadesRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
+
+type DeleteLogsRequest struct {
+	IDs           []int  `json:"ids"` // Lista de IDs a borrar
+	AdminUsername string `json:"admin_username"`
+}
