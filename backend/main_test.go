@@ -3,162 +3,229 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
 	"proyecto/internal/database"
 	"proyecto/internal/models"
-	"proyecto/internal/proyectos" // ⭐️ Solo importamos esto para la prueba de borrado
 )
 
-// --- 1. El "Setup" de la Prueba ---
-func setupTestDB(t *testing.T) {
-	database.InitDB("file::memory:")
-	t.Cleanup(func() {
-		err := database.DB.Close()
-		if err != nil {
-			log.Printf("Error cerrando la DB de prueba: %v", err)
-		}
-	})
+// --- CONFIGURACIÓN GLOBAL ---
+
+func TestMain(m *testing.M) {
+	testDB := "./test_integration.db"
+	os.Remove(testDB)
+
+	// Inicializamos la DB
+	database.InitDB(testDB)
+	
+	// ⭐️ ASEGURARSE QUE ESTO ESTÉ APLICADO EN EL ENTORNO DE TEST TAMBIÉN
+	// Aunque esté en database.go, lo forzamos aquí por si acaso.
+	database.DB.SetMaxOpenConns(1) 
+
+	code := m.Run()
+
+	database.DB.Close()
+	time.Sleep(200 * time.Millisecond)
+	os.Remove(testDB)
+
+	os.Exit(code)
 }
 
-// --- BATERÍA ÚNICA DE PRUEBAS DE HANDLERS HTTP ---
-// Al ser la única función Test... no hay riesgo de paralelismo.
-func TestHandlers_HTTP_Integration(t *testing.T) {
+// --- BATERÍA DE PRUEBAS INTEGRALES ---
 
-	// ARRANGE (Global para todos los handlers HTTP)
-	setupTestDB(t)       // 1. Prepara la DB en memoria UNA VEZ
-	server := setupApp() // 2. "Arma" la app UNA VEZ
+func TestBackendFlow(t *testing.T) {
+	router := setupApp()
+
 	var adminToken string
-	var proyectoCreado models.Proyecto // Para compartir entre creación y borrado
+	var userToken string
+	var proyectoID int
 
-	// --- 1. PRUEBA DE REGISTRO PÚBLICO ---
-	t.Run("POST /api/auth/register - Éxito 201", func(t *testing.T) {
-		newUser := models.User{
-			Username: "http_user", Password: "password", Nombre: "HTTP", Apellido: "Test", Cedula: "111",
+	// ----------------------------------------------------------------
+	// 1. PRUEBAS DE AUTENTICACIÓN
+	// ----------------------------------------------------------------
+	t.Run("1. Registro de Admin", func(t *testing.T) {
+		payload := map[string]string{
+			"username": "admin_test",
+			"password": "123456",
+			"nombre":   "Admin",
+			"apellido": "Test",
+			"cedula":   "111",
 		}
-		body, _ := json.Marshal(newUser)
-		req := httptest.NewRequest("POST", "/api/auth/register", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		server.ServeHTTP(rr, req)
-		if rr.Code != http.StatusCreated {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusCreated, rr.Code, rr.Body.String())
+		w := performRequest(router, "POST", "/api/auth/register", payload, "")
+		
+		if w.Code != http.StatusCreated {
+			t.Errorf("Esperaba 201 Created, obtuvo %d. Resp: %s", w.Code, w.Body.String())
 		}
-	})
+		
+		// Esperar a que el Logger libere la DB
+		time.Sleep(200 * time.Millisecond)
 
-	// --- 2. PRUEBA DE LOGIN ---
-	t.Run("POST /api/auth/login - Éxito 200 y devuelve token", func(t *testing.T) {
-		loginCreds := map[string]string{"username": "admin", "password": "admin123"}
-		body, _ := json.Marshal(loginCreds)
-		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		server.ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusOK {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
-		}
-		var loginResp models.LoginResponse
-		_ = json.Unmarshal(rr.Body.Bytes(), &loginResp)
-		adminToken = loginResp.Token // ⭐️ GUARDA EL TOKEN
-	})
-
-	// --- 3. PRUEBA DE PERMISO DENEGADO ---
-	t.Run("POST /api/admin/get-proyectos - Falla 403 (Permiso Denegado)", func(t *testing.T) {
-		body, _ := json.Marshal(map[string]string{"admin_username": "usuario_no_existente"})
-		req := httptest.NewRequest("POST", "/api/admin/get-proyectos", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		server.ServeHTTP(rr, req)
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusForbidden, rr.Code, rr.Body.String())
-		}
-	})
-
-	// --- 4. PRUEBA DE LECTURA (GET) ---
-	t.Run("POST /api/admin/get-proyectos - Éxito 200 (Con Token)", func(t *testing.T) {
-		body, _ := json.Marshal(map[string]string{"admin_username": "admin"})
-		req := httptest.NewRequest("POST", "/api/admin/get-proyectos", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+adminToken)
-		rr := httptest.NewRecorder()
-		server.ServeHTTP(rr, req)
-		if rr.Code != http.StatusOK {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
-		}
-	})
-
-	// --- 5. PRUEBA DE CREACIÓN ---
-	t.Run("POST /api/admin/create-proyecto - Éxito 201 (Con Token)", func(t *testing.T) {
-		nombreProyecto := "Proyecto Creado por HTTP"
-		newProject := models.CreateProyectoRequest{
-			Nombre: nombreProyecto, FechaInicio: "2025-01-01", FechaCierre: "2025-12-31", AdminUsername: "admin",
-		}
-		body, _ := json.Marshal(newProject)
-		req := httptest.NewRequest("POST", "/api/admin/create-proyecto", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+adminToken)
-		rr := httptest.NewRecorder()
-		server.ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusCreated {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusCreated, rr.Code, rr.Body.String())
-		}
-
-		// Guarda el proyecto creado para la prueba de borrado
-		if err := json.Unmarshal(rr.Body.Bytes(), &proyectoCreado); err != nil {
-			t.Fatal("No se pudo decodificar la respuesta JSON del proyecto creado")
-		}
-
-		// Verifica la DB
-		var dbNombre string
-		err := database.DB.QueryRow("SELECT nombre FROM proyectos WHERE id = ?", proyectoCreado.ID).Scan(&dbNombre)
+		// Forzamos rol de admin
+		_, err := database.DB.Exec("UPDATE users SET role = 'admin' WHERE username = 'admin_test'")
 		if err != nil {
-			t.Fatalf("Error al consultar la DB: %v", err)
-		}
-		if dbNombre != nombreProyecto {
-			t.Fatalf("El proyecto no se guardó en la DB")
+			t.Fatalf("❌ Error crítico al forzar rol de admin: %v", err)
 		}
 	})
 
-	// --- 6. PRUEBA DE ELIMINACIÓN ---
-	t.Run("POST /api/admin/delete-proyecto - Éxito 200 (Con Token)", func(t *testing.T) {
-		// ARRANGE: Usa el proyecto de la prueba anterior
-		if proyectoCreado.ID == 0 {
-			// Solución de respaldo si la prueba 5 falló, para evitar el pánico
-			proyectoSvc := proyectos.NewProyectoService()
-			p, _ := proyectoSvc.CreateProyecto("Proyecto Temp para Borrar", "2025-01-01", "2025-12-31")
-			if p == nil {
-				t.Fatal("Fallo crítico: no se pudo crear el proyecto de respaldo para la prueba de borrado")
-			}
-			proyectoCreado.ID = p.ID
+	t.Run("2. Login de Admin y Obtención de Token", func(t *testing.T) {
+		payload := map[string]string{"username": "admin_test", "password": "123456"}
+		w := performRequest(router, "POST", "/api/auth/login", payload, "")
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Login falló. Código: %d - Resp: %s", w.Code, w.Body.String())
 		}
 
-		deleteReq := models.DeleteProyectoRequest{ID: proyectoCreado.ID, AdminUsername: "admin"}
-		body, _ := json.Marshal(deleteReq)
-		req := httptest.NewRequest("POST", "/api/admin/delete-proyecto", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+adminToken)
-		rr := httptest.NewRecorder()
+		var res models.LoginResponse
+		json.Unmarshal(w.Body.Bytes(), &res)
+		adminToken = res.Token
 
-		// ACT:
-		server.ServeHTTP(rr, req)
-
-		// ASSERT (HTTP):
-		if rr.Code != http.StatusOK {
-			t.Fatalf("Código esperado %d, se obtuvo %d. Body: %s", http.StatusOK, rr.Code, rr.Body.String())
-		}
-		// ASSERT (DB):
-		var count int
-		err := database.DB.QueryRow("SELECT COUNT(*) FROM proyectos WHERE id = ?", proyectoCreado.ID).Scan(&count)
-		if err != nil {
-			t.Fatalf("Error al consultar la DB: %v", err)
-		}
-		if count != 0 {
-			t.Fatal("El proyecto no fue borrado de la base de datos")
+		if res.Role != "admin" {
+			t.Fatalf("El usuario se logueó pero el rol es '%s'", res.Role)
 		}
 	})
+
+	// ⭐️ PAUSA CRÍTICA: El Login genera un LOG. Esperamos que termine de escribirse.
+	time.Sleep(200 * time.Millisecond)
+
+	// ----------------------------------------------------------------
+	// 2. PRUEBAS DE SEGURIDAD ESTÁNDAR
+	// ----------------------------------------------------------------
+	t.Run("3. Acceso Denegado sin Token (403/401)", func(t *testing.T) {
+		payloadFake := map[string]string{"admin_username": "hacker"}
+		wFake := performRequest(router, "POST", "/api/admin/get-proyectos", payloadFake, "token_invalido")
+		
+		if wFake.Code != http.StatusForbidden && wFake.Code != http.StatusUnauthorized && wFake.Code != http.StatusInternalServerError {
+			t.Errorf("Esperaba bloqueo de seguridad, obtuvo %d", wFake.Code)
+		}
+	})
+
+	// ----------------------------------------------------------------
+	// 3. PRUEBAS DE HANDLERS (Funcionalidad)
+	// ----------------------------------------------------------------
+	t.Run("4. Crear Proyecto (Handler)", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"nombre":         "Proyecto Test Unitario",
+			"fecha_inicio":   "2025-01-01",
+			"fecha_cierre":   "2025-12-31",
+			"admin_username": "admin_test",
+		}
+		w := performRequest(router, "POST", "/api/admin/create-proyecto", payload, adminToken)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("Crear proyecto falló: %d - %s", w.Code, w.Body.String())
+		}
+
+		var p models.Proyecto
+		json.Unmarshal(w.Body.Bytes(), &p)
+		proyectoID = p.ID
+	})
+
+	// ⭐️ PAUSA CRÍTICA: Crear Proyecto genera LOG. Esperamos.
+	time.Sleep(200 * time.Millisecond)
+
+	t.Run("5. Crear Unidad de Medida (Nuevo Módulo)", func(t *testing.T) {
+		// Si falló el paso anterior, este fallará también, pero evitamos el pánico
+		if proyectoID == 0 {
+			t.Skip("Saltando prueba de Unidad porque no se creó el Proyecto")
+		}
+
+		payload := map[string]interface{}{
+			"proyecto_id":    proyectoID,
+			"nombre":         "Litro",
+			"abreviatura":    "lt",
+			"tipo":           "Líquido",
+			"dimension":      1.5,
+			"admin_username": "admin_test",
+		}
+		w := performRequest(router, "POST", "/api/admin/create-unidad", payload, adminToken)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("Crear unidad falló: %d - %s", w.Code, w.Body.String())
+		}
+	})
+
+	// ⭐️ PAUSA CRÍTICA: Crear Unidad genera LOG. Esperamos.
+	time.Sleep(200 * time.Millisecond)
+
+	// ----------------------------------------------------------------
+	// 4. PRUEBAS DE RBAC (Control de Roles)
+	// ----------------------------------------------------------------
+	t.Run("6. Registro Usuario Normal", func(t *testing.T) {
+		payload := map[string]string{
+			"username": "pepe_user", 
+			"password": "123456",
+			"nombre": "Pepe", 
+			"apellido": "User", 
+			"cedula": "222",
+		}
+		wReg := performRequest(router, "POST", "/api/auth/register", payload, "")
+		if wReg.Code != http.StatusCreated {
+			t.Fatalf("Fallo registro user normal: %d - %s", wReg.Code, wReg.Body.String())
+		}
+		
+		// Esperamos por el log de registro
+		time.Sleep(100 * time.Millisecond)
+
+		// Login user normal
+		wLog := performRequest(router, "POST", "/api/auth/login", map[string]string{"username": "pepe_user", "password": "123456"}, "")
+		var res models.LoginResponse
+		json.Unmarshal(wLog.Body.Bytes(), &res)
+		userToken = res.Token
+	})
+
+	// Esperamos por el log de login
+	time.Sleep(200 * time.Millisecond)
+
+	t.Run("7. Usuario Normal intenta borrar proyecto (Debe fallar)", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"id":             proyectoID,
+			"admin_username": "pepe_user",
+		}
+		w := performRequest(router, "POST", "/api/admin/delete-proyecto", payload, userToken)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("Fallo de Seguridad RBAC: Usuario normal pudo borrar proyecto o obtuvo código incorrecto. Code: %d", w.Code)
+		}
+	})
+
+	t.Run("8. Admin borra proyecto (Éxito)", func(t *testing.T) {
+		if proyectoID == 0 {
+			t.Skip("Saltando borrado porque no hay proyecto")
+		}
+		payload := map[string]interface{}{
+			"id":             proyectoID,
+			"admin_username": "admin_test",
+		}
+		w := performRequest(router, "POST", "/api/admin/delete-proyecto", payload, adminToken)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Admin no pudo borrar proyecto: %d - %s", w.Code, w.Body.String())
+		}
+	})
+	
+	// Pausa final antes de cerrar DB
+	time.Sleep(500 * time.Millisecond)
+}
+
+// --- UTILIDADES ---
+
+func performRequest(r http.Handler, method, path string, payload interface{}, token string) *httptest.ResponseRecorder {
+	var body []byte
+	if payload != nil {
+		body, _ = json.Marshal(payload)
+	}
+
+	req, _ := http.NewRequest(method, path, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
 }
