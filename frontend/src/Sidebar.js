@@ -106,6 +106,17 @@ const Sidebar = () => {
         </div>
       )}
 
+      {/* ⭐️ RESTAURADO: Logger de eventos (Solo Admin) ⭐️ */}
+      {userRole === 'admin' && (
+        <Link
+          to="/admin/logs"
+          className={`nav-button ${currentPath.startsWith('/admin/logs') ? 'active' : ''}`}
+          style={{ marginTop: '1rem' }}
+        >
+          Logger de eventos
+        </Link>
+      )}
+
       <div className="sidebar-spacer"></div>
 
       <button onClick={logout} className="logout-button">
