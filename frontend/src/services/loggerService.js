@@ -6,15 +6,9 @@ import { apiCall } from './authService';
  * @param {string} token - El token JWT del admin.
  * @param {string} adminUsername - El username del admin.
  * @param {object} filters - Un objeto con los filtros a aplicar.
- * @param {string} [filters.fecha_inicio] - 'YYYY-MM-DD'
- * @param {string} [filters.fecha_cierre] - 'YYYY-MM-DD'
- * @param {string} [filters.usuario_username] - Nombre de usuario a buscar
- * @param {string} [filters.accion] - Acción específica (ej. "CREACIÓN")
- * @param {string} [filters.entidad] - Entidad específica (ej. "Proyectos")
  * @returns {Promise<Array>} - Una promesa que resuelve a la lista de logs.
  */
 export const getLogs = (token, adminUsername, filters = {}) => {
-
     // El cuerpo de la solicitud incluye el admin (para permisos)
     // y el objeto de filtros.
     const body = {
@@ -22,13 +16,30 @@ export const getLogs = (token, adminUsername, filters = {}) => {
         ...filters
     };
 
-    // Llama al nuevo endpoint que creamos en Go
+    // Llama al endpoint de Go
     return apiCall('/admin/get-logs', 'POST', body, token);
 };
+
+/**
+ * Elimina logs específicos seleccionados por ID.
+ */
 export const deleteLogs = (token, logIds, adminUsername) => {
     const body = {
         ids: logIds, // Array de números
         admin_username: adminUsername
     };
     return apiCall('/admin/delete-logs', 'POST', body, token);
+};
+
+/**
+ * ⭐️ NUEVA FUNCIÓN: Elimina logs por rango de fechas (Masivo)
+ * Llama a: /api/admin/delete-logs-range
+ */
+export const deleteLogsByRange = (token, startDate, endDate, adminUsername) => {
+    const body = {
+        fecha_inicio: startDate, // YYYY-MM-DD
+        fecha_fin: endDate,      // YYYY-MM-DD
+        admin_username: adminUsername
+    };
+    return apiCall('/admin/delete-logs-range', 'POST', body, token);
 };

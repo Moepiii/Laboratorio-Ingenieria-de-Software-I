@@ -42,13 +42,8 @@ func GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error) {
 	var query strings.Builder
 	var args []interface{}
 
-	query.WriteString(`
-		SELECT id, timestamp, usuario_username, usuario_rol, accion, entidad, entidad_id 
-		FROM event_logs 
-		WHERE 1=1
-	`)
+	query.WriteString("SELECT id, timestamp, usuario_username, usuario_rol, accion, entidad, entidad_id FROM event_logs WHERE 1=1")
 
-	// Construcción dinámica de la consulta
 	if filtros.UsuarioUsername != "" {
 		query.WriteString(" AND usuario_username LIKE ?")
 		args = append(args, "%"+filtros.UsuarioUsername+"%")
@@ -62,23 +57,17 @@ func GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error) {
 		args = append(args, filtros.Entidad)
 	}
 	if filtros.FechaInicio != "" {
-		// Asume formato 'YYYY-MM-DD'
 		query.WriteString(" AND date(timestamp) >= date(?)")
 		args = append(args, filtros.FechaInicio)
 	}
 	if filtros.FechaCierre != "" {
-		// Asume formato 'YYYY-MM-DD'
 		query.WriteString(" AND date(timestamp) <= date(?)")
 		args = append(args, filtros.FechaCierre)
 	}
 
-	// Ordenar como en tu captura (los más nuevos primero)
 	query.WriteString(" ORDER BY timestamp DESC")
-
-	// Límite (opcional, pero buena idea para el rendimiento)
 	query.WriteString(" LIMIT 1000")
 
-	// Ejecutar la consulta
 	rows, err := DB.Query(query.String(), args...)
 	if err != nil {
 		log.Printf("Error en GetLogs (Query): %v", err)
@@ -107,10 +96,33 @@ func GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error) {
 	return logs, nil
 }
 
-func DeleteLog(id int) (int64, error) {
-	res, err := DB.Exec("DELETE FROM event_logs WHERE id = ?", id)
+// ⭐️ ESTA ES LA FUNCIÓN QUE FALTABA ⭐️
+// DeleteLog elimina un log específico por ID
+func DeleteLog(id int) error {
+	stmt, err := DB.Prepare("DELETE FROM event_logs WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	return err
+}
+
+// DeleteLogsByRange elimina logs dentro de un rango de fechas (inclusivo).
+func DeleteLogsByRange(fechaInicio, fechaFin string) (int64, error) {
+	query := `DELETE FROM event_logs WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)`
+
+	stmt, err := DB.Prepare(query)
 	if err != nil {
 		return 0, err
 	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(fechaInicio, fechaFin)
+	if err != nil {
+		return 0, err
+	}
+
 	return res.RowsAffected()
 }

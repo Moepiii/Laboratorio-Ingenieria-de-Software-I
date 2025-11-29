@@ -10,12 +10,14 @@ import (
 	"proyecto/internal/proyectos"
 )
 
+// --- 1. EL STRUCT DEL HANDLER ---
 type ProyectoHandler struct {
 	authSvc     auth.AuthService
 	proyectoSvc proyectos.ProyectoService
 	loggerSvc   logger.LoggerService
 }
 
+// --- 2. EL CONSTRUCTOR ---
 func NewProyectoHandler(as auth.AuthService, ps proyectos.ProyectoService, ls logger.LoggerService) *ProyectoHandler {
 	return &ProyectoHandler{
 		authSvc:     as,
@@ -24,7 +26,37 @@ func NewProyectoHandler(as auth.AuthService, ps proyectos.ProyectoService, ls lo
 	}
 }
 
-// --- AdminGetProyectosHandler: Obtiene lista de proyectos ---
+// --- 3. ESTRUCTURAS DE PETICIÓN (DTOs Locales para evitar errores de importación) ---
+
+type CreateProyectoRequest struct {
+	Nombre        string `json:"nombre"`
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
+	AdminUsername string `json:"admin_username"`
+}
+
+type UpdateProyectoRequest struct {
+	ID            int    `json:"id"`
+	Nombre        string `json:"nombre"`
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaCierre   string `json:"fecha_cierre"`
+	AdminUsername string `json:"admin_username"`
+}
+
+type DeleteProyectoRequest struct {
+	ID            int    `json:"id"`
+	AdminUsername string `json:"admin_username"`
+}
+
+type SetProyectoEstadoRequest struct {
+	ID            int    `json:"id"`
+	Estado        string `json:"estado"`
+	AdminUsername string `json:"admin_username"`
+}
+
+// --- 4. LOS MÉTODOS (Handlers) ---
+
+// AdminGetProyectosHandler: Obtiene la lista de todos los proyectos
 func (h *ProyectoHandler) AdminGetProyectosHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,40 +84,36 @@ func (h *ProyectoHandler) AdminGetProyectosHandler(w http.ResponseWriter, r *htt
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"proyectos": proyectos})
 }
 
-// --- CreateProyectoHandler: Crea un nuevo proyecto ---
-func (h *ProyectoHandler) CreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
-	var req models.CreateProyectoRequest
+// AdminCreateProyectoHandler: Crea un nuevo proyecto
+func (h *ProyectoHandler) AdminCreateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+	var req CreateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
-	// Validar Permisos
+	// Solo Admin o Gerente
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error de permisos")
-		return
-	}
-	if !hasPermission {
+	if err != nil || !hasPermission {
 		respondWithError(w, http.StatusForbidden, "No autorizado")
 		return
 	}
 
-	nuevoProyecto, err := h.proyectoSvc.CreateProyecto(req.Nombre, req.FechaInicio, req.FechaCierre)
+	newProj, err := h.proyectoSvc.CreateProyecto(req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// LOG
-	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Proyectos", nuevoProyecto.ID)
+	// Log
+	h.loggerSvc.Log(req.AdminUsername, "admin", "CREACIÓN", "Proyectos", newProj.ID)
 
-	respondWithJSON(w, http.StatusCreated, nuevoProyecto)
+	respondWithJSON(w, http.StatusCreated, newProj)
 }
 
-// --- UpdateProyectoHandler: Actualiza un proyecto ---
-func (h *ProyectoHandler) UpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
-	var req models.UpdateProyectoRequest
+// AdminUpdateProyectoHandler: Actualiza datos de un proyecto
+func (h *ProyectoHandler) AdminUpdateProyectoHandler(w http.ResponseWriter, r *http.Request) {
+	var req UpdateProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
@@ -97,26 +125,27 @@ func (h *ProyectoHandler) UpdateProyectoHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	proyectoActualizado, err := h.proyectoSvc.UpdateProyecto(req.ID, req.Nombre, req.FechaInicio, req.FechaCierre)
+	updatedProj, err := h.proyectoSvc.UpdateProyecto(req.ID, req.Nombre, req.FechaInicio, req.FechaCierre)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// LOG
-	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Proyectos", req.ID)
+	// Log
+	h.loggerSvc.Log(req.AdminUsername, "admin", "MODIFICACIÓN", "Proyectos", req.ID)
 
-	respondWithJSON(w, http.StatusOK, proyectoActualizado)
+	respondWithJSON(w, http.StatusOK, updatedProj)
 }
 
-// --- DeleteProyectoHandler: Borra un proyecto ---
-func (h *ProyectoHandler) DeleteProyectoHandler(w http.ResponseWriter, r *http.Request) {
-	var req models.DeleteProyectoRequest
+// AdminDeleteProyectoHandler: Elimina un proyecto
+func (h *ProyectoHandler) AdminDeleteProyectoHandler(w http.ResponseWriter, r *http.Request) {
+	var req DeleteProyectoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
 	}
 
+	// Solo Admin (borrar es crítico)
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil || !hasPermission {
 		respondWithError(w, http.StatusForbidden, "No autorizado (Solo Admin)")
@@ -129,15 +158,15 @@ func (h *ProyectoHandler) DeleteProyectoHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// LOG
+	// Log
 	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Proyectos", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Proyecto eliminado"})
 }
 
-// --- AdminSetProyectoEstadoHandler: Cambia estado (Activo/Cerrado) ---
+// AdminSetProyectoEstadoHandler: Cambia estado (Activo/Cerrado)
 func (h *ProyectoHandler) AdminSetProyectoEstadoHandler(w http.ResponseWriter, r *http.Request) {
-	var req models.SetProyectoEstadoRequest
+	var req SetProyectoEstadoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")
 		return
@@ -155,7 +184,8 @@ func (h *ProyectoHandler) AdminSetProyectoEstadoHandler(w http.ResponseWriter, r
 		return
 	}
 
-	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CAMBIO ESTADO", "Proyectos", req.ID)
+	// Log
+	h.loggerSvc.Log(req.AdminUsername, "admin", "CAMBIO ESTADO", "Proyectos", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Estado actualizado"})
 }

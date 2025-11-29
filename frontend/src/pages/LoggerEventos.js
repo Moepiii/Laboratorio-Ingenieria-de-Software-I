@@ -1,63 +1,39 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getLogs, deleteLogs } from '../services/loggerService';
+// ⭐️ Importamos la nueva función deleteLogsByRange
+import { getLogs, deleteLogs, deleteLogsByRange } from '../services/loggerService';
+// ⭐️ Importamos el Modal
+import Modal from '../components/auth/Modal';
 
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
-    // Encabezado flex para poner el botón a la derecha
     headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.75rem' },
     h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 },
-    
-    filterContainer: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        padding: '1.5rem',
-        backgroundColor: '#f9fafb',
-        borderRadius: '8px',
-        marginBottom: '2rem',
-        border: '1px solid #e5e7eb'
-    },
+
+    filterContainer: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', padding: '1.5rem', backgroundColor: '#f9fafb', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #e5e7eb' },
     filterGroup: { display: 'flex', flexDirection: 'column' },
     label: { fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
-    input: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
-    select: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', backgroundColor: 'white' },
-    
-    // Botones
-    buttonGroup: { display: 'flex', gap: '1rem', alignItems: 'flex-end' },
-    searchButton: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', backgroundColor: '#2563eb', color: 'white', cursor: 'pointer', fontWeight: '600' },
-    clearButton: { padding: '0.6rem 1.2rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', color: '#374151', cursor: 'pointer', fontWeight: '600' },
-    
-    // Botón de Eliminar (Rojo)
-    deleteButton: { 
-        padding: '0.6rem 1.2rem', 
-        border: 'none', 
-        borderRadius: '6px', 
-        backgroundColor: '#ef4444', 
-        color: 'white', 
-        cursor: 'pointer', 
-        fontWeight: '600',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem'
-    },
+    input: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' },
+    select: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white' },
 
-    tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
-    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
+    buttonGroup: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' },
+    button: { padding: '0.6rem 1.2rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', transition: 'background 0.2s' },
+
+    tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
+    table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' },
+    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontWeight: '600' },
+    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #f3f4f6', color: '#1f2937' },
+    checkbox: { cursor: 'pointer', width: '16px', height: '16px' },
     noResults: { textAlign: 'center', padding: '2rem', color: '#6b7280' },
-    
-    // Checkbox styles
-    checkbox: { transform: 'scale(1.2)', cursor: 'pointer' }
+
+    // Estilos para el Modal de Borrado
+    cancelButton: { padding: '0.6rem 1.2rem', backgroundColor: '#9ca3af', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '10px' },
+    deleteButton: { padding: '0.6rem 1.2rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }
 };
 
 const LoggerEventos = () => {
     const { token, currentUser } = useAuth();
     const [logs, setLogs] = useState([]);
-    const [selectedIds, setSelectedIds] = useState([]); // ⭐️ Estado para selección
-
-    // Filtros
     const [filters, setFilters] = useState({
         fecha_inicio: '',
         fecha_cierre: '',
@@ -65,130 +41,197 @@ const LoggerEventos = () => {
         accion: '',
         entidad: ''
     });
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    // ⭐️ ESTADOS PARA EL BORRADO MASIVO
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteMode, setDeleteMode] = useState('month'); // 'month', 'quarter', 'year'
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedQuarter, setSelectedQuarter] = useState(1);
 
     const fetchLogs = useCallback(async () => {
+        if (!token || !currentUser) return;
+        setLoading(true);
         try {
             const data = await getLogs(token, currentUser.username, filters);
             setLogs(data || []);
-            setSelectedIds([]); // Limpiar selección al buscar de nuevo
         } catch (error) {
-            console.error("Error obteniendo logs:", error);
+            console.error(error);
+            alert("Error cargando logs: " + error.message);
+        } finally {
+            setLoading(false);
         }
-    }, [token, currentUser.username, filters]);
+    }, [token, currentUser, filters]);
 
-    // Cargar al inicio
     useEffect(() => {
-        // Una carga inicial sin filtros estrictos o con los defaults
-        getLogs(token, currentUser.username, {}).then(data => setLogs(data || []));
-        // eslint-disable-next-line
-    }, []); 
+        fetchLogs();
+    }, [fetchLogs]);
 
     const handleFilterChange = (e) => {
-        setFilters({ ...filters, [e.target.name]: e.target.value });
-    };
-
-    const handleSearch = (e) => {
-        e.preventDefault();
-        fetchLogs();
-    };
-
-    const handleClearFilters = () => {
-        setFilters({ fecha_inicio: '', fecha_cierre: '', usuario_username: '', accion: '', entidad: '' });
-        // Opcional: recargar logs sin filtros automáticamente
-        getLogs(token, currentUser.username, {}).then(data => setLogs(data || []));
-    };
-
-    // ⭐️ MANEJO DE SELECCIÓN ⭐️
-    const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            // Seleccionar todos los IDs visibles
-            const allIds = logs.map(log => log.id);
-            setSelectedIds(allIds);
-        } else {
-            // Deseleccionar todo
-            setSelectedIds([]);
-        }
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSelectOne = (id) => {
         if (selectedIds.includes(id)) {
-            setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+            setSelectedIds(selectedIds.filter(sid => sid !== id));
         } else {
             setSelectedIds([...selectedIds, id]);
         }
     };
 
-    // ⭐️ ELIMINAR SELECCIONADOS ⭐️
-    const handleDeleteSelected = async () => {
-        if (selectedIds.length === 0) return;
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(logs.map(l => l.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
 
-        const confirmMessage = `¿Estás seguro de eliminar ${selectedIds.length} evento(s)? Esta acción no se puede deshacer.`;
-        if (window.confirm(confirmMessage)) {
-            try {
-                await deleteLogs(token, selectedIds, currentUser.username);
-                alert("Eventos eliminados correctamente.");
-                fetchLogs(); // Recargar tabla
-            } catch (error) {
-                alert("Error: " + error.message);
-            }
+    const handleDeleteSelected = async () => {
+        if (!window.confirm(`¿Estás seguro de eliminar ${selectedIds.length} eventos?`)) return;
+
+        try {
+            await deleteLogs(token, selectedIds, currentUser.username);
+            alert("Logs eliminados correctamente.");
+            setSelectedIds([]);
+            fetchLogs();
+        } catch (error) {
+            alert("Error eliminando logs: " + error.message);
+        }
+    };
+
+    // ⭐️ LÓGICA DE BORRADO MASIVO POR FECHAS
+    const handleBulkDelete = async (e) => {
+        e.preventDefault();
+
+        const confirmMsg = "⚠️ ¿Estás seguro? Esta acción borrará PERMANENTEMENTE todo el historial del periodo seleccionado. No se puede deshacer.";
+        if (!window.confirm(confirmMsg)) return;
+
+        let startDate = '';
+        let endDate = '';
+
+        // Cálculo de fechas
+        if (deleteMode === 'month') {
+            // Ejemplo: 2024-02-01
+            startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+            // Último día del mes (el día 0 del mes siguiente)
+            const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+            endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${lastDay}`;
+        }
+        else if (deleteMode === 'quarter') {
+            const startMonth = (selectedQuarter - 1) * 3 + 1; // 1, 4, 7, 10
+            const endMonth = startMonth + 2; // 3, 6, 9, 12
+
+            startDate = `${selectedYear}-${String(startMonth).padStart(2, '0')}-01`;
+            const lastDay = new Date(selectedYear, endMonth, 0).getDate();
+            endDate = `${selectedYear}-${String(endMonth).padStart(2, '0')}-${lastDay}`;
+        }
+        else if (deleteMode === 'year') {
+            startDate = `${selectedYear}-01-01`;
+            endDate = `${selectedYear}-12-31`;
+        }
+
+        try {
+            await deleteLogsByRange(token, startDate, endDate, currentUser.username);
+            alert(`Historial del periodo eliminado correctamente.`);
+            setIsDeleteModalOpen(false);
+            fetchLogs(); // Recargar tabla
+        } catch (err) {
+            alert("Error al eliminar historial: " + err.message);
         }
     };
 
     return (
         <div style={styles.container}>
             <div style={styles.headerRow}>
-                <h2 style={styles.h2}>Logger de Eventos</h2>
-                
-                {/* ⭐️ Botón de Eliminar (Solo visible si hay selección) */}
-                {selectedIds.length > 0 && (
-                    <button style={styles.deleteButton} onClick={handleDeleteSelected}>
-                        🗑️ Eliminar Seleccionados ({selectedIds.length})
+                <h2 style={styles.h2}>Auditoría de Eventos</h2>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={fetchLogs}
+                        style={styles.button}
+                        disabled={loading}
+                    >
+                        {loading ? 'Cargando...' : '🔄 Refrescar'}
                     </button>
-                )}
+                </div>
             </div>
 
-            {/* Filtros (Igual que antes) */}
-            <form style={styles.filterContainer} onSubmit={handleSearch}>
+            {/* Filtros */}
+            <div style={styles.filterContainer}>
                 <div style={styles.filterGroup}>
-                    <label style={styles.label}>Desde</label>
+                    <label style={styles.label}>Fecha Inicio</label>
                     <input type="date" name="fecha_inicio" value={filters.fecha_inicio} onChange={handleFilterChange} style={styles.input} />
                 </div>
                 <div style={styles.filterGroup}>
-                    <label style={styles.label}>Hasta</label>
+                    <label style={styles.label}>Fecha Fin</label>
                     <input type="date" name="fecha_cierre" value={filters.fecha_cierre} onChange={handleFilterChange} style={styles.input} />
                 </div>
                 <div style={styles.filterGroup}>
-                    <label style={styles.label}>Usuario</label>
-                    <input type="text" name="usuario_username" placeholder="Username..." value={filters.usuario_username} onChange={handleFilterChange} style={styles.input} />
+                    <label style={styles.label}>Usuario (Username)</label>
+                    <input type="text" name="usuario_username" value={filters.usuario_username} onChange={handleFilterChange} placeholder="Ej. admin" style={styles.input} />
                 </div>
                 <div style={styles.filterGroup}>
                     <label style={styles.label}>Acción</label>
                     <select name="accion" value={filters.accion} onChange={handleFilterChange} style={styles.select}>
-                        <option value="">Todas</option>
-                        <option value="CREACIÓN">Creación</option>
-                        <option value="MODIFICACIÓN">Modificación</option>
-                        <option value="ELIMINACIÓN">Eliminación</option>
-                        <option value="REGISTRO">Registro</option>
-                        <option value="LOGIN">Login</option>
+                        <option value="">-- Todas --</option>
+                        <option value="INICIO DE SESIÓN">INICIO DE SESIÓN</option>
+                        <option value="CREACIÓN">CREACIÓN</option>
+                        <option value="MODIFICACIÓN">MODIFICACIÓN</option>
+                        <option value="ELIMINACIÓN">ELIMINACIÓN</option>
+                        <option value="CAMBIO ESTADO">CAMBIO ESTADO</option>
+                        <option value="ASIGNACIÓN PROYECTO">ASIGNACIÓN PROYECTO</option>
                     </select>
                 </div>
-                <div style={{ ...styles.filterGroup, justifyContent: 'flex-end' }}>
-                    <div style={styles.buttonGroup}>
-                        <button type="button" onClick={handleClearFilters} style={styles.clearButton}>Limpiar</button>
-                        <button type="submit" style={styles.searchButton}>Buscar</button>
-                    </div>
+                <div style={styles.filterGroup}>
+                    <label style={styles.label}>Entidad</label>
+                    <select name="entidad" value={filters.entidad} onChange={handleFilterChange} style={styles.select}>
+                        <option value="">-- Todas --</option>
+                        <option value="Auth">Auth (Login)</option>
+                        <option value="Usuarios">Usuarios</option>
+                        <option value="Proyectos">Proyectos</option>
+                        <option value="Labores">Labores</option>
+                        <option value="Equipos/Implementos">Equipos</option>
+                        <option value="Unidades Medida">Unidades Medida</option>
+                        <option value="Actividades">Actividades</option>
+                        <option value="Logs">Logs (Auditoría)</option>
+                    </select>
                 </div>
-            </form>
+            </div>
+
+            {/* Botones de Acción */}
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '10px' }}>
+                <button
+                    onClick={handleDeleteSelected}
+                    disabled={selectedIds.length === 0}
+                    style={{
+                        ...styles.button,
+                        backgroundColor: selectedIds.length > 0 ? '#ef4444' : '#9ca3af',
+                        cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed'
+                    }}
+                >
+                    🗑️ Eliminar Seleccionados ({selectedIds.length})
+                </button>
+
+                {/* ⭐️ BOTÓN NUEVO PARA BORRADO MASIVO */}
+                <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    style={{ ...styles.button, backgroundColor: '#dc2626' }}
+                >
+                    📅 Borrar Historial Antiguo
+                </button>
+            </div>
 
             {/* Tabla */}
             <div style={styles.tableContainer}>
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            {/* ⭐️ Checkbox Maestro */}
                             <th style={styles.th}>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     style={styles.checkbox}
                                     onChange={handleSelectAll}
                                     checked={logs.length > 0 && selectedIds.length === logs.length}
@@ -200,17 +243,16 @@ const LoggerEventos = () => {
                             <th style={styles.th}>Rol</th>
                             <th style={styles.th}>Acción</th>
                             <th style={styles.th}>Entidad</th>
-                            <th style={styles.th}>Entidad ID</th>
+                            <th style={styles.th}>ID Entidad</th>
                         </tr>
                     </thead>
                     <tbody>
                         {logs.length > 0 ? (
                             logs.map(log => (
                                 <tr key={log.id}>
-                                    {/* ⭐️ Checkbox Individual */}
                                     <td style={styles.td}>
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             style={styles.checkbox}
                                             checked={selectedIds.includes(log.id)}
                                             onChange={() => handleSelectOne(log.id)}
@@ -233,6 +275,87 @@ const LoggerEventos = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* ⭐️ MODAL DE BORRADO MASIVO POR FECHAS ⭐️ */}
+            <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Eliminación de Historial por Periodo">
+                <form onSubmit={handleBulkDelete} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '4px', fontSize: '0.9rem' }}>
+                        <strong>Atención:</strong> Estás a punto de borrar grandes cantidades de registros. Esta acción no se puede deshacer.
+                    </div>
+
+                    {/* Selector de TIPO */}
+                    <div style={styles.filterGroup}>
+                        <label style={styles.label}>Modo de Borrado:</label>
+                        <select
+                            value={deleteMode}
+                            onChange={(e) => setDeleteMode(e.target.value)}
+                            style={styles.select}
+                        >
+                            <option value="month">Borrar un Mes entero</option>
+                            <option value="quarter">Borrar un Trimestre</option>
+                            <option value="year">Borrar todo el Año</option>
+                        </select>
+                    </div>
+
+                    {/* Selector de AÑO */}
+                    <div style={styles.filterGroup}>
+                        <label style={styles.label}>Año:</label>
+                        <input
+                            type="number"
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(e.target.value)}
+                            style={styles.input}
+                        />
+                    </div>
+
+                    {/* Selector condicional: MES */}
+                    {deleteMode === 'month' && (
+                        <div style={styles.filterGroup}>
+                            <label style={styles.label}>Mes:</label>
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                style={styles.select}
+                            >
+                                <option value={1}>Enero</option>
+                                <option value={2}>Febrero</option>
+                                <option value={3}>Marzo</option>
+                                <option value={4}>Abril</option>
+                                <option value={5}>Mayo</option>
+                                <option value={6}>Junio</option>
+                                <option value={7}>Julio</option>
+                                <option value={8}>Agosto</option>
+                                <option value={9}>Septiembre</option>
+                                <option value={10}>Octubre</option>
+                                <option value={11}>Noviembre</option>
+                                <option value={12}>Diciembre</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Selector condicional: TRIMESTRE */}
+                    {deleteMode === 'quarter' && (
+                        <div style={styles.filterGroup}>
+                            <label style={styles.label}>Trimestre:</label>
+                            <select
+                                value={selectedQuarter}
+                                onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                                style={styles.select}
+                            >
+                                <option value={1}>Trimestre 1 (Ene - Mar)</option>
+                                <option value={2}>Trimestre 2 (Abr - Jun)</option>
+                                <option value={3}>Trimestre 3 (Jul - Sep)</option>
+                                <option value={4}>Trimestre 4 (Oct - Dic)</option>
+                            </select>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                        <button type="button" onClick={() => setIsDeleteModalOpen(false)} style={styles.cancelButton}>Cancelar</button>
+                        <button type="submit" style={styles.deleteButton}>Eliminar Definitivamente</button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

@@ -15,8 +15,11 @@ type LoggerService interface {
 	// GetLogs obtiene los eventos con filtros
 	GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error)
 
-	// DeleteLogs elimina una lista de eventos por sus IDs (⭐️ NUEVO)
+	// DeleteLogs elimina una lista de eventos por sus IDs (Ya lo tenías)
 	DeleteLogs(ids []int) error
+
+	// ⭐️ NUEVO: DeleteLogsByRange elimina eventos en un rango de fechas
+	DeleteLogsByRange(fechaInicio, fechaFin string) (int64, error)
 }
 
 // --- 2. LA IMPLEMENTACIÓN (Struct) ---
@@ -57,23 +60,35 @@ func (s *loggerService) GetLogs(filtros models.GetLogsRequest) ([]models.EventLo
 	return database.GetLogs(filtros)
 }
 
-// DeleteLogs: Elimina múltiples logs (⭐️ NUEVO)
+// DeleteLogs: Elimina múltiples logs por sus IDs (Lógica que ya tenías)
 func (s *loggerService) DeleteLogs(ids []int) error {
 	if len(ids) == 0 {
 		return errors.New("no se enviaron IDs para eliminar")
 	}
 
-	// Recorremos la lista de IDs y borramos uno por uno
-	// Esta es una estrategia segura y simple para SQLite
+	// Como SQLite no tiene un "DELETE WHERE ID IN (...)" nativo fácil en Go sin armar string manual,
+	// iteramos y borramos uno por uno (o asumimos que tienes una función para ello).
+	// Aquí usamos una implementación segura iterando:
 	for _, id := range ids {
-		// Llamamos a la función que creamos en logger_queries.go
-		_, err := database.DeleteLog(id)
+		// Llamamos a la función de DB para borrar individualmente
+		// (Asumiendo que ya tienes database.DeleteLog o similar del paso anterior)
+		err := database.DeleteLog(id)
 		if err != nil {
 			log.Printf("Error borrando log ID %d: %v", id, err)
-			// Si falla uno, detenemos el proceso y retornamos error
+			// Podríamos retornar error o continuar 'best effort'
 			return err
 		}
 	}
-
 	return nil
+}
+
+// ⭐️ NUEVO MÉTODO IMPLEMENTADO PARA EL PASO 2 ⭐️
+func (s *loggerService) DeleteLogsByRange(fechaInicio, fechaFin string) (int64, error) {
+	// Validación básica de negocio
+	if fechaInicio == "" || fechaFin == "" {
+		return 0, errors.New("las fechas de inicio y fin son requeridas")
+	}
+
+	// Llamada a la capa de datos (la función que creamos en el Paso 1)
+	return database.DeleteLogsByRange(fechaInicio, fechaFin)
 }

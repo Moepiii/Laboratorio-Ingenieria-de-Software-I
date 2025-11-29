@@ -2,14 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt" // Necesario para fmt.Sprintf
 	"net/http"
 
 	"proyecto/internal/auth"
-	"proyecto/internal/logger" // ⭐️ Importamos el nuevo servicio
+	"proyecto/internal/logger"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---\
+// --- 1. EL STRUCT DEL HANDLER ---
 type LoggerHandler struct {
 	authSvc   auth.AuthService
 	loggerSvc logger.LoggerService
@@ -23,7 +24,16 @@ func NewLoggerHandler(as auth.AuthService, ls logger.LoggerService) *LoggerHandl
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---
+// --- 3. ESTRUCTURAS DE PETICIÓN (DTOs Locales) ---
+
+// Estructura para recibir el rango de fechas del Frontend
+type DeleteLogsRangeRequest struct {
+	AdminUsername string `json:"admin_username"`
+	FechaInicio   string `json:"fecha_inicio"` // YYYY-MM-DD
+	FechaFin      string `json:"fecha_fin"`    // YYYY-MM-DD
+}
+
+// --- 4. LOS MÉTODOS (Handlers) ---
 
 func (h *LoggerHandler) GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetLogsRequest
@@ -32,7 +42,7 @@ func (h *LoggerHandler) GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⭐️ Verificación de permisos: Solo los 'admin' pueden ver los logs
+	// Verificación de permisos
 	hasPermission, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error verificando permisos")
@@ -43,15 +53,12 @@ func (h *LoggerHandler) GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Llamamos al servicio de logger
 	logs, err := h.loggerSvc.GetLogs(req)
 	if err != nil {
-		// El servicio ya logueó el error, solo respondemos
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Respondemos con los logs
 	respondWithJSON(w, http.StatusOK, logs)
 }
 
@@ -62,7 +69,7 @@ func (h *LoggerHandler) DeleteLogsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Solo Admin puede borrar logs
+	// Solo Admin
 	perm, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
 	if err != nil || !perm {
 		respondWithError(w, http.StatusForbidden, "No autorizado. Solo el administrador puede borrar logs.")
@@ -71,12 +78,47 @@ func (h *LoggerHandler) DeleteLogsHandler(w http.ResponseWriter, r *http.Request
 
 	err = h.loggerSvc.DeleteLogs(req.IDs)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error al eliminar logs: "+err.Error())
+		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// No registramos este evento en el log para no crear un bucle infinito de logs borrándose a sí mismos, 
-	// pero podrías hacerlo si quisieras.
-	
-	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Eventos eliminados correctamente"})
+	// Logueamos la acción
+	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Logs", 0)
+
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Logs eliminados correctamente"})
+}
+
+// ⭐️ HANDLER CORREGIDO ⭐️
+func (h *LoggerHandler) DeleteLogsRangeHandler(w http.ResponseWriter, r *http.Request) {
+	var req DeleteLogsRangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "JSON inválido")
+		return
+	}
+
+	// 1. Validar Permisos
+	perm, err := h.authSvc.CheckPermission(req.AdminUsername, "admin")
+	if err != nil || !perm {
+		respondWithError(w, http.StatusForbidden, "No autorizado. Solo admin puede borrar historial masivo.")
+		return
+	}
+
+	// 2. Ejecutar borrado
+	cantidad, err := h.loggerSvc.DeleteLogsByRange(req.FechaInicio, req.FechaFin)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// 3. Auditoría
+	// Creamos el mensaje detallado
+	logMsg := fmt.Sprintf("ELIMINACIÓN MASIVA (%d eventos entre %s y %s)", cantidad, req.FechaInicio, req.FechaFin)
+
+	// ⭐️ AQUÍ ESTABA EL ERROR: Ahora pasamos logMsg en lugar de un string fijo
+	h.loggerSvc.Log(req.AdminUsername, "admin", logMsg, "Logs", 0)
+
+	// 4. Responder
+	respondWithJSON(w, http.StatusOK, models.SimpleResponse{
+		Mensaje: fmt.Sprintf("Se eliminaron %d eventos del historial correctamente.", cantidad),
+	})
 }
