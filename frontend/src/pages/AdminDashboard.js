@@ -13,14 +13,11 @@ import DatosProyecto from './DatosProyecto';
 import LoggerEventos from './LoggerEventos';
 import UnidadesMedida from './UnidadesMedida';
 
-// Importamos los componentes de Planes de Acción
 import PlanDeAccion from './PlanDeAccion';
 import RecursoHumano from './RecursoHumano';
-// ⭐️ 1. IMPORTAR EL NUEVO COMPONENTE
 import MaterialesInsumos from './MaterialesInsumos';
 
 const AdminDashboard = () => {
-
   const { userRole } = useAuth();
 
   return (
@@ -29,22 +26,29 @@ const AdminDashboard = () => {
 
       <main className="main-content">
         <Routes>
-          {/* ... Rutas anteriores ... */}
+          {/* --- Rutas Principales --- */}
           <Route path="proyectos" element={<Portafolio />} />
           <Route path="usuarios" element={<Usuarios />} />
+          
+          {/* 1. Configuraciones (Lista de Proyectos) */}
           <Route path="configuraciones" element={<Portafolio />} />
 
+          {/* 2. Planes de Acción (AHORA USA PORTAFOLIO TAMBIÉN) */}
+          <Route path="planes-accion" element={<Portafolio />} />
+
+
+          {/* --- Sub-Rutas de Configuración de Proyecto --- */}
           <Route path="configuraciones/proyecto/:id/labores" element={<LaboresAgronomicas />} />
           <Route path="configuraciones/proyecto/:id/equipos" element={<EquiposEImplementos />} />
           <Route path="configuraciones/proyecto/:id/unidades" element={<UnidadesMedida />} />
-          <Route path="proyectos/datos/:id" element={<DatosProyecto />} />
 
-          {/* Rutas Planes de Acción */}
-          <Route path="planes-accion/general" element={<PlanDeAccion />} />
-          <Route path="planes-accion/recursos" element={<RecursoHumano />} />
-          
-          {/* ⭐️ 2. RUTA ACTUALIZADA: MATERIALES E INSUMOS ⭐️ */}
-          <Route path="planes-accion/materiales" element={<MaterialesInsumos />} />
+          {/* --- Sub-Rutas de Planes de Acción (Con ID) --- */}
+          <Route path="planes-accion/proyecto/:id/general" element={<PlanDeAccion />} />
+          <Route path="planes-accion/proyecto/:id/recursos" element={<RecursoHumano />} />
+          <Route path="planes-accion/proyecto/:id/materiales" element={<MaterialesInsumos />} />
+
+          {/* Datos del Proyecto */}
+          <Route path="proyectos/datos/:id" element={<DatosProyecto />} />
 
           {userRole === 'admin' && (
             <Route path="logs" element={<LoggerEventos />} />

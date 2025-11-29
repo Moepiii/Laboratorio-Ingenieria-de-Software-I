@@ -10,7 +10,7 @@ import {
 } from '../services/projectService';
 
 // ⭐️ --- (INICIO) COMPONENTE INTERNO LISTA PROYECTOS --- ⭐️
-const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, searchTerm, showToolbar, navigate }) => {
+const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, searchTerm, showToolbar, navigate, location }) => {
 
   const filteredProyectos = useMemo(() => {
     return proyectos.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -18,8 +18,22 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
 
   const handleRowClick = (proyecto) => {
     setSelectedProyectoId(proyecto.id);
+    
+    // Si no es modo toolbar (es decir, estamos en la lista principal)
     if (!showToolbar) {
-      navigate(`/admin/configuraciones/proyecto/${proyecto.id}/labores`);
+        const currentPath = location.pathname;
+
+        // ⭐️ LÓGICA INTELIGENTE DE REDIRECCIÓN ⭐️
+        if (currentPath.includes('/configuraciones')) {
+            // Si venimos de Configuraciones -> Vamos a Labores
+            navigate(`/admin/configuraciones/proyecto/${proyecto.id}/labores`);
+        } else if (currentPath.includes('/planes-accion')) {
+            // Si venimos de Planes de Acción -> Vamos a Plan General
+            navigate(`/admin/planes-accion/proyecto/${proyecto.id}/general`);
+        } else {
+            // Si venimos de Portafolio -> Vamos a Datos del Proyecto (Comportamiento por defecto)
+            navigate(`/admin/proyectos/datos/${proyecto.id}`);
+        }
     }
   };
 
@@ -283,6 +297,7 @@ const Portafolio = () => {
               searchTerm={searchTerm}
               showToolbar={showToolbar}
               navigate={navigate}
+              location={location}
             />
           )}
         </>
