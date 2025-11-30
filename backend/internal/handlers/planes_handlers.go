@@ -18,7 +18,7 @@ func NewPlanHandler(as auth.AuthService, ls logger.LoggerService) *PlanHandler {
 	return &PlanHandler{authSvc: as, loggerSvc: ls}
 }
 
-// CreatePlanHandler: Guarda un nuevo plan
+// CreatePlanHandler guarda un nuevo plan
 func (h *PlanHandler) CreatePlanHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CreatePlanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -26,7 +26,6 @@ func (h *PlanHandler) CreatePlanHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Inserta en BD
 	stmt, err := database.DB.Prepare(`
 		INSERT INTO planes_accion (proyecto_id, actividad, accion, fecha_inicio, fecha_cierre, horas, responsable, costo_unitario, monto)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -49,7 +48,7 @@ func (h *PlanHandler) CreatePlanHandler(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Plan creado exitosamente"})
 }
 
-// GetPlanesHandler: Obtiene la lista
+// GetPlanesHandler obtiene los planes
 func (h *PlanHandler) GetPlanesHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetPlanesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -72,11 +71,15 @@ func (h *PlanHandler) GetPlanesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		planes = append(planes, p)
 	}
+
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"planes": planes})
 }
 
-// UpdatePlanHandler: Edita un plan
+// ⭐️ NUEVO: UPDATE PLAN
 func (h *PlanHandler) UpdatePlanHandler(w http.ResponseWriter, r *http.Request) {
+	// Reusamos el struct pero añadimos ID manualmente o creamos uno nuevo.
+	// Usaremos un map para flexibilidad o el mismo struct CreatePlanRequest asumiendo que el ID viene aparte o en URL,
+	// pero lo mejor es definir un UpdateRequest.
 	type UpdatePlanRequest struct {
 		ID            int     `json:"id"`
 		Actividad     string  `json:"actividad"`
@@ -89,6 +92,7 @@ func (h *PlanHandler) UpdatePlanHandler(w http.ResponseWriter, r *http.Request) 
 		Monto         float64 `json:"monto"`
 		AdminUsername string  `json:"admin_username"`
 	}
+
 	var req UpdatePlanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
@@ -117,7 +121,7 @@ func (h *PlanHandler) UpdatePlanHandler(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Plan actualizado"})
 }
 
-// DeletePlanHandler: Borra un plan
+// ⭐️ NUEVO: DELETE PLAN
 func (h *PlanHandler) DeletePlanHandler(w http.ResponseWriter, r *http.Request) {
 	type DeletePlanRequest struct {
 		ID            int    `json:"id"`

@@ -10,7 +10,7 @@ import (
 	"proyecto/internal/auth"
 	"proyecto/internal/database"
 	"proyecto/internal/equipos"
-	apphandlers "proyecto/internal/handlers" // Usamos alias para evitar conflictos
+	apphandlers "proyecto/internal/handlers" // Usamos alias 'apphandlers' para evitar conflictos
 	"proyecto/internal/labores"
 	"proyecto/internal/logger"
 	"proyecto/internal/proyectos"
@@ -32,8 +32,9 @@ func setupApp() http.Handler {
 	equipoService := equipos.NewEquipoService()
 	actividadService := actividades.NewActividadService()
 	unidadService := unidades.NewUnidadService()
-	// Nota: No creamos un planService separado porque usamos la lógica directa en el handler por ahora,
-	// pero si el proyecto crece, deberías crear "proyecto/internal/planes".
+
+	// (El servicio de planes se maneja directo en el handler por ahora para simplificar,
+	// pero si creciera, iría aquí también)
 
 	// 3. INICIALIZAR HANDLERS (Controladores)
 	// Inyectamos los servicios necesarios en cada Handler
@@ -46,7 +47,7 @@ func setupApp() http.Handler {
 	actividadHandler := apphandlers.NewActividadHandler(authService, actividadService, loggerService)
 	loggerHandler := apphandlers.NewLoggerHandler(authService, loggerService)
 
-	// ⭐️ NUEVO: Handler de Planes de Acción
+	// ⭐️ HANDLER NUEVO: Planes de Acción ⭐️
 	planHandler := apphandlers.NewPlanHandler(authService, loggerService)
 
 	// 4. REGISTRAR RUTAS
@@ -95,11 +96,13 @@ func setupApp() http.Handler {
 	mux.HandleFunc("/api/admin/update-actividad", actividadHandler.UpdateActividadHandler)
 	mux.HandleFunc("/api/admin/delete-actividad", actividadHandler.DeleteActividadHandler)
 
-	// -- Rutas de Planes de Acción (⭐️ NUEVO) --
+	// ⭐️ RUTAS DE PLANES DE ACCIÓN (Las 4 operaciones CRUD) ⭐️
 	mux.HandleFunc("/api/admin/create-plan", planHandler.CreatePlanHandler)
 	mux.HandleFunc("/api/admin/get-planes", planHandler.GetPlanesHandler)
+	mux.HandleFunc("/api/admin/update-plan", planHandler.UpdatePlanHandler)
+	mux.HandleFunc("/api/admin/delete-plan", planHandler.DeletePlanHandler)
 
-	// -- Ruta Logger (Auditoría) --
+	// -- Rutas Logger (Auditoría) --
 	mux.HandleFunc("/api/admin/get-logs", loggerHandler.GetLogsHandler)
 	mux.HandleFunc("/api/admin/delete-logs", loggerHandler.DeleteLogsHandler)
 	mux.HandleFunc("/api/admin/delete-logs-range", loggerHandler.DeleteLogsRangeHandler)
