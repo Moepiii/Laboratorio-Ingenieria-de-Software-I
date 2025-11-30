@@ -327,31 +327,31 @@ type GetLogsRequest struct {
 
 // --- Unidades de Medida ---
 type UnidadMedida struct {
-	ID            int    `json:"id"`
+	ID            int     `json:"id"`
 	ProyectoID    int     `json:"proyecto_id"`
-	Nombre        string `json:"nombre"`
-	Abreviatura   string `json:"abreviatura"`
-	Tipo          string `json:"tipo"` // Peso, Líquido, Longitud
+	Nombre        string  `json:"nombre"`
+	Abreviatura   string  `json:"abreviatura"`
+	Tipo          string  `json:"tipo"` // Peso, Líquido, Longitud
 	Dimension     float64 `json:"dimension"`
-	FechaCreacion string `json:"fecha_creacion"`
+	FechaCreacion string  `json:"fecha_creacion"`
 }
 
 type CreateUnidadRequest struct {
 	ProyectoID    int     `json:"proyecto_id"` //
-	Nombre        string `json:"nombre"`
-	Abreviatura   string `json:"abreviatura"`
-	Tipo          string `json:"tipo"`
+	Nombre        string  `json:"nombre"`
+	Abreviatura   string  `json:"abreviatura"`
+	Tipo          string  `json:"tipo"`
 	Dimension     float64 `json:"dimension"`
-	AdminUsername string `json:"admin_username"`
+	AdminUsername string  `json:"admin_username"`
 }
 
 type UpdateUnidadRequest struct {
-	ID            int    `json:"id"`
-	Nombre        string `json:"nombre"`
-	Abreviatura   string `json:"abreviatura"`
-	Tipo          string `json:"tipo"`
+	ID            int     `json:"id"`
+	Nombre        string  `json:"nombre"`
+	Abreviatura   string  `json:"abreviatura"`
+	Tipo          string  `json:"tipo"`
 	Dimension     float64 `json:"dimension"` //
-	AdminUsername string `json:"admin_username"`
+	AdminUsername string  `json:"admin_username"`
 }
 
 type DeleteUnidadRequest struct {
@@ -365,5 +365,38 @@ type GetUnidadesRequest struct {
 
 type DeleteLogsRequest struct {
 	IDs           []int  `json:"ids"` // Lista de IDs a borrar
+	AdminUsername string `json:"admin_username"`
+}
+
+// --- models.go (Agrega esto al final) ---
+
+type PlanAccion struct {
+	ID            int     `json:"id"`
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"`
+	FechaInicio   string  `json:"fecha_inicio"`
+	FechaCierre   string  `json:"fecha_cierre"`
+	Horas         float64 `json:"horas"`
+	Responsable   string  `json:"responsable"`
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"`
+}
+
+type CreatePlanRequest struct {
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"`
+	FechaInicio   string  `json:"fecha_inicio"`
+	FechaCierre   string  `json:"fecha_cierre"`
+	Horas         float64 `json:"horas"`
+	Responsable   string  `json:"responsable"`
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"`
+	AdminUsername string  `json:"admin_username"`
+}
+
+type GetPlanesRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }

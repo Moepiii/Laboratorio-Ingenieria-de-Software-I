@@ -10,7 +10,7 @@ import (
 	"proyecto/internal/auth"
 	"proyecto/internal/database"
 	"proyecto/internal/equipos"
-	apphandlers "proyecto/internal/handlers" // Alias para evitar conflicto de nombres
+	apphandlers "proyecto/internal/handlers" // Usamos alias para evitar conflictos
 	"proyecto/internal/labores"
 	"proyecto/internal/logger"
 	"proyecto/internal/proyectos"
@@ -19,12 +19,10 @@ import (
 )
 
 func setupApp() http.Handler {
-	// 1. DEFINIR EL ROUTER (Mux) PRIMERO
+	// 1. DEFINIR EL ROUTER (Mux)
 	mux := http.NewServeMux()
 
 	// 2. INICIALIZAR TODOS LOS SERVICIOS
-	// El orden importa: creamos los servicios antes de pasarlos a los handlers.
-
 	authService := auth.NewAuthService()
 	loggerService := logger.NewLoggerService()
 
@@ -34,88 +32,79 @@ func setupApp() http.Handler {
 	equipoService := equipos.NewEquipoService()
 	actividadService := actividades.NewActividadService()
 	unidadService := unidades.NewUnidadService()
+	// Nota: No creamos un planService separado porque usamos la lógica directa en el handler por ahora,
+	// pero si el proyecto crece, deberías crear "proyecto/internal/planes".
 
 	// 3. INICIALIZAR HANDLERS (Controladores)
 	// Inyectamos los servicios necesarios en cada Handler
-
-	// AuthHandler necesita AuthService y LoggerService
 	authHandler := apphandlers.NewAuthHandler(authService, loggerService)
-
-	// UserHandler necesita AuthService, UserService y LoggerService
 	userHandler := apphandlers.NewUserHandler(authService, userService, loggerService)
-
-	// ProyectoHandler necesita AuthService, ProyectoService y LoggerService
 	proyectoHandler := apphandlers.NewProyectoHandler(authService, proyectoService, loggerService)
-
-	// LaborHandler necesita Auth, LaborService y Logger
 	laborHandler := apphandlers.NewLaborHandler(authService, laborService, loggerService)
-
-	// EquipoHandler necesita Auth, EquipoService y Logger
 	equipoHandler := apphandlers.NewEquipoHandler(authService, equipoService, loggerService)
-
-	// ActividadHandler necesita Auth, ActividadService y Logger
-	actividadHandler := apphandlers.NewActividadHandler(authService, actividadService, loggerService)
-
-	// UnidadHandler necesita Auth, UnidadService y Logger
 	unidadHandler := apphandlers.NewUnidadHandler(authService, unidadService, loggerService)
-
-	// LoggerHandler necesita Auth y LoggerService
+	actividadHandler := apphandlers.NewActividadHandler(authService, actividadService, loggerService)
 	loggerHandler := apphandlers.NewLoggerHandler(authService, loggerService)
 
-	// 4. DEFINIR RUTAS (Endpoints)
+	// ⭐️ NUEVO: Handler de Planes de Acción
+	planHandler := apphandlers.NewPlanHandler(authService, loggerService)
 
-	// -- Rutas Públicas --
-	mux.HandleFunc("/api/saludo", apphandlers.SaludoHandler)
+	// 4. REGISTRAR RUTAS
+	mux.HandleFunc("/", apphandlers.SaludoHandler)
+
+	// -- Rutas de Autenticación --
 	mux.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
 	mux.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 
-	// -- Rutas Usuarios --
+	// -- Rutas de Usuarios --
 	mux.HandleFunc("/api/admin/users", userHandler.AdminUsersHandler)
 	mux.HandleFunc("/api/admin/add-user", userHandler.AdminAddUserHandler)
 	mux.HandleFunc("/api/admin/delete-user", userHandler.AdminDeleteUserHandler)
-	mux.HandleFunc("/api/admin/update-user", userHandler.AdminUpdateUserRoleHandler)         // Cambiar Rol
-	mux.HandleFunc("/api/admin/assign-project", userHandler.AdminAssignProjectToUserHandler) // Asignar Proyecto
-	mux.HandleFunc("/api/user/project-details", userHandler.UserProjectDetailsHandler)       // Dashboard Usuario
+	mux.HandleFunc("/api/admin/update-user", userHandler.AdminUpdateUserRoleHandler)
+	mux.HandleFunc("/api/admin/assign-project", userHandler.AdminAssignProjectToUserHandler)
+	mux.HandleFunc("/api/user/project-details", userHandler.UserProjectDetailsHandler)
 
-	// -- Rutas Proyectos --
-	mux.HandleFunc("/api/admin/get-proyectos", proyectoHandler.AdminGetProyectosHandler)
-	mux.HandleFunc("/api/admin/create-proyecto", proyectoHandler.AdminCreateProyectoHandler)
-	mux.HandleFunc("/api/admin/update-proyecto", proyectoHandler.AdminUpdateProyectoHandler)
-	mux.HandleFunc("/api/admin/delete-proyecto", proyectoHandler.AdminDeleteProyectoHandler)
+	// -- Rutas de Proyectos --
+	mux.HandleFunc("/api/admin/get-proyectos", proyectoHandler.GetProyectosHandler)
+	mux.HandleFunc("/api/admin/create-proyecto", proyectoHandler.CreateProyectoHandler)
+	mux.HandleFunc("/api/admin/update-proyecto", proyectoHandler.UpdateProyectoHandler)
+	mux.HandleFunc("/api/admin/delete-proyecto", proyectoHandler.DeleteProyectoHandler)
 	mux.HandleFunc("/api/admin/set-proyecto-estado", proyectoHandler.AdminSetProyectoEstadoHandler)
 
-	// -- Rutas Labores Agronómicas --
+	// -- Rutas de Labores Agronómicas --
 	mux.HandleFunc("/api/admin/get-labores", laborHandler.GetLaboresHandler)
 	mux.HandleFunc("/api/admin/create-labor", laborHandler.CreateLaborHandler)
 	mux.HandleFunc("/api/admin/update-labor", laborHandler.UpdateLaborHandler)
 	mux.HandleFunc("/api/admin/delete-labor", laborHandler.DeleteLaborHandler)
 
-	// -- Rutas Equipos e Implementos --
+	// -- Rutas de Equipos e Implementos --
 	mux.HandleFunc("/api/admin/get-equipos", equipoHandler.GetEquiposHandler)
 	mux.HandleFunc("/api/admin/create-equipo", equipoHandler.CreateEquipoHandler)
 	mux.HandleFunc("/api/admin/update-equipo", equipoHandler.UpdateEquipoHandler)
 	mux.HandleFunc("/api/admin/delete-equipo", equipoHandler.DeleteEquipoHandler)
 
-	// -- Rutas Unidades de Medida --
+	// -- Rutas de Unidades de Medida --
 	mux.HandleFunc("/api/admin/get-unidades", unidadHandler.GetUnidadesHandler)
 	mux.HandleFunc("/api/admin/create-unidad", unidadHandler.CreateUnidadHandler)
 	mux.HandleFunc("/api/admin/update-unidad", unidadHandler.UpdateUnidadHandler)
 	mux.HandleFunc("/api/admin/delete-unidad", unidadHandler.DeleteUnidadHandler)
 
-	// -- Rutas Actividades (Datos del Proyecto) --
+	// -- Rutas de Actividades (Datos del Proyecto) --
 	mux.HandleFunc("/api/admin/get-datos-proyecto", actividadHandler.GetDatosProyectoHandler)
 	mux.HandleFunc("/api/admin/create-actividad", actividadHandler.CreateActividadHandler)
 	mux.HandleFunc("/api/admin/update-actividad", actividadHandler.UpdateActividadHandler)
 	mux.HandleFunc("/api/admin/delete-actividad", actividadHandler.DeleteActividadHandler)
 
+	// -- Rutas de Planes de Acción (⭐️ NUEVO) --
+	mux.HandleFunc("/api/admin/create-plan", planHandler.CreatePlanHandler)
+	mux.HandleFunc("/api/admin/get-planes", planHandler.GetPlanesHandler)
+
 	// -- Ruta Logger (Auditoría) --
 	mux.HandleFunc("/api/admin/get-logs", loggerHandler.GetLogsHandler)
 	mux.HandleFunc("/api/admin/delete-logs", loggerHandler.DeleteLogsHandler)
-	// ⭐️ NUEVA RUTA AGREGADA PARA BORRADO POR RANGO ⭐️
 	mux.HandleFunc("/api/admin/delete-logs-range", loggerHandler.DeleteLogsRangeHandler)
 
 	// 5. CONFIGURAR MIDDLEWARE CORS
-	// Permite que el Frontend (puerto 3000) hable con este Backend (puerto 8080)
 	corsHandler := handlers.CORS(
 		handlers.AllowedOrigins([]string{"http://localhost:3000"}),
 		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
@@ -127,17 +116,10 @@ func setupApp() http.Handler {
 
 func main() {
 	// 1. INICIALIZAR LA BASE DE DATOS
-	// Crea las tablas si no existen
 	database.InitDB("./users.db")
 
-	// Aseguramos que se cierre al terminar
-	defer database.DB.Close()
-
-	// 2. CONFIGURAR EL SERVIDOR
-	router := setupApp()
-
+	// 2. INICIAR SERVIDOR
+	server := setupApp()
 	log.Println("🚀 Servidor corriendo en http://localhost:8080")
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(http.ListenAndServe(":8080", server))
 }

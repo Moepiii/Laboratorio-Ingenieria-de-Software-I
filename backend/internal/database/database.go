@@ -41,6 +41,8 @@ func InitDB(dbPath string) {
 	// ⭐️ 1. LLAMADA A LA NUEVA FUNCIÓN
 	createEventLogsTable()
 
+	createPlanesTable()
+
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		log.Fatalf("Error PRAGMA ON: %v", err)
@@ -179,7 +181,6 @@ func createEventLogsTable() {
 	}
 }
 
-
 func createUnidadesTable() {
 	// ⭐️ AÑADIDO: proyecto_id y su FOREIGN KEY
 	_, err := DB.Exec(`
@@ -196,5 +197,26 @@ func createUnidadesTable() {
     `)
 	if err != nil {
 		log.Fatalf("Error al crear tabla unidades_medida: %v", err)
+	}
+}
+
+func createPlanesTable() {
+	_, err := DB.Exec(`
+    CREATE TABLE IF NOT EXISTS planes_accion (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        proyecto_id INTEGER,
+        actividad TEXT,
+        accion TEXT,
+        fecha_inicio DATE,
+        fecha_cierre DATE,
+        horas REAL,
+        responsable TEXT,
+        costo_unitario REAL,
+        monto REAL,
+        FOREIGN KEY(proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
+    );
+    `)
+	if err != nil {
+		log.Fatalf("Error al crear tabla planes_accion: %v", err)
 	}
 }
