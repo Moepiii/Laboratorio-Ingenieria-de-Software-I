@@ -400,3 +400,30 @@ type GetPlanesRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
+
+// --- Recurso Humano ---
+type RecursoHumano struct {
+	ID            int     `json:"id"`
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"` // Viene de Labores
+	Nombre        string  `json:"nombre"` // Responsable
+	Cedula        string  `json:"cedula"`
+	Tiempo        float64 `json:"tiempo"`   // Días u Horas
+	Cantidad      float64 `json:"cantidad"` // Cantidad de personas
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"` // Calculado
+}
+
+type CreateRecursoRequest struct {
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"`
+	Nombre        string  `json:"nombre"`
+	Cedula        string  `json:"cedula"`
+	Tiempo        float64 `json:"tiempo"`
+	Cantidad      float64 `json:"cantidad"`
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"`
+	AdminUsername string  `json:"admin_username"`
+}
