@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import Modal from '../components/auth/Modal';
 import { useAuth } from '../context/AuthContext';
 import { getDatosProyecto } from '../services/actividadService';
+// Importamos update y delete
 import { getPlanes, createPlan, updatePlan, deletePlan } from '../services/planService';
 
 const styles = {
@@ -15,6 +16,7 @@ const styles = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
 
+    // Estilo para el Total
     footerTd: { padding: '1rem', borderTop: '2px solid #e5e7eb', color: '#111827', fontSize: '1rem', fontWeight: '700', backgroundColor: '#f9fafb' },
 
     actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
@@ -54,17 +56,15 @@ const PlanDeAccion = () => {
         monto: ''
     });
 
-    // ⭐️ FUNCIÓN PARA FORMATEAR FECHA (YYYY-MM-DD -> DD-MM-YYYY)
+    // FUNCIÓN PARA FORMATEAR FECHA (YYYY-MM-DD -> DD-MM-YYYY)
     const formatearFecha = (fechaISO) => {
         if (!fechaISO) return '';
-        // Tomamos solo la parte de la fecha antes de la 'T'
         const soloFecha = fechaISO.split('T')[0];
-        // Dividimos por guiones: [YYYY, MM, DD]
         const [year, month, day] = soloFecha.split('-');
-        // Retornamos en orden DD-MM-YYYY
         return `${day}-${month}-${year}`;
     };
 
+    // CÁLCULO DEL TOTAL GENERAL
     const totalMonto = planes.reduce((acc, plan) => {
         return acc + (parseFloat(plan.monto) || 0);
     }, 0);
@@ -105,7 +105,6 @@ const PlanDeAccion = () => {
         setFormData({
             actividad: plan.actividad,
             accion: plan.accion,
-            // ⚠️ Para el INPUT del formulario, debe seguir siendo YYYY-MM-DD
             fecha_inicio: plan.fecha_inicio.split('T')[0],
             fecha_cierre: plan.fecha_cierre.split('T')[0],
             horas: plan.horas,
@@ -168,12 +167,14 @@ const PlanDeAccion = () => {
                         <tr>
                             <th style={styles.th}>ID</th>
                             <th style={styles.th}>Actividad</th>
-                            <th style={styles.th}>Acción Específica</th>
+                            {/* ⭐️ CAMBIO: Solo 'Acción' */}
+                            <th style={styles.th}>Acción</th>
                             <th style={styles.th}>Fecha Inicio</th>
                             <th style={styles.th}>Fecha Cierre</th>
-                            <th style={styles.th}>Horas</th>
+                            {/* ⭐️ CAMBIO: 'Cantidad Horas' */}
+                            <th style={styles.th}>Cantidad Horas</th>
                             <th style={styles.th}>Responsable</th>
-                            <th style={styles.th}>Dinero ($)</th>
+                            {/* Recordar: Dinero ($) fue eliminado antes, si lo quieres de vuelta avísame */}
                             <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
@@ -184,12 +185,10 @@ const PlanDeAccion = () => {
                                 <td style={styles.td}>{plan.id}</td>
                                 <td style={styles.td}>{plan.actividad}</td>
                                 <td style={styles.td}>{plan.accion}</td>
-                                {/* ⭐️ AQUÍ USAMOS LA FUNCIÓN PARA MOSTRARLA BONITA */}
                                 <td style={styles.td}>{formatearFecha(plan.fecha_inicio)}</td>
                                 <td style={styles.td}>{formatearFecha(plan.fecha_cierre)}</td>
                                 <td style={styles.td}>{plan.horas}</td>
                                 <td style={styles.td}>{plan.responsable}</td>
-                                <td style={styles.td}>{plan.costo_unitario}</td>
                                 <td style={{ ...styles.td, fontWeight: 'bold' }}>{plan.monto}</td>
                                 <td style={styles.td}>
                                     <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(plan)}>Editar</button>
@@ -198,14 +197,15 @@ const PlanDeAccion = () => {
                             </tr>
                         ))}
                         {planes.length === 0 && (
-                            <tr><td colSpan="10" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No hay planes registrados. Añade uno nuevo.</td></tr>
+                            <tr><td colSpan="9" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No hay planes registrados. Añade uno nuevo.</td></tr>
                         )}
                     </tbody>
 
                     {planes.length > 0 && (
                         <tfoot>
                             <tr>
-                                <td colSpan="8" style={{ ...styles.footerTd, textAlign: 'right' }}>
+                                {/* ColSpan ajustado para alineación */}
+                                <td colSpan="7" style={{ ...styles.footerTd, textAlign: 'right' }}>
                                     Monto Total Invertido ($):
                                 </td>
                                 <td style={{ ...styles.footerTd, color: '#2563eb' }}>
@@ -233,7 +233,8 @@ const PlanDeAccion = () => {
                     </div>
 
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Acción Específica</label>
+                        {/* ⭐️ CAMBIO: Solo 'Acción' */}
+                        <label style={styles.label}>Acción</label>
                         <select name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.select}>
                             <option value="">-- Seleccione --</option>
                             {listaLabores.map((labor) => (
@@ -255,7 +256,8 @@ const PlanDeAccion = () => {
 
                     <div style={styles.rowGroup}>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Cant. Horas</label>
+                            {/* ⭐️ CAMBIO: 'Cantidad Horas' */}
+                            <label style={styles.label}>Cantidad Horas</label>
                             <input type="number" name="horas" value={formData.horas} onChange={handleInputChange} required style={styles.input} placeholder="0" />
                         </div>
 

@@ -16,6 +16,9 @@ const styles = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
 
+    // Estilo para el pie de tabla (Total)
+    footerTd: { padding: '1rem', borderTop: '2px solid #e5e7eb', color: '#111827', fontSize: '1rem', fontWeight: '700', backgroundColor: '#f9fafb' },
+
     actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
     editButton: { backgroundColor: '#f59e0b', color: 'white' },
     deleteButton: { backgroundColor: '#ef4444', color: 'white' },
@@ -36,7 +39,6 @@ const RecursoHumano = () => {
 
     const [recursos, setRecursos] = useState([]);
 
-    // Listas para los Selects
     const [listaActividades, setListaActividades] = useState([]);
     const [listaLabores, setListaLabores] = useState([]);
     const [listaEncargados, setListaEncargados] = useState([]);
@@ -55,7 +57,11 @@ const RecursoHumano = () => {
         monto: ''
     });
 
-    // Función para recargar la tabla de recursos guardados
+    // CÁLCULO DEL TOTAL
+    const totalMonto = recursos.reduce((acc, rec) => {
+        return acc + (parseFloat(rec.monto) || 0);
+    }, 0);
+
     const refreshRecursos = () => {
         if (id && token && currentUser) {
             getRecursos(token, id, currentUser.username)
@@ -70,12 +76,8 @@ const RecursoHumano = () => {
         if (id && token && currentUser?.username) {
             const pid = parseInt(id, 10);
 
-            console.log("📡 Solicitando Datos del Proyecto ID:", pid);
-
-            // 1. Cargar Configuración (Actividades, Labores, Encargados)
             getDatosProyecto(token, pid, currentUser.username)
                 .then(res => {
-                    console.log("✅ Datos recibidos:", res); // MIRA LA CONSOLA (F12) SI ESTO NO FUNCIONA
                     if (res) {
                         if (res.actividades) setListaActividades(res.actividades);
                         if (res.labores) setListaLabores(res.labores);
@@ -84,7 +86,6 @@ const RecursoHumano = () => {
                 })
                 .catch(err => console.error("Error cargando datos:", err));
 
-            // 2. Cargar la tabla
             refreshRecursos();
         }
     }, [id, token, currentUser]);
@@ -125,7 +126,6 @@ const RecursoHumano = () => {
         const { name, value } = e.target;
         let newData = { ...formData, [name]: value };
 
-        // ⭐️ Lógica para rellenar Cédula si seleccionan un Encargado de la lista
         if (name === 'nombre') {
             const encargadoSeleccionado = listaEncargados.find(enc => `${enc.nombre} ${enc.apellido}` === value);
             if (encargadoSeleccionado) {
@@ -133,13 +133,21 @@ const RecursoHumano = () => {
             }
         }
 
-        // ⭐️ FÓRMULA: Monto = Tiempo * Cantidad * Costo
+        // FÓRMULA ESPECÍFICA: (Tiempo / Cantidad) * Costo * Cantidad
         if (name === 'tiempo' || name === 'cantidad' || name === 'costo_unitario') {
-            const t = parseFloat(name === 'tiempo' ? value : formData.tiempo) || 0;
-            const c = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
-            const p = parseFloat(name === 'costo_unitario' ? value : formData.costo_unitario) || 0;
+            const tiempo = parseFloat(name === 'tiempo' ? value : formData.tiempo) || 0;
+            const cantidad = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
+            const costo = parseFloat(name === 'costo_unitario' ? value : formData.costo_unitario) || 0;
 
-            newData.monto = (t * c * p).toFixed(2);
+            if (cantidad > 0) {
+                const paso1 = tiempo / cantidad;
+                const paso2 = paso1 * costo;
+                const montoFinal = paso2 * cantidad;
+
+                newData.monto = montoFinal.toFixed(2);
+            } else {
+                newData.monto = '0.00';
+            }
         }
 
         setFormData(newData);
@@ -149,7 +157,6 @@ const RecursoHumano = () => {
         e.preventDefault();
         try {
             const dataToSend = { proyecto_id: id, ...formData };
-
             if (editingId) {
                 await updateRecurso(token, { ...dataToSend, id: editingId }, currentUser.username);
             } else {
@@ -176,12 +183,11 @@ const RecursoHumano = () => {
                             <th style={styles.th}>ID</th>
                             <th style={styles.th}>Actividad</th>
                             <th style={styles.th}>Acción</th>
-                            <th style={styles.th}>Nombre</th>
-                            <th style={styles.th}>Cédula</th>
                             <th style={styles.th}>Tiempo</th>
-                            <th style={styles.th}>Cant.</th>
-                            <th style={styles.th}>Costo Unit</th>
-                            <th style={styles.th}>Total ($)</th>
+                            <th style={styles.th}>Cantidad</th>
+                            <th style={styles.th}>Responsable</th>
+                            {/* ⭐️ COLUMNA DE COSTO ELIMINADA DE AQUÍ */}
+                            <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
                     </thead>
@@ -191,11 +197,10 @@ const RecursoHumano = () => {
                                 <td style={styles.td}>{rec.id}</td>
                                 <td style={styles.td}>{rec.actividad}</td>
                                 <td style={styles.td}>{rec.accion}</td>
-                                <td style={styles.td}>{rec.nombre}</td>
-                                <td style={styles.td}>{rec.cedula}</td>
                                 <td style={styles.td}>{rec.tiempo}</td>
                                 <td style={styles.td}>{rec.cantidad}</td>
-                                <td style={styles.td}>{rec.costo_unitario}</td>
+                                <td style={styles.td}>{rec.nombre}</td>
+                                {/* ⭐️ CELDA DE COSTO ELIMINADA DE AQUÍ */}
                                 <td style={{ ...styles.td, fontWeight: 'bold' }}>{rec.monto}</td>
                                 <td style={styles.td}>
                                     <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(rec)}>Editar</button>
@@ -204,28 +209,41 @@ const RecursoHumano = () => {
                             </tr>
                         ))}
                         {recursos.length === 0 && (
-                            <tr><td colSpan="10" style={{ padding: '2rem', textAlign: 'center' }}>No hay recursos registrados.</td></tr>
+                            <tr><td colSpan="8" style={{ padding: '2rem', textAlign: 'center' }}>No hay recursos registrados.</td></tr>
                         )}
                     </tbody>
+
+                    {recursos.length > 0 && (
+                        <tfoot>
+                            <tr>
+                                {/* ⭐️ COLSPAN AJUSTADO A 6 (ID, Act, Acc, Tiem, Cant, Resp) para alinear con Monto */}
+                                <td colSpan="6" style={{ ...styles.footerTd, textAlign: 'right' }}>
+                                    Monto Total Talento Humano ($):
+                                </td>
+                                <td style={{ ...styles.footerTd, color: '#2563eb' }}>
+                                    ${totalMonto.toFixed(2)}
+                                </td>
+                                <td style={styles.footerTd}></td>
+                            </tr>
+                        </tfoot>
+                    )}
+
                 </table>
             </div>
 
             <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingId ? "Editar Recurso" : "Nuevo Recurso Humano"}>
                 <form onSubmit={handleSubmit}>
 
-                    {/* SELECTOR ACTIVIDAD */}
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Actividad (Del Proyecto)</label>
+                        <label style={styles.label}>Actividad</label>
                         <select name="actividad" value={formData.actividad} onChange={handleInputChange} required style={styles.select}>
                             <option value="">-- Seleccione Actividad --</option>
                             {listaActividades.map(a => (
                                 <option key={a.id} value={a.actividad}>{a.actividad}</option>
                             ))}
                         </select>
-                        {listaActividades.length === 0 && <small style={{ color: 'red' }}>No hay actividades registradas</small>}
                     </div>
 
-                    {/* SELECTOR ACCIÓN (LABOR) */}
                     <div style={styles.formGroup}>
                         <label style={styles.label}>Acción (Labor Agronómica)</label>
                         <select name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.select}>
@@ -234,13 +252,11 @@ const RecursoHumano = () => {
                                 <option key={l.id} value={l.descripcion}>{l.descripcion}</option>
                             ))}
                         </select>
-                        {listaLabores.length === 0 && <small style={{ color: 'red' }}>No hay labores configuradas</small>}
                     </div>
 
                     <div style={styles.rowGroup}>
-                        {/* ⭐️ CAMBIO: Ahora es un SELECT para elegir Encargados */}
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Nombre / Responsable</label>
+                            <label style={styles.label}>Responsable</label>
                             <select name="nombre" value={formData.nombre} onChange={handleInputChange} required style={styles.select}>
                                 <option value="">-- Seleccione Persona --</option>
                                 {listaEncargados.map(e => (
@@ -249,7 +265,6 @@ const RecursoHumano = () => {
                                     </option>
                                 ))}
                             </select>
-                            {listaEncargados.length === 0 && <small style={{ color: 'orange' }}>No hay encargados registrados</small>}
                         </div>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
                             <label style={styles.label}>Cédula (Auto)</label>
@@ -269,12 +284,13 @@ const RecursoHumano = () => {
                     </div>
 
                     <div style={styles.rowGroup}>
+                        {/* El campo se mantiene en el formulario para poder calcular */}
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Costo Unitario ($)</label>
+                            <label style={styles.label}>Costo ($)</label>
                             <input type="number" step="0.01" name="costo_unitario" value={formData.costo_unitario} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
                         </div>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Monto Total ($)</label>
+                            <label style={styles.label}>Monto ($)</label>
                             <input type="number" name="monto" value={formData.monto} readOnly style={{ ...styles.input, backgroundColor: '#f3f4f6' }} />
                         </div>
                     </div>
