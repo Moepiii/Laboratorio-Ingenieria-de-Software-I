@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import Modal from '../components/auth/Modal';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +63,14 @@ const MaterialesInsumos = () => {
                 .catch(err => console.error("Error cargando materiales:", err));
         }
     };
+
+    const totalGeneral = useMemo(() => {
+        if (!materiales) return 0;
+        return materiales.reduce((acc, item) => {
+            // Aseguramos que sea número (el backend envía float, pero prevenimos errores)
+            return acc + (parseFloat(item.monto) || 0);
+        }, 0);
+    }, [materiales]);
 
     useEffect(() => {
         if (id && token && currentUser?.username) {
@@ -188,6 +196,20 @@ const MaterialesInsumos = () => {
                             <tr><td colSpan="10" style={{ padding: '2rem', textAlign: 'center' }}>No hay materiales registrados.</td></tr>
                         )}
                     </tbody>
+                    <tfoot>
+                        <tr style={{ backgroundColor: '#f3f4f6', borderTop: '2px solid #e5e7eb' }}>
+                            {/* Combinamos las primeras 7 columnas para poner el texto */}
+                            <td colSpan={7} style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                TOTAL GENERAL:
+                            </td>
+                            {/* Columna del Monto Total */}
+                            <td style={{ ...styles.td, fontWeight: 'bold', fontSize: '1.1rem', color: '#2563eb' }}>
+                                ${totalGeneral.toFixed(2)}
+                            </td>
+                            {/* Columna vacía para alinear con "Acciones" */}
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 
