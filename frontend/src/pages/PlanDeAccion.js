@@ -16,7 +16,9 @@ const styles = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
 
-    // Botones de acción
+    // Estilo para el Total
+    footerTd: { padding: '1rem', borderTop: '2px solid #e5e7eb', color: '#111827', fontSize: '1rem', fontWeight: '700', backgroundColor: '#f9fafb' },
+
     actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
     editButton: { backgroundColor: '#f59e0b', color: 'white' },
     deleteButton: { backgroundColor: '#ef4444', color: 'white' },
@@ -41,7 +43,6 @@ const PlanDeAccion = () => {
     const [listaEncargados, setListaEncargados] = useState([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
-    // Estado para saber si estamos editando (null = creando)
     const [editingPlanId, setEditingPlanId] = useState(null);
 
     const [formData, setFormData] = useState({
@@ -55,6 +56,12 @@ const PlanDeAccion = () => {
         monto: ''
     });
 
+    // ⭐️ 1. CÁLCULO DEL TOTAL GENERAL
+    // Sumamos todos los 'monto' de la lista 'planes'
+    const totalMonto = planes.reduce((acc, plan) => {
+        return acc + (parseFloat(plan.monto) || 0);
+    }, 0);
+
     const refreshPlanes = () => {
         if (id && token && currentUser) {
             getPlanes(token, id, currentUser.username)
@@ -65,36 +72,33 @@ const PlanDeAccion = () => {
 
     useEffect(() => {
         if (id && token && currentUser?.username) {
-            const proyectoIdInt = parseInt(id, 10);
-            // Cargar Configuración
-            getDatosProyecto(token, proyectoIdInt, currentUser.username)
-                .then(response => {
-                    if (response) {
-                        if (response.actividades) setListaActividadesOrigen(response.actividades);
-                        if (response.labores) setListaLabores(response.labores);
-                        if (response.encargados) setListaEncargados(response.encargados);
+            const pid = parseInt(id, 10);
+            getDatosProyecto(token, pid, currentUser.username)
+                .then(res => {
+                    if (res) {
+                        if (res.actividades) setListaActividadesOrigen(res.actividades);
+                        if (res.labores) setListaLabores(res.labores);
+                        if (res.encargados) setListaEncargados(res.encargados);
                     }
                 });
-            // Cargar Planes
             refreshPlanes();
         }
     }, [id, token, currentUser]);
 
     const handleOpenModal = () => {
-        setEditingPlanId(null); // Modo crear
+        setEditingPlanId(null);
         setFormData({ actividad: '', accion: '', fecha_inicio: '', fecha_cierre: '', horas: '', responsable: '', costo_unitario: '', monto: '' });
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => setIsModalOpen(false);
 
-    // ⭐️ ABRIR MODAL PARA EDITAR
     const handleEditClick = (plan) => {
         setEditingPlanId(plan.id);
         setFormData({
             actividad: plan.actividad,
             accion: plan.accion,
-            fecha_inicio: plan.fecha_inicio.split('T')[0], // Asegurar formato fecha YYYY-MM-DD
+            fecha_inicio: plan.fecha_inicio.split('T')[0],
             fecha_cierre: plan.fecha_cierre.split('T')[0],
             horas: plan.horas,
             responsable: plan.responsable,
@@ -104,7 +108,6 @@ const PlanDeAccion = () => {
         setIsModalOpen(true);
     };
 
-    // ⭐️ BORRAR PLAN
     const handleDeleteClick = async (planId) => {
         if (window.confirm("¿Seguro que quieres borrar este plan?")) {
             try {
@@ -131,19 +134,12 @@ const PlanDeAccion = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const planData = {
-                proyecto_id: id,
-                ...formData
-            };
-
+            const planData = { proyecto_id: id, ...formData };
             if (editingPlanId) {
-                // ⭐️ MODO ACTUALIZAR
                 await updatePlan(token, { ...planData, id: editingPlanId }, currentUser.username);
             } else {
-                // ⭐️ MODO CREAR
                 await createPlan(token, planData, currentUser.username);
             }
-
             refreshPlanes();
             handleCloseModal();
         } catch (error) {
@@ -162,7 +158,6 @@ const PlanDeAccion = () => {
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            {/* ⭐️ COLUMNA ID */}
                             <th style={styles.th}>ID</th>
                             <th style={styles.th}>Actividad</th>
                             <th style={styles.th}>Acción Específica</th>
@@ -172,14 +167,12 @@ const PlanDeAccion = () => {
                             <th style={styles.th}>Responsable</th>
                             <th style={styles.th}>Costo Unit ($)</th>
                             <th style={styles.th}>Monto Total ($)</th>
-                            {/* ⭐️ COLUMNA ACCIONES */}
                             <th style={styles.th}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {planes.map((plan) => (
                             <tr key={plan.id}>
-                                {/* ⭐️ MUESTRA EL ID */}
                                 <td style={styles.td}>{plan.id}</td>
                                 <td style={styles.td}>{plan.actividad}</td>
                                 <td style={styles.td}>{plan.accion}</td>
@@ -189,31 +182,35 @@ const PlanDeAccion = () => {
                                 <td style={styles.td}>{plan.responsable}</td>
                                 <td style={styles.td}>{plan.costo_unitario}</td>
                                 <td style={{ ...styles.td, fontWeight: 'bold' }}>{plan.monto}</td>
-                                {/* ⭐️ BOTONES EDITAR Y BORRAR */}
                                 <td style={styles.td}>
-                                    <button
-                                        style={{ ...styles.actionButton, ...styles.editButton }}
-                                        onClick={() => handleEditClick(plan)}
-                                    >
-                                        Editar
-                                    </button>
-                                    <button
-                                        style={{ ...styles.actionButton, ...styles.deleteButton }}
-                                        onClick={() => handleDeleteClick(plan.id)}
-                                    >
-                                        Borrar
-                                    </button>
+                                    <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(plan)}>Editar</button>
+                                    <button style={{ ...styles.actionButton, ...styles.deleteButton }} onClick={() => handleDeleteClick(plan.id)}>Borrar</button>
                                 </td>
                             </tr>
                         ))}
                         {planes.length === 0 && (
-                            <tr>
-                                <td colSpan="10" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                                    No hay planes registrados. Añade uno nuevo.
-                                </td>
-                            </tr>
+                            <tr><td colSpan="10" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No hay planes registrados. Añade uno nuevo.</td></tr>
                         )}
                     </tbody>
+
+                    {/* ⭐️ 2. PIE DE TABLA CON EL TOTAL ⭐️ */}
+                    {planes.length > 0 && (
+                        <tfoot>
+                            <tr>
+                                {/* ColSpan 8 abarca desde ID hasta Costo Unitario */}
+                                <td colSpan="8" style={{ ...styles.footerTd, textAlign: 'right' }}>
+                                    TOTAL GENERAL:
+                                </td>
+                                {/* La celda del Monto Total */}
+                                <td style={{ ...styles.footerTd, color: '#2563eb' }}>
+                                    ${totalMonto.toFixed(2)}
+                                </td>
+                                {/* Celda vacía para la columna de acciones */}
+                                <td style={styles.footerTd}></td>
+                            </tr>
+                        </tfoot>
+                    )}
+
                 </table>
             </div>
 
