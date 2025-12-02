@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import Modal from '../components/auth/Modal';
 import { useAuth } from '../context/AuthContext';
 import { getDatosProyecto } from '../services/actividadService';
-// Importamos update y delete
 import { getPlanes, createPlan, updatePlan, deletePlan } from '../services/planService';
 
 const styles = {
@@ -16,7 +15,6 @@ const styles = {
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
 
-    // Estilo para el Total
     footerTd: { padding: '1rem', borderTop: '2px solid #e5e7eb', color: '#111827', fontSize: '1rem', fontWeight: '700', backgroundColor: '#f9fafb' },
 
     actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
@@ -56,8 +54,17 @@ const PlanDeAccion = () => {
         monto: ''
     });
 
-    // ⭐️ 1. CÁLCULO DEL TOTAL GENERAL
-    // Sumamos todos los 'monto' de la lista 'planes'
+    // ⭐️ FUNCIÓN PARA FORMATEAR FECHA (YYYY-MM-DD -> DD-MM-YYYY)
+    const formatearFecha = (fechaISO) => {
+        if (!fechaISO) return '';
+        // Tomamos solo la parte de la fecha antes de la 'T'
+        const soloFecha = fechaISO.split('T')[0];
+        // Dividimos por guiones: [YYYY, MM, DD]
+        const [year, month, day] = soloFecha.split('-');
+        // Retornamos en orden DD-MM-YYYY
+        return `${day}-${month}-${year}`;
+    };
+
     const totalMonto = planes.reduce((acc, plan) => {
         return acc + (parseFloat(plan.monto) || 0);
     }, 0);
@@ -98,6 +105,7 @@ const PlanDeAccion = () => {
         setFormData({
             actividad: plan.actividad,
             accion: plan.accion,
+            // ⚠️ Para el INPUT del formulario, debe seguir siendo YYYY-MM-DD
             fecha_inicio: plan.fecha_inicio.split('T')[0],
             fecha_cierre: plan.fecha_cierre.split('T')[0],
             horas: plan.horas,
@@ -165,8 +173,8 @@ const PlanDeAccion = () => {
                             <th style={styles.th}>Fecha Cierre</th>
                             <th style={styles.th}>Horas</th>
                             <th style={styles.th}>Responsable</th>
-                            <th style={styles.th}>Costo Unit ($)</th>
-                            <th style={styles.th}>Monto Total ($)</th>
+                            <th style={styles.th}>Dinero ($)</th>
+                            <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
                     </thead>
@@ -176,8 +184,9 @@ const PlanDeAccion = () => {
                                 <td style={styles.td}>{plan.id}</td>
                                 <td style={styles.td}>{plan.actividad}</td>
                                 <td style={styles.td}>{plan.accion}</td>
-                                <td style={styles.td}>{plan.fecha_inicio}</td>
-                                <td style={styles.td}>{plan.fecha_cierre}</td>
+                                {/* ⭐️ AQUÍ USAMOS LA FUNCIÓN PARA MOSTRARLA BONITA */}
+                                <td style={styles.td}>{formatearFecha(plan.fecha_inicio)}</td>
+                                <td style={styles.td}>{formatearFecha(plan.fecha_cierre)}</td>
                                 <td style={styles.td}>{plan.horas}</td>
                                 <td style={styles.td}>{plan.responsable}</td>
                                 <td style={styles.td}>{plan.costo_unitario}</td>
@@ -193,19 +202,15 @@ const PlanDeAccion = () => {
                         )}
                     </tbody>
 
-                    {/* ⭐️ 2. PIE DE TABLA CON EL TOTAL ⭐️ */}
                     {planes.length > 0 && (
                         <tfoot>
                             <tr>
-                                {/* ColSpan 8 abarca desde ID hasta Costo Unitario */}
                                 <td colSpan="8" style={{ ...styles.footerTd, textAlign: 'right' }}>
-                                    TOTAL GENERAL:
+                                    Monto Total Invertido ($):
                                 </td>
-                                {/* La celda del Monto Total */}
                                 <td style={{ ...styles.footerTd, color: '#2563eb' }}>
                                     ${totalMonto.toFixed(2)}
                                 </td>
-                                {/* Celda vacía para la columna de acciones */}
                                 <td style={styles.footerTd}></td>
                             </tr>
                         </tfoot>
@@ -269,11 +274,11 @@ const PlanDeAccion = () => {
 
                     <div style={styles.rowGroup}>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Costo Unitario ($)</label>
+                            <label style={styles.label}>Dinero ($)</label>
                             <input type="number" step="0.01" name="costo_unitario" value={formData.costo_unitario} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
                         </div>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Monto Total ($)</label>
+                            <label style={styles.label}>Monto ($)</label>
                             <input type="number" name="monto" value={formData.monto} readOnly style={{ ...styles.input, backgroundColor: '#f3f4f6' }} placeholder="0.00" />
                         </div>
                     </div>
