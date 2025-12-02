@@ -427,3 +427,30 @@ type CreateRecursoRequest struct {
 	Monto         float64 `json:"monto"`
 	AdminUsername string  `json:"admin_username"`
 }
+
+// --- Materiales e Insumos ---
+type MaterialInsumo struct {
+	ID            int     `json:"id"`
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"`    // Viene de Labores
+	Categoria     string  `json:"categoria"` // ⭐️ NUEVO (Herbicida, Fertilizante, etc.)
+	Nombre        string  `json:"nombre"`    // Nombre del producto
+	Unidad        string  `json:"unidad"`    // Lts, Kg, Saco
+	Cantidad      float64 `json:"cantidad"`
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"` // Calculado
+}
+
+type CreateMaterialRequest struct {
+	ProyectoID    int     `json:"proyecto_id"`
+	Actividad     string  `json:"actividad"`
+	Accion        string  `json:"accion"`
+	Categoria     string  `json:"categoria"`
+	Nombre        string  `json:"nombre"`
+	Unidad        string  `json:"unidad"`
+	Cantidad      float64 `json:"cantidad"`
+	CostoUnitario float64 `json:"costo_unitario"`
+	Monto         float64 `json:"monto"`
+	AdminUsername string  `json:"admin_username"`
+}

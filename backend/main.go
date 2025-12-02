@@ -50,7 +50,7 @@ func setupApp() http.Handler {
 	// ⭐️ HANDLER NUEVO: Planes de Acción ⭐️
 	planHandler := apphandlers.NewPlanHandler(authService, loggerService)
 	recursoHandler := apphandlers.NewRecursoHandler(authService, loggerService)
-
+	materialHandler := apphandlers.NewMaterialHandler(authService, loggerService)
 	// 4. REGISTRAR RUTAS
 	mux.HandleFunc("/", apphandlers.SaludoHandler)
 
@@ -113,6 +113,12 @@ func setupApp() http.Handler {
 	mux.HandleFunc("/api/admin/get-recursos", recursoHandler.GetRecursosHandler)
 	mux.HandleFunc("/api/admin/update-recurso", recursoHandler.UpdateRecursoHandler)
 	mux.HandleFunc("/api/admin/delete-recurso", recursoHandler.DeleteRecursoHandler)
+
+	// ⭐️ RUTAS DE MATERIALES E INSUMOS
+	mux.HandleFunc("/api/admin/create-material", materialHandler.CreateMaterialHandler)
+	mux.HandleFunc("/api/admin/get-materiales", materialHandler.GetMaterialesHandler)
+	mux.HandleFunc("/api/admin/update-material", materialHandler.UpdateMaterialHandler)
+	mux.HandleFunc("/api/admin/delete-material", materialHandler.DeleteMaterialHandler)
 
 	// 5. CONFIGURAR MIDDLEWARE CORS
 	corsHandler := handlers.CORS(

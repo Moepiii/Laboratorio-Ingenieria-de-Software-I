@@ -43,6 +43,7 @@ func InitDB(dbPath string) {
 
 	createPlanesTable()
 	createRecursosTable()
+	createMaterialesTable() // <--- AGREGA ESTO
 
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
@@ -240,5 +241,26 @@ func createRecursosTable() {
     `)
 	if err != nil {
 		log.Fatalf("Error al crear tabla recursos_humanos: %v", err)
+	}
+}
+
+func createMaterialesTable() {
+	_, err := DB.Exec(`
+    CREATE TABLE IF NOT EXISTS materiales_insumos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        proyecto_id INTEGER,
+        actividad TEXT,
+        accion TEXT,
+        categoria TEXT,
+        nombre TEXT,
+        unidad TEXT,
+        cantidad REAL,
+        costo_unitario REAL,
+        monto REAL,
+        FOREIGN KEY(proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
+    );
+    `)
+	if err != nil {
+		log.Fatalf("Error al crear tabla materiales_insumos: %v", err)
 	}
 }

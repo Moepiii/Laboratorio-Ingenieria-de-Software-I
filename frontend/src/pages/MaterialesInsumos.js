@@ -1,119 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import Modal from '../components/auth/Modal';
+import { useAuth } from '../context/AuthContext';
+// Servicios
+import { getDatosProyecto } from '../services/actividadService';
+import { getMateriales, createMaterial, updateMaterial, deleteMaterial } from '../services/materialService';
 
-// Estilos
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '2rem' },
     h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 },
     addButton: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#2563eb', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' },
     tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
+    table: { width: '100%', borderCollapse: 'collapse', minWidth: '1000px' },
+    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
     td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
-    actionButton: { padding: '0.4rem 0.8rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.875rem', marginLeft: '0.5rem', color: 'white' },
-    editButton: { backgroundColor: '#f59e0b' },
-    deleteButton: { backgroundColor: '#ef4444' },
-    noResults: { textAlign: 'center', padding: '2rem', color: '#6b7280' },
 
-    // Estilos Formulario
-    form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-    formGroup: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-    rowGroup: { display: 'flex', gap: '1rem' },
-    label: { fontSize: '0.875rem', fontWeight: '500', color: '#374151' },
-    input: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
-    select: { padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', backgroundColor: 'white' },
+    actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
+    editButton: { backgroundColor: '#f59e0b', color: 'white' },
+    deleteButton: { backgroundColor: '#ef4444', color: 'white' },
+
+    formGroup: { marginBottom: '1rem' },
+    label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
+    input: { width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' },
+    select: { width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white' },
+    rowGroup: { display: 'flex', gap: '1rem', marginBottom: '0.5rem' },
     formActions: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' },
-    cancelButton: { padding: '0.6rem 1.2rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', color: '#374151', cursor: 'pointer' },
-    saveButton: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '6px', backgroundColor: '#2563eb', color: 'white', cursor: 'pointer' },
+    cancelButton: { padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '6px', cursor: 'pointer' },
+    saveButton: { padding: '0.5rem 1rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }
 };
 
 const MaterialesInsumos = () => {
-    // ⭐️ MOCK DATA: Datos iniciales
-    const [materiales, setMateriales] = useState([
-        { 
-            id: 1, 
-            actividad: 'Fertilización', 
-            accion: 'Aplicación al voleo', 
-            categoria: 'Fertilizante', 
-            descripcion: 'Urea Granulada 46%', 
-            cantidad: 10, 
-            medida: 'Sacos (50kg)', 
-            costo: 150.00, // Nuevo dato interno
-            responsable: 'Juan Pérez', 
-            monto: 1500.00 
-        },
-        { 
-            id: 2, 
-            actividad: 'Control de Plagas', 
-            accion: 'Fumigación', 
-            categoria: 'Insecticida', 
-            descripcion: 'Cipermetrina', 
-            cantidad: 5, 
-            medida: 'Litros', 
-            costo: 90.10,
-            responsable: 'María Rodríguez', 
-            monto: 450.50 
-        },
-    ]);
+    const { id } = useParams();
+    const { token, currentUser } = useAuth();
 
-    // Estados del Modal
+    const [materiales, setMateriales] = useState([]);
+
+    // Listas para los Selects
+    const [listaActividades, setListaActividades] = useState([]);
+    const [listaLabores, setListaLabores] = useState([]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+
     const [formData, setFormData] = useState({
         actividad: '',
         accion: '',
-        categoria: 'Fertilizante', 
-        descripcion: '',
+        categoria: '',
+        nombre: '',
+        unidad: '',
         cantidad: '',
-        medida: '',
-        costo: '', // ⭐️ Nuevo campo Costo ($)
-        responsable: '',
+        costo_unitario: '',
         monto: ''
     });
 
+    const refreshMateriales = () => {
+        if (id && token && currentUser) {
+            getMateriales(token, id, currentUser.username)
+                .then(res => {
+                    if (res && res.materiales) setMateriales(res.materiales);
+                })
+                .catch(err => console.error("Error cargando materiales:", err));
+        }
+    };
+
+    useEffect(() => {
+        if (id && token && currentUser?.username) {
+            const pid = parseInt(id, 10);
+
+            getDatosProyecto(token, pid, currentUser.username)
+                .then(res => {
+                    if (res) {
+                        if (res.actividades) setListaActividades(res.actividades);
+                        if (res.labores) setListaLabores(res.labores);
+                    }
+                })
+                .catch(err => console.error("Error cargando datos:", err));
+
+            refreshMateriales();
+        }
+    }, [id, token, currentUser]);
+
     const handleOpenModal = () => {
-        setFormData({ 
-            actividad: '', accion: '', categoria: 'Fertilizante', descripcion: '', 
-            cantidad: '', medida: '', costo: '', responsable: '', monto: '' 
-        });
+        setEditingId(null);
+        setFormData({ actividad: '', accion: '', categoria: '', nombre: '', unidad: '', cantidad: '', costo_unitario: '', monto: '' });
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => setIsModalOpen(false);
 
-    // Lógica para inputs y cálculo automático (Cantidad * Costo = Monto)
+    const handleEditClick = (mat) => {
+        setEditingId(mat.id);
+        setFormData({
+            actividad: mat.actividad,
+            accion: mat.accion,
+            categoria: mat.categoria,
+            nombre: mat.nombre,
+            unidad: mat.unidad,
+            cantidad: mat.cantidad,
+            costo_unitario: mat.costo_unitario,
+            monto: mat.monto
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleDeleteClick = async (matId) => {
+        if (window.confirm("¿Borrar este material?")) {
+            try {
+                await deleteMaterial(token, matId, currentUser.username);
+                refreshMateriales();
+            } catch (e) { alert(e.message); }
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         let newData = { ...formData, [name]: value };
 
-        if (name === 'cantidad' || name === 'costo') {
-            const cant = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
-            const cost = parseFloat(name === 'costo' ? value : formData.costo) || 0;
-            
-            if (cant > 0 && cost > 0) {
-                newData.monto = (cant * cost).toFixed(2);
-            }
+        // ⭐️ FÓRMULA: Monto = Cantidad * Costo
+        if (name === 'cantidad' || name === 'costo_unitario') {
+            const c = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
+            const p = parseFloat(name === 'costo_unitario' ? value : formData.costo_unitario) || 0;
+            newData.monto = (c * p).toFixed(2);
         }
 
         setFormData(newData);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const nuevoMaterial = {
-            id: Date.now(),
-            ...formData,
-            cantidad: parseFloat(formData.cantidad) || 0,
-            costo: parseFloat(formData.costo) || 0,
-            monto: parseFloat(formData.monto) || 0
-        };
-        setMateriales([...materiales, nuevoMaterial]);
-        handleCloseModal();
-    };
-
-    const handleDeleteClick = (id) => {
-        if (window.confirm("¿Estás seguro de eliminar este material?")) {
-            setMateriales(materiales.filter(m => m.id !== id));
+        try {
+            const dataToSend = { proyecto_id: id, ...formData };
+            if (editingId) {
+                await updateMaterial(token, { ...dataToSend, id: editingId }, currentUser.username);
+            } else {
+                await createMaterial(token, dataToSend, currentUser.username);
+            }
+            refreshMateriales();
+            handleCloseModal();
+        } catch (e) {
+            alert("Error al guardar: " + e.message);
         }
     };
 
@@ -121,12 +147,9 @@ const MaterialesInsumos = () => {
         <div style={styles.container}>
             <div style={styles.header}>
                 <h2 style={styles.h2}>Materiales e Insumos</h2>
-                <button style={styles.addButton} onClick={handleOpenModal}>
-                    <span>+</span> Añadir
-                </button>
+                <button style={styles.addButton} onClick={handleOpenModal}>+ Añadir</button>
             </div>
 
-            {/* Tabla con las columnas solicitadas */}
             <div style={styles.tableContainer}>
                 <table style={styles.table}>
                     <thead>
@@ -135,99 +158,101 @@ const MaterialesInsumos = () => {
                             <th style={styles.th}>Actividad</th>
                             <th style={styles.th}>Acción</th>
                             <th style={styles.th}>Categoría</th>
-                            <th style={styles.th}>Descripción</th>
-                            <th style={styles.th}>Cantidad</th>
-                            <th style={styles.th}>Medida</th>
-                            <th style={styles.th}>Responsable</th>
-                            <th style={styles.th}>Monto ($)</th>
+                            <th style={styles.th}>Nombre</th>
+                            <th style={styles.th}>Unidad</th>
+                            <th style={styles.th}>Cant.</th>
+                            <th style={styles.th}>Costo Unit</th>
+                            <th style={styles.th}>Total ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {materiales.length > 0 ? (
-                            materiales.map((mat) => (
-                                <tr key={mat.id}>
-                                    <td style={styles.td}>{mat.id}</td>
-                                    <td style={styles.td}>{mat.actividad}</td>
-                                    <td style={styles.td}>{mat.accion}</td>
-                                    <td style={styles.td}>{mat.categoria}</td>
-                                    <td style={styles.td}>{mat.descripcion}</td>
-                                    <td style={styles.td}>{mat.cantidad}</td>
-                                    <td style={styles.td}>{mat.medida}</td>
-                                    <td style={styles.td}>{mat.responsable}</td>
-                                    <td style={styles.td}>${mat.monto.toFixed(2)}</td>
-                                    <td style={styles.td}>
-                                        <button style={{...styles.actionButton, ...styles.editButton}} onClick={() => alert("Editar ID: " + mat.id)}>Editar</button>
-                                        <button style={{...styles.actionButton, ...styles.deleteButton}} onClick={() => handleDeleteClick(mat.id)}>Borrar</button>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr><td colSpan="10" style={styles.noResults}>No hay materiales registrados.</td></tr>
+                        {materiales.map((mat) => (
+                            <tr key={mat.id}>
+                                <td style={styles.td}>{mat.id}</td>
+                                <td style={styles.td}>{mat.actividad}</td>
+                                <td style={styles.td}>{mat.accion}</td>
+                                <td style={styles.td}>{mat.categoria}</td>
+                                <td style={styles.td}>{mat.nombre}</td>
+                                <td style={styles.td}>{mat.unidad}</td>
+                                <td style={styles.td}>{mat.cantidad}</td>
+                                <td style={styles.td}>{mat.costo_unitario}</td>
+                                <td style={{ ...styles.td, fontWeight: 'bold' }}>{mat.monto}</td>
+                                <td style={styles.td}>
+                                    <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(mat)}>Editar</button>
+                                    <button style={{ ...styles.actionButton, ...styles.deleteButton }} onClick={() => handleDeleteClick(mat.id)}>Borrar</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {materiales.length === 0 && (
+                            <tr><td colSpan="10" style={{ padding: '2rem', textAlign: 'center' }}>No hay materiales registrados.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Modal */}
-            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Añadir Material / Insumo">
-                <form onSubmit={handleSubmit} style={styles.form}>
-                    
+            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingId ? "Editar Material" : "Nuevo Material / Insumo"}>
+                <form onSubmit={handleSubmit}>
+
+                    {/* SELECTOR ACTIVIDAD */}
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Actividad</label>
-                        <input name="actividad" value={formData.actividad} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Fertilización" />
+                        <label style={styles.label}>Actividad (Del Proyecto)</label>
+                        <select name="actividad" value={formData.actividad} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Actividad --</option>
+                            {listaActividades.map(a => (
+                                <option key={a.id} value={a.actividad}>{a.actividad}</option>
+                            ))}
+                        </select>
                     </div>
 
+                    {/* SELECTOR ACCIÓN (LABOR) */}
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Acción</label>
-                        <input name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Aplicación manual" />
+                        <label style={styles.label}>Acción (Labor Agronómica)</label>
+                        <select name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Labor --</option>
+                            {listaLabores.map(l => (
+                                <option key={l.id} value={l.descripcion}>{l.descripcion}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* ⭐️ SELECTOR CATEGORÍA (SOLO LAS 4 OPCIONES) ⭐️ */}
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>Categoría</label>
+                        <select name="categoria" value={formData.categoria} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Categoría --</option>
+                            <option value="Ninguno">Ninguno</option>
+                            <option value="Materiales">Materiales</option>
+                            <option value="Insumos">Insumos</option>
+                            <option value="Equipos">Equipos</option>
+                        </select>
                     </div>
 
                     <div style={styles.rowGroup}>
-                        <div style={{...styles.formGroup, flex: 1}}>
-                            <label style={styles.label}>Categoría</label>
-                            <select name="categoria" value={formData.categoria} onChange={handleInputChange} style={styles.select}>
-                                <option value="Fertilizante">Fertilizante</option>
-                                <option value="Herbicida">Herbicida</option>
-                                <option value="Fungicida">Fungicida</option>
-                                <option value="Semilla">Semilla</option>
-                                <option value="Herramienta">Herramienta</option>
-                                <option value="Combustible">Combustible</option>
-                                <option value="Otro">Otro</option>
-                            </select>
+                        <div style={{ ...styles.formGroup, flex: 2 }}>
+                            <label style={styles.label}>Nombre del Producto</label>
+                            <input name="nombre" value={formData.nombre} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Urea, Glifosato" />
                         </div>
-                        <div style={{...styles.formGroup, flex: 1}}>
-                            <label style={styles.label}>Descripción</label>
-                            <input name="descripcion" value={formData.descripcion} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Urea 46%" />
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
+                            <label style={styles.label}>Unidad</label>
+                            <input name="unidad" value={formData.unidad} onChange={handleInputChange} required style={styles.input} placeholder="Kg, Lts" />
                         </div>
                     </div>
 
                     <div style={styles.rowGroup}>
-                        <div style={{...styles.formGroup, flex: 1}}>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
                             <label style={styles.label}>Cantidad</label>
-                            <input type="number" step="0.01" name="cantidad" value={formData.cantidad} onChange={handleInputChange} required style={styles.input} placeholder="0" />
+                            <input type="number" name="cantidad" value={formData.cantidad} onChange={handleInputChange} required style={styles.input} placeholder="0" />
                         </div>
-                        <div style={{...styles.formGroup, flex: 1}}>
-                            <label style={styles.label}>Medida</label>
-                            <input name="medida" value={formData.medida} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Kg, Lt" />
-                        </div>
-                    </div>
-
-                    {/* Fila de Costo y Responsable */}
-                    <div style={styles.rowGroup}>
-                        <div style={{...styles.formGroup, flex: 1}}>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
                             <label style={styles.label}>Costo Unitario ($)</label>
-                            <input type="number" step="0.01" name="costo" value={formData.costo} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
-                        </div>
-                        <div style={{...styles.formGroup, flex: 1}}>
-                            <label style={styles.label}>Responsable</label>
-                            <input name="responsable" value={formData.responsable} onChange={handleInputChange} required style={styles.input} placeholder="Nombre" />
+                            <input type="number" step="0.01" name="costo_unitario" value={formData.costo_unitario} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
                         </div>
                     </div>
 
                     <div style={styles.formGroup}>
                         <label style={styles.label}>Monto Total ($)</label>
-                        <input type="number" step="0.01" name="monto" value={formData.monto} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
+                        <input type="number" name="monto" value={formData.monto} readOnly style={{ ...styles.input, backgroundColor: '#f3f4f6' }} />
                     </div>
 
                     <div style={styles.formActions}>
