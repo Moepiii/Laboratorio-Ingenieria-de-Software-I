@@ -1,162 +1,313 @@
-/* eslint-disable no-undef */
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import Modal from '../components/auth/Modal';
+import { useAuth } from '../context/AuthContext';
+// Servicios
+import { getDatosProyecto } from '../services/actividadService';
+import { getMateriales, createMaterial, updateMaterial, deleteMaterial } from '../services/materialService';
 
-describe('Módulo: Recurso Humano', () => {
+const styles = {
+    container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '2rem' },
+    h2: { fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 },
+    addButton: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#2563eb', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' },
+    tableContainer: { overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
+    table: { width: '100%', borderCollapse: 'collapse', minWidth: '1000px' },
+    th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem', whiteSpace: 'nowrap' },
+    td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', color: '#4b5563', fontSize: '0.875rem' },
 
-    // 1. Datos simulados para la TABLA
-    // Total esperado: 500 + 300 = 800
-    const mockRecursos = [
-        {
-            id: 1,
-            actividad: 'Cosecha',
-            accion: 'Manual',
-            nombre: 'Juan Perez',
-            cedula: '12345',
-            tiempo: 8,
-            cantidad: 5,
-            costo_unitario: 12.5,
-            monto: 500
-        },
-        {
-            id: 2,
-            actividad: 'Riego',
-            accion: 'Supervisión',
-            nombre: 'Maria Lopez',
-            cedula: '67890',
-            tiempo: 4,
-            cantidad: 1,
-            costo_unitario: 75,
-            monto: 300
-        },
-    ];
+    // Estilo para el pie de tabla (Total)
+    footerTd: { padding: '1rem', borderTop: '2px solid #e5e7eb', color: '#111827', fontSize: '1rem', fontWeight: '700', backgroundColor: '#f9fafb' },
 
-    // 2. Datos para los Selects (Configuración)
-    const mockConfig = {
-        actividades: [{ id: 1, actividad: 'Cosecha' }, { id: 2, actividad: 'Riego' }],
-        labores: [{ id: 1, descripcion: 'Manual' }, { id: 2, descripcion: 'Supervisión' }],
-        encargados: [{ id: 1, nombre: 'Juan', apellido: 'Perez', cedula: '12345' }, { id: 2, nombre: 'Maria', apellido: 'Lopez', cedula: '67890' }]
+    actionButton: { padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', marginLeft: '0.5rem' },
+    editButton: { backgroundColor: '#f59e0b', color: 'white' },
+    deleteButton: { backgroundColor: '#ef4444', color: 'white' },
+
+    formGroup: { marginBottom: '1rem' },
+    label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
+    input: { width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' },
+    select: { width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', backgroundColor: 'white' },
+    rowGroup: { display: 'flex', gap: '1rem', marginBottom: '0.5rem' },
+    formActions: { display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' },
+    cancelButton: { padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '6px', cursor: 'pointer' },
+    saveButton: { padding: '0.5rem 1rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }
+};
+
+const MaterialesInsumos = () => {
+    const { id } = useParams();
+    const { token, currentUser } = useAuth();
+
+    const [materiales, setMateriales] = useState([]);
+
+    // Listas para los Selects
+    const [listaActividades, setListaActividades] = useState([]);
+    const [listaLabores, setListaLabores] = useState([]);
+    // ⭐️ 1. Agregamos lista de Encargados
+    const [listaEncargados, setListaEncargados] = useState([]);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+
+    const [formData, setFormData] = useState({
+        actividad: '',
+        accion: '',
+        categoria: '',
+        nombre: '',
+        responsable: '',   // ⭐️ 2. Nuevo campo en el estado
+        unidad: '',
+        cantidad: '',
+        costo_unitario: '',
+        monto: ''
+    });
+
+    // Cálculo del Total
+    const totalMonto = materiales.reduce((acc, mat) => {
+        return acc + (parseFloat(mat.monto) || 0);
+    }, 0);
+
+    const refreshMateriales = () => {
+        if (id && token && currentUser) {
+            getMateriales(token, id, currentUser.username)
+                .then(res => {
+                    if (res && res.materiales) setMateriales(res.materiales);
+                })
+                .catch(err => console.error("Error cargando materiales:", err));
+        }
     };
 
-    beforeEach(() => {
-        // Interceptores
-        cy.intercept('POST', '**/api/admin/get-recursos', { body: { recursos: mockRecursos } }).as('getRecursos');
-        cy.intercept('POST', '**/api/admin/get-datos-proyecto', { body: mockConfig }).as('getConfig');
-        cy.intercept('POST', '**/api/auth/login').as('loginRequest');
+    useEffect(() => {
+        if (id && token && currentUser?.username) {
+            const pid = parseInt(id, 10);
 
-        // Login
-        cy.visit('/login');
-        cy.get('input[type="text"]').first().type('admin', { force: true });
-        cy.get('input[type="password"]').first().type('admin123', { force: true });
-        cy.get('button[type="submit"]').first().click({ force: true });
+            getDatosProyecto(token, pid, currentUser.username)
+                .then(res => {
+                    if (res) {
+                        if (res.actividades) setListaActividades(res.actividades);
+                        if (res.labores) setListaLabores(res.labores);
+                        // ⭐️ 3. Guardamos los encargados
+                        if (res.encargados) setListaEncargados(res.encargados);
+                    }
+                })
+                .catch(err => console.error("Error cargando datos:", err));
 
-        // Esperar login
-        cy.wait('@loginRequest').its('response.statusCode').should('eq', 200);
-        cy.url({ timeout: 10000 }).should('include', '/admin');
+            refreshMateriales();
+        }
+    }, [id, token, currentUser]);
 
-        // Navegar a la ruta de Recursos Humanos (Proyecto ID 15 simulado)
-        cy.visit('/admin/planes-accion/proyecto/15/recursos');
+    const handleOpenModal = () => {
+        setEditingId(null);
+        setFormData({ actividad: '', accion: '', categoria: '', nombre: '', responsable: '', unidad: '', cantidad: '', costo_unitario: '', monto: '' });
+        setIsModalOpen(true);
+    };
 
-        // Esperar cargas
-        cy.wait('@getConfig');
-        cy.wait('@getRecursos');
-    });
+    const handleCloseModal = () => setIsModalOpen(false);
 
-    // --- PRUEBA 1: Verificar Tabla y Total ---
-    it('1. Muestra la tabla y verifica la suma total del Talento Humano', () => {
-        // Verificar filas
-        cy.get('table tbody tr').should('have.length', 2);
-
-        // Verificar datos visuales
-        cy.get('table tbody tr').first().should('contain', 'Cosecha');
-        cy.get('table tbody tr').first().should('contain', 'Juan Perez');
-
-        // ⭐️ VERIFICAR TOTAL EN EL PIE DE PÁGINA (500 + 300 = 800)
-        // Buscamos la celda que contiene "800.00"
-        cy.contains('td', '800.00').should('be.visible');
-
-        // Verificar etiqueta del total
-        cy.contains('Monto Total Talento Humano ($):').should('be.visible');
-    });
-
-    // --- PRUEBA 2: Verificar la FÓRMULA ---
-    it('2. Calcula automáticamente el Monto con la fórmula (Tiempo/Cant * Costo * Cant)', () => {
-        cy.contains('button', '+ Añadir').click();
-
-        // 1. Llenar Tiempo = 10
-        cy.contains('label', 'Tiempo (Días/Horas)').parent().find('input').type('10');
-
-        // 2. Llenar Cantidad = 2
-        cy.contains('label', 'Cantidad (Personas)').parent().find('input').type('2');
-
-        // 3. Llenar Costo ($) = 50
-        // Cálculo esperado: (10 / 2) * 50 * 2 
-        // Paso 1: 5 * 50 = 250
-        // Paso 2: 250 * 2 = 500
-        cy.contains('label', 'Costo ($)').parent().find('input').type('50');
-
-        // 4. Verificar Monto
-        cy.contains('label', 'Monto ($)').parent().find('input')
-            .should('have.value', '500.00');
-    });
-
-    // --- PRUEBA 3: Crear Nuevo Recurso ---
-    it('3. Crea un nuevo recurso humano exitosamente', () => {
-        cy.intercept('POST', '**/api/admin/create-recurso', {
-            statusCode: 201,
-            body: { mensaje: "Recurso creado" }
-        }).as('createRecurso');
-
-        // Simular que la tabla crece
-        const nuevoRecurso = { ...mockRecursos[0], id: 3, actividad: 'Riego', monto: 100 };
-        cy.intercept('POST', '**/api/admin/get-recursos', {
-            body: { recursos: [...mockRecursos, nuevoRecurso] }
-        }).as('getRecursosUpdate');
-
-        cy.contains('button', '+ Añadir').click();
-
-        // Llenar formulario
-        cy.contains('label', 'Actividad').next('select').select('Riego');
-        cy.contains('label', 'Acción').next('select').select('Supervisión');
-
-        // Seleccionar responsable (debe autocompletar la cédula, aunque esté oculta)
-        cy.contains('label', 'Responsable').next('select').select('Maria Lopez');
-
-        // Llenar números
-        cy.contains('label', 'Tiempo').parent().find('input').type('5');
-        cy.contains('label', 'Cantidad').parent().find('input').type('1');
-        cy.contains('label', 'Costo ($)').parent().find('input').type('100');
-
-        // Guardar
-        cy.contains('button', 'Guardar').click();
-
-        // Validar envío al backend
-        cy.wait('@createRecurso').then((interception) => {
-            const body = interception.request.body;
-            expect(body.tiempo).to.eq(5);
-            expect(body.cantidad).to.eq(1);
-            expect(body.costo_unitario).to.eq(100);
-            expect(body.monto).to.eq(500); // (5/1)*100*1 = 500
+    const handleEditClick = (mat) => {
+        setEditingId(mat.id);
+        setFormData({
+            actividad: mat.actividad,
+            accion: mat.accion,
+            categoria: mat.categoria,
+            nombre: mat.nombre,
+            responsable: mat.responsable, // ⭐️ 4. Cargar responsable al editar
+            unidad: mat.unidad,
+            cantidad: mat.cantidad,
+            costo_unitario: mat.costo_unitario,
+            monto: mat.monto
         });
+        setIsModalOpen(true);
+    };
 
-        // Validar tabla actualizada
-        cy.wait('@getRecursosUpdate');
-        cy.get('table tbody tr').should('have.length', 3);
-    });
+    const handleDeleteClick = async (matId) => {
+        if (window.confirm("¿Borrar este material?")) {
+            try {
+                await deleteMaterial(token, matId, currentUser.username);
+                refreshMateriales();
+            } catch (e) { alert(e.message); }
+        }
+    };
 
-    // --- PRUEBA 4: Eliminar Recurso ---
-    it('4. Elimina un recurso existente', () => {
-        cy.intercept('POST', '**/api/admin/delete-recurso', { body: { mensaje: "OK" } }).as('deleteRecurso');
-        // Simulamos que queda solo 1
-        cy.intercept('POST', '**/api/admin/get-recursos', { body: { recursos: [mockRecursos[0]] } }).as('getRecursosDelete');
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        let newData = { ...formData, [name]: value };
 
-        // Clic en Borrar (segunda fila)
-        cy.get('table tbody tr').eq(1).contains('button', 'Borrar').click();
+        // Fórmula: Monto = Cantidad * Costo
+        if (name === 'cantidad' || name === 'costo_unitario') {
+            const c = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
+            const p = parseFloat(name === 'costo_unitario' ? value : formData.costo_unitario) || 0;
+            newData.monto = (c * p).toFixed(2);
+        }
 
-        // (Cypress acepta confirm automáticamente)
+        setFormData(newData);
+    };
 
-        cy.wait('@deleteRecurso');
-        cy.wait('@getRecursosDelete');
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const dataToSend = { proyecto_id: id, ...formData };
+            if (editingId) {
+                await updateMaterial(token, { ...dataToSend, id: editingId }, currentUser.username);
+            } else {
+                await createMaterial(token, dataToSend, currentUser.username);
+            }
+            refreshMateriales();
+            handleCloseModal();
+        } catch (e) {
+            alert("Error al guardar: " + e.message);
+        }
+    };
 
-        cy.get('table tbody tr').should('have.length', 1);
-    });
+    return (
+        <div style={styles.container}>
+            <div style={styles.header}>
+                <h2 style={styles.h2}>Materiales e Insumos</h2>
+                <button style={styles.addButton} onClick={handleOpenModal}>+ Añadir</button>
+            </div>
 
-});
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                    <thead>
+                        <tr>
+                            <th style={styles.th}>ID</th>
+                            <th style={styles.th}>Actividad</th>
+                            <th style={styles.th}>Acción</th>
+                            <th style={styles.th}>Categoría</th>
+                            <th style={styles.th}>Nombre</th>
+                            {/* ⭐️ 5. Nueva Columna Responsable */}
+                            <th style={styles.th}>Responsable</th>
+                            <th style={styles.th}>Unidad</th>
+                            <th style={styles.th}>Cant.</th>
+                            <th style={styles.th}>Costo ($)</th>
+                            <th style={styles.th}>Monto ($)</th>
+                            <th style={styles.th}>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {materiales.map((mat) => (
+                            <tr key={mat.id}>
+                                <td style={styles.td}>{mat.id}</td>
+                                <td style={styles.td}>{mat.actividad}</td>
+                                <td style={styles.td}>{mat.accion}</td>
+                                <td style={styles.td}>{mat.categoria}</td>
+                                <td style={styles.td}>{mat.nombre}</td>
+                                {/* ⭐️ Nueva Celda Responsable */}
+                                <td style={styles.td}>{mat.responsable}</td>
+                                <td style={styles.td}>{mat.unidad}</td>
+                                <td style={styles.td}>{mat.cantidad}</td>
+                                <td style={styles.td}>{mat.costo_unitario}</td>
+                                <td style={{ ...styles.td, fontWeight: 'bold' }}>{mat.monto}</td>
+                                <td style={styles.td}>
+                                    <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(mat)}>Editar</button>
+                                    <button style={{ ...styles.actionButton, ...styles.deleteButton }} onClick={() => handleDeleteClick(mat.id)}>Borrar</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {materiales.length === 0 && (
+                            <tr><td colSpan="11" style={{ padding: '2rem', textAlign: 'center' }}>No hay materiales registrados.</td></tr>
+                        )}
+                    </tbody>
+
+                    {/* PIE DE TABLA CON TOTAL */}
+                    {materiales.length > 0 && (
+                        <tfoot>
+                            <tr>
+                                {/* Ajustado colSpan a 9 para alinearse con Monto */}
+                                <td colSpan="9" style={{ ...styles.footerTd, textAlign: 'right' }}>
+                                    Monto Total Materiales e Insumos ($):
+                                </td>
+                                <td style={{ ...styles.footerTd, color: '#2563eb' }}>
+                                    ${totalMonto.toFixed(2)}
+                                </td>
+                                <td style={styles.footerTd}></td>
+                            </tr>
+                        </tfoot>
+                    )}
+                </table>
+            </div>
+
+            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingId ? "Editar Material" : "Nuevo Material / Insumo"}>
+                <form onSubmit={handleSubmit}>
+
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>Actividad</label>
+                        <select name="actividad" value={formData.actividad} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Actividad --</option>
+                            {listaActividades.map(a => (
+                                <option key={a.id} value={a.actividad}>{a.actividad}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>Acción</label>
+                        <select name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Labor --</option>
+                            {listaLabores.map(l => (
+                                <option key={l.id} value={l.descripcion}>{l.descripcion}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>Categoría</label>
+                        <select name="categoria" value={formData.categoria} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Categoría --</option>
+                            <option value="Ninguno">Ninguno</option>
+                            <option value="Materiales">Materiales</option>
+                            <option value="Insumos">Insumos</option>
+                            <option value="Equipos">Equipos</option>
+                        </select>
+                    </div>
+
+                    <div style={styles.rowGroup}>
+                        <div style={{ ...styles.formGroup, flex: 2 }}>
+                            <label style={styles.label}>Nombre del Producto</label>
+                            <input name="nombre" value={formData.nombre} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Urea, Glifosato" />
+                        </div>
+                        {/* ⭐️ 6. Campo Responsable en el Formulario */}
+                        <div style={{ ...styles.formGroup, flex: 2 }}>
+                            <label style={styles.label}>Responsable</label>
+                            <select name="responsable" value={formData.responsable} onChange={handleInputChange} required style={styles.select}>
+                                <option value="">-- Seleccione --</option>
+                                {listaEncargados.map((user) => (
+                                    <option key={user.id} value={`${user.nombre} ${user.apellido}`}>
+                                        {user.nombre} {user.apellido}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style={styles.rowGroup}>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
+                            <label style={styles.label}>Unidad</label>
+                            <input name="unidad" value={formData.unidad} onChange={handleInputChange} required style={styles.input} placeholder="Kg, Lts" />
+                        </div>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
+                            <label style={styles.label}>Cantidad</label>
+                            <input type="number" name="cantidad" value={formData.cantidad} onChange={handleInputChange} required style={styles.input} placeholder="0" />
+                        </div>
+                    </div>
+
+                    <div style={styles.rowGroup}>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
+                            <label style={styles.label}>Costo ($)</label>
+                            <input type="number" step="0.01" name="costo_unitario" value={formData.costo_unitario} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
+                        </div>
+                        <div style={{ ...styles.formGroup, flex: 1 }}>
+                            <label style={styles.label}>Monto ($)</label>
+                            <input type="number" name="monto" value={formData.monto} readOnly style={{ ...styles.input, backgroundColor: '#f3f4f6' }} />
+                        </div>
+                    </div>
+
+                    <div style={styles.formActions}>
+                        <button type="button" onClick={handleCloseModal} style={styles.cancelButton}>Cancelar</button>
+                        <button type="submit" style={styles.saveButton}>Guardar</button>
+                    </div>
+                </form>
+            </Modal>
+        </div>
+    );
+};
+
+export default MaterialesInsumos;

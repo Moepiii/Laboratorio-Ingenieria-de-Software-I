@@ -39,6 +39,8 @@ const MaterialesInsumos = () => {
     // Listas para los Selects
     const [listaActividades, setListaActividades] = useState([]);
     const [listaLabores, setListaLabores] = useState([]);
+    // Lista de Responsables
+    const [listaResponsables, setListaResponsables] = useState([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -47,6 +49,7 @@ const MaterialesInsumos = () => {
         actividad: '',
         accion: '',
         categoria: '',
+        responsable: '',
         nombre: '',
         unidad: '',
         cantidad: '',
@@ -67,7 +70,6 @@ const MaterialesInsumos = () => {
     const totalGeneral = useMemo(() => {
         if (!materiales) return 0;
         return materiales.reduce((acc, item) => {
-            // Aseguramos que sea número (el backend envía float, pero prevenimos errores)
             return acc + (parseFloat(item.monto) || 0);
         }, 0);
     }, [materiales]);
@@ -81,6 +83,8 @@ const MaterialesInsumos = () => {
                     if (res) {
                         if (res.actividades) setListaActividades(res.actividades);
                         if (res.labores) setListaLabores(res.labores);
+                        // Cargar Encargados como Responsables
+                        if (res.encargados) setListaResponsables(res.encargados);
                     }
                 })
                 .catch(err => console.error("Error cargando datos:", err));
@@ -91,7 +95,8 @@ const MaterialesInsumos = () => {
 
     const handleOpenModal = () => {
         setEditingId(null);
-        setFormData({ actividad: '', accion: '', categoria: '', nombre: '', unidad: '', cantidad: '', costo_unitario: '', monto: '' });
+        // Reseteamos el formulario incluyendo responsable
+        setFormData({ actividad: '', accion: '', categoria: '', responsable: '', nombre: '', unidad: '', cantidad: '', costo_unitario: '', monto: '' });
         setIsModalOpen(true);
     };
 
@@ -103,6 +108,7 @@ const MaterialesInsumos = () => {
             actividad: mat.actividad,
             accion: mat.accion,
             categoria: mat.categoria,
+            responsable: mat.responsable || '',
             nombre: mat.nombre,
             unidad: mat.unidad,
             cantidad: mat.cantidad,
@@ -125,7 +131,7 @@ const MaterialesInsumos = () => {
         const { name, value } = e.target;
         let newData = { ...formData, [name]: value };
 
-        // ⭐️ FÓRMULA: Monto = Cantidad * Costo
+        // FÓRMULA: Monto = Cantidad * Costo
         if (name === 'cantidad' || name === 'costo_unitario') {
             const c = parseFloat(name === 'cantidad' ? value : formData.cantidad) || 0;
             const p = parseFloat(name === 'costo_unitario' ? value : formData.costo_unitario) || 0;
@@ -138,15 +144,25 @@ const MaterialesInsumos = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const dataToSend = { proyecto_id: id, ...formData };
+            // CORRECCIÓN CRÍTICA: Convertir tipos antes de enviar
+            // Esto evita el Error 400 en Go
+            const payload = {
+                ...formData,
+                proyecto_id: parseInt(id), // ID del proyecto como entero
+                cantidad: parseFloat(formData.cantidad) || 0,
+                costo_unitario: parseFloat(formData.costo_unitario) || 0,
+                monto: parseFloat(formData.monto) || 0
+            };
+
             if (editingId) {
-                await updateMaterial(token, { ...dataToSend, id: editingId }, currentUser.username);
+                await updateMaterial(token, { ...payload, id: editingId }, currentUser.username);
             } else {
-                await createMaterial(token, dataToSend, currentUser.username);
+                await createMaterial(token, payload, currentUser.username);
             }
             refreshMateriales();
             handleCloseModal();
         } catch (e) {
+            console.error(e);
             alert("Error al guardar: " + e.message);
         }
     };
@@ -166,11 +182,11 @@ const MaterialesInsumos = () => {
                             <th style={styles.th}>Actividad</th>
                             <th style={styles.th}>Acción</th>
                             <th style={styles.th}>Categoría</th>
-                            <th style={styles.th}>Nombre</th>
-                            <th style={styles.th}>Unidad</th>
-                            <th style={styles.th}>Cant.</th>
-                            <th style={styles.th}>Costo Unit</th>
-                            <th style={styles.th}>Total ($)</th>
+                            <th style={styles.th}>Responsable</th>
+                            <th style={styles.th}>Descripción</th>
+                            <th style={styles.th}>Medida</th>
+                            <th style={styles.th}>Cantidad</th>
+                            <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
                     </thead>
@@ -181,10 +197,10 @@ const MaterialesInsumos = () => {
                                 <td style={styles.td}>{mat.actividad}</td>
                                 <td style={styles.td}>{mat.accion}</td>
                                 <td style={styles.td}>{mat.categoria}</td>
+                                <td style={styles.td}>{mat.responsable}</td>
                                 <td style={styles.td}>{mat.nombre}</td>
                                 <td style={styles.td}>{mat.unidad}</td>
                                 <td style={styles.td}>{mat.cantidad}</td>
-                                <td style={styles.td}>{mat.costo_unitario}</td>
                                 <td style={{ ...styles.td, fontWeight: 'bold' }}>{mat.monto}</td>
                                 <td style={styles.td}>
                                     <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(mat)}>Editar</button>
@@ -198,15 +214,12 @@ const MaterialesInsumos = () => {
                     </tbody>
                     <tfoot>
                         <tr style={{ backgroundColor: '#f3f4f6', borderTop: '2px solid #e5e7eb' }}>
-                            {/* Combinamos las primeras 7 columnas para poner el texto */}
-                            <td colSpan={7} style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                TOTAL GENERAL:
+                            <td colSpan={8} style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                Monto Total Materiales e Insumos ($):
                             </td>
-                            {/* Columna del Monto Total */}
                             <td style={{ ...styles.td, fontWeight: 'bold', fontSize: '1.1rem', color: '#2563eb' }}>
                                 ${totalGeneral.toFixed(2)}
                             </td>
-                            {/* Columna vacía para alinear con "Acciones" */}
                             <td></td>
                         </tr>
                     </tfoot>
@@ -238,7 +251,7 @@ const MaterialesInsumos = () => {
                         </select>
                     </div>
 
-                    {/* ⭐️ SELECTOR CATEGORÍA (SOLO LAS 4 OPCIONES) ⭐️ */}
+                    {/* SELECTOR CATEGORÍA */}
                     <div style={styles.formGroup}>
                         <label style={styles.label}>Categoría</label>
                         <select name="categoria" value={formData.categoria} onChange={handleInputChange} required style={styles.select}>
@@ -250,13 +263,24 @@ const MaterialesInsumos = () => {
                         </select>
                     </div>
 
+                    {/* SELECTOR RESPONSABLE */}
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>Responsable (Asignado)</label>
+                        <select name="responsable" value={formData.responsable} onChange={handleInputChange} required style={styles.select}>
+                            <option value="">-- Seleccione Responsable --</option>
+                            {listaResponsables.map((r, index) => (
+                                <option key={index} value={r.nombre}>{r.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div style={styles.rowGroup}>
                         <div style={{ ...styles.formGroup, flex: 2 }}>
-                            <label style={styles.label}>Nombre del Producto</label>
+                            <label style={styles.label}>Descripción</label>
                             <input name="nombre" value={formData.nombre} onChange={handleInputChange} required style={styles.input} placeholder="Ej. Urea, Glifosato" />
                         </div>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Unidad</label>
+                            <label style={styles.label}>Medida</label>
                             <input name="unidad" value={formData.unidad} onChange={handleInputChange} required style={styles.input} placeholder="Kg, Lts" />
                         </div>
                     </div>
@@ -267,13 +291,13 @@ const MaterialesInsumos = () => {
                             <input type="number" name="cantidad" value={formData.cantidad} onChange={handleInputChange} required style={styles.input} placeholder="0" />
                         </div>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            <label style={styles.label}>Costo Unitario ($)</label>
+                            <label style={styles.label}>Costo ($)</label>
                             <input type="number" step="0.01" name="costo_unitario" value={formData.costo_unitario} onChange={handleInputChange} required style={styles.input} placeholder="0.00" />
                         </div>
                     </div>
 
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Monto Total ($)</label>
+                        <label style={styles.label}>Monto ($)</label>
                         <input type="number" name="monto" value={formData.monto} readOnly style={{ ...styles.input, backgroundColor: '#f3f4f6' }} />
                     </div>
 

@@ -27,8 +27,8 @@ func (h *MaterialHandler) CreateMaterialHandler(w http.ResponseWriter, r *http.R
 	}
 
 	stmt, err := database.DB.Prepare(`
-		INSERT INTO materiales_insumos (proyecto_id, actividad, accion, categoria, nombre, unidad, cantidad, costo_unitario, monto)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO materiales_insumos (proyecto_id, actividad, accion, categoria, responsable, nombre, unidad, cantidad, costo_unitario, monto)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -36,68 +36,67 @@ func (h *MaterialHandler) CreateMaterialHandler(w http.ResponseWriter, r *http.R
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(req.ProyectoID, req.Actividad, req.Accion, req.Categoria, req.Nombre, req.Unidad, req.Cantidad, req.CostoUnitario, req.Monto)
+	_, err = stmt.Exec(req.ProyectoID, req.Actividad, req.Accion, req.Categoria, req.Responsable, req.Nombre, req.Unidad, req.Cantidad, req.CostoUnitario, req.Monto)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	id, _ := res.LastInsertId()
-	h.loggerSvc.Log(req.AdminUsername, "admin", "CREACIÓN", "Material/Insumo", int(id))
-	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Material creado"})
+	h.loggerSvc.Log(req.AdminUsername, "admin", "CREACIÓN", "Material/Insumo", 0)
+	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Material creado exitosamente"})
 }
 
-// GET
+// READ (GetMateriales)
 func (h *MaterialHandler) GetMaterialesHandler(w http.ResponseWriter, r *http.Request) {
-	type GetReq struct {
-		ProyectoID int `json:"proyecto_id"`
-	}
-	var req GetReq
+	// CORRECCIÓN 1: Usar la struct correcta que acabamos de agregar a models
+	var req models.GetMaterialesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
 		return
 	}
 
-	rows, err := database.DB.Query("SELECT id, proyecto_id, actividad, accion, categoria, nombre, unidad, cantidad, costo_unitario, monto FROM materiales_insumos WHERE proyecto_id = ?", req.ProyectoID)
+	rows, err := database.DB.Query("SELECT id, actividad, accion, categoria, COALESCE(responsable, ''), nombre, unidad, cantidad, costo_unitario, monto FROM materiales_insumos WHERE proyecto_id = ?", req.ProyectoID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	defer rows.Close()
 
-	var lista []models.MaterialInsumo
+	// CORRECCIÓN 2: Usar models.MaterialInsumo en lugar de models.Material
+	var materiales []models.MaterialInsumo
 	for rows.Next() {
+		// CORRECCIÓN 3: Usar models.MaterialInsumo aquí también
 		var m models.MaterialInsumo
-		if err := rows.Scan(&m.ID, &m.ProyectoID, &m.Actividad, &m.Accion, &m.Categoria, &m.Nombre, &m.Unidad, &m.Cantidad, &m.CostoUnitario, &m.Monto); err != nil {
-			continue
+		if err := rows.Scan(&m.ID, &m.Actividad, &m.Accion, &m.Categoria, &m.Responsable, &m.Nombre, &m.Unidad, &m.Cantidad, &m.CostoUnitario, &m.Monto); err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
 		}
-		lista = append(lista, m)
+		materiales = append(materiales, m)
 	}
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"materiales": lista})
+
+	if materiales == nil {
+		// CORRECCIÓN 4: Inicializar slice vacío del tipo correcto
+		materiales = []models.MaterialInsumo{}
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"materiales": materiales})
 }
 
 // UPDATE
 func (h *MaterialHandler) UpdateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	type UpdateReq struct {
-		ID            int     `json:"id"`
-		Actividad     string  `json:"actividad"`
-		Accion        string  `json:"accion"`
-		Categoria     string  `json:"categoria"`
-		Nombre        string  `json:"nombre"`
-		Unidad        string  `json:"unidad"`
-		Cantidad      float64 `json:"cantidad"`
-		CostoUnitario float64 `json:"costo_unitario"`
-		Monto         float64 `json:"monto"`
-		AdminUsername string  `json:"admin_username"`
+		models.CreateMaterialRequest
+		ID int `json:"id"`
 	}
-	var req UpdateReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var updateReq UpdateReq
+
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
 		return
 	}
 
 	stmt, err := database.DB.Prepare(`
-		UPDATE materiales_insumos SET actividad=?, accion=?, categoria=?, nombre=?, unidad=?, cantidad=?, costo_unitario=?, monto=? WHERE id=?
+		UPDATE materiales_insumos SET actividad=?, accion=?, categoria=?, responsable=?, nombre=?, unidad=?, cantidad=?, costo_unitario=?, monto=? WHERE id=?
 	`)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -105,13 +104,13 @@ func (h *MaterialHandler) UpdateMaterialHandler(w http.ResponseWriter, r *http.R
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(req.Actividad, req.Accion, req.Categoria, req.Nombre, req.Unidad, req.Cantidad, req.CostoUnitario, req.Monto, req.ID)
+	_, err = stmt.Exec(updateReq.Actividad, updateReq.Accion, updateReq.Categoria, updateReq.Responsable, updateReq.Nombre, updateReq.Unidad, updateReq.Cantidad, updateReq.CostoUnitario, updateReq.Monto, updateReq.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.loggerSvc.Log(req.AdminUsername, "admin", "MODIFICACIÓN", "Material/Insumo", req.ID)
+	h.loggerSvc.Log(updateReq.AdminUsername, "admin", "MODIFICACIÓN", "Material/Insumo", updateReq.ID)
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Material actualizado"})
 }
 
@@ -126,11 +125,20 @@ func (h *MaterialHandler) DeleteMaterialHandler(w http.ResponseWriter, r *http.R
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
 		return
 	}
-	_, err := database.DB.Exec("DELETE FROM materiales_insumos WHERE id=?", req.ID)
+
+	stmt, err := database.DB.Prepare("DELETE FROM materiales_insumos WHERE id=?")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(req.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Material/Insumo", req.ID)
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Material eliminado"})
 }

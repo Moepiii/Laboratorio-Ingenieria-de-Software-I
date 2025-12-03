@@ -435,6 +435,7 @@ type MaterialInsumo struct {
 	Actividad     string  `json:"actividad"`
 	Accion        string  `json:"accion"`    // Viene de Labores
 	Categoria     string  `json:"categoria"` // ⭐️ NUEVO (Herbicida, Fertilizante, etc.)
+	Responsable   string  `json:"responsable"`
 	Nombre        string  `json:"nombre"`    // Nombre del producto
 	Unidad        string  `json:"unidad"`    // Lts, Kg, Saco
 	Cantidad      float64 `json:"cantidad"`
@@ -447,10 +448,17 @@ type CreateMaterialRequest struct {
 	Actividad     string  `json:"actividad"`
 	Accion        string  `json:"accion"`
 	Categoria     string  `json:"categoria"`
+	Responsable   string  `json:"responsable"`
 	Nombre        string  `json:"nombre"`
 	Unidad        string  `json:"unidad"`
 	Cantidad      float64 `json:"cantidad"`
 	CostoUnitario float64 `json:"costo_unitario"`
 	Monto         float64 `json:"monto"`
 	AdminUsername string  `json:"admin_username"`
+}
+
+// ⭐️ AGREGA ESTA ESTRUCTURA QUE FALTABA
+type GetMaterialesRequest struct {
+	ProyectoID    int    `json:"proyecto_id"`
+	AdminUsername string `json:"admin_username"`
 }
