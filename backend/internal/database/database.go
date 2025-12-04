@@ -245,6 +245,10 @@ func createRecursosTable() {
 }
 
 func createMaterialesTable() {
+	// Borramos la tabla vieja si existe para que se cree con la nueva estructura
+	// (Solo para desarrollo/tests. En producción se usarían migraciones)
+	DB.Exec("DROP TABLE IF EXISTS materiales_insumos")
+
 	_, err := DB.Exec(`
     CREATE TABLE IF NOT EXISTS materiales_insumos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,6 +256,7 @@ func createMaterialesTable() {
         actividad TEXT,
         accion TEXT,
         categoria TEXT,
+        responsable TEXT, -- ⭐️ ESTA COLUMNA ES LA QUE FALTA
         nombre TEXT,
         unidad TEXT,
         cantidad REAL,
