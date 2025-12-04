@@ -76,33 +76,33 @@ const Sidebar = () => {
         to="/admin/planes-accion"
         className={`nav-button ${currentPath.startsWith('/admin/planes-accion') ? 'active' : ''}`}
       >
-        Planes de Acción
+        Plan de Acción de los Proyectos
       </Link>
 
       {/* Sub-menú Planes de Acción (Solo si hay ID detectado en la URL) */}
       {planesProyectoId && (
         <div style={{ marginLeft: '1rem', borderLeft: '2px solid rgba(255,255,255,0.3)', padding: '0.5rem 0' }}>
-            <Link
-                to={`/admin/planes-accion/proyecto/${planesProyectoId}/general`}
-                className={`nav-button ${currentPath.includes('/general') ? 'active' : ''}`}
-                style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
-            >
-                ↳ Plan de Acción
-            </Link>
-            <Link
-                to={`/admin/planes-accion/proyecto/${planesProyectoId}/recursos`}
-                className={`nav-button ${currentPath.includes('/recursos') ? 'active' : ''}`}
-                style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
-            >
-                ↳ Recurso Humano
-            </Link>
-            <Link
-                to={`/admin/planes-accion/proyecto/${planesProyectoId}/materiales`}
-                className={`nav-button ${currentPath.includes('/materiales') ? 'active' : ''}`}
-                style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
-            >
-                ↳ Materiales
-            </Link>
+          <Link
+            to={`/admin/planes-accion/proyecto/${planesProyectoId}/general`}
+            className={`nav-button ${currentPath.includes('/general') ? 'active' : ''}`}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
+          >
+            ↳ Plan de Acción
+          </Link>
+          <Link
+            to={`/admin/planes-accion/proyecto/${planesProyectoId}/recursos`}
+            className={`nav-button ${currentPath.includes('/recursos') ? 'active' : ''}`}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
+          >
+            ↳ Recurso Humano
+          </Link>
+          <Link
+            to={`/admin/planes-accion/proyecto/${planesProyectoId}/materiales`}
+            className={`nav-button ${currentPath.includes('/materiales') ? 'active' : ''}`}
+            style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', display: 'block' }}
+          >
+            ↳ Materiales e Insumos
+          </Link>
         </div>
       )}
 
