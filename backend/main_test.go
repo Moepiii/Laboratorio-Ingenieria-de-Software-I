@@ -23,10 +23,13 @@ var (
 
 func TestMain(m *testing.M) {
 	testDB := "./test_integration.db"
-	os.Remove(testDB) // Limpiar antes de empezar
+	// Limpieza previa por si quedó basura de una ejecución anterior
+	os.Remove(testDB)
+	os.Remove(testDB + "-wal")
+	os.Remove(testDB + "-shm")
 
 	database.InitDB(testDB)
-	database.DB.SetMaxOpenConns(1) // Vital para SQLite en tests para evitar bloqueos
+	database.DB.SetMaxOpenConns(1) // Vital para SQLite en tests
 
 	code := m.Run()
 
@@ -40,10 +43,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestFlujoCompleto(t *testing.T) {
-	// Asegúrate de que esta función exista en tu main.go o setup.go
 	router := setupApp()
 
-	// 1. REGISTRO
+	// 1. REGISTRO (Happy Path)
 	t.Run("1. Registrar Admin", func(t *testing.T) {
 		payload := map[string]string{
 			"username": adminUsername,
@@ -58,7 +60,7 @@ func TestFlujoCompleto(t *testing.T) {
 		}
 	})
 
-	// 2. LOGIN
+	// 2. LOGIN (Happy Path)
 	t.Run("2. Login Admin y Obtener Token", func(t *testing.T) {
 		payload := map[string]string{
 			"username": adminUsername,
@@ -74,14 +76,14 @@ func TestFlujoCompleto(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		authToken = resp.Token
 
-		// Promover a Admin manualmente en DB para asegurar permisos
+		// TRUCO: Promover a Admin manualmente en DB para tener permisos totales
 		_, err := database.DB.Exec("UPDATE users SET role = 'admin' WHERE username = ?", adminUsername)
 		if err != nil {
 			t.Fatalf("No se pudo promover usuario a admin: %v", err)
 		}
 	})
 
-	// 3. PROYECTO
+	// 3. PROYECTO (Happy Path)
 	t.Run("3. Crear Proyecto", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"nombre":         "Proyecto Maíz 2025",
@@ -94,11 +96,10 @@ func TestFlujoCompleto(t *testing.T) {
 		if w.Code != http.StatusCreated {
 			t.Errorf("Error creando proyecto: %d - %s", w.Code, w.Body.String())
 		}
-		// Asumimos ID 1 porque es una DB limpia
-		proyectoID = 1
+		proyectoID = 1 // Asumimos ID 1 en DB limpia
 	})
 
-	// 4. UNIDAD
+	// 4. UNIDAD (Happy Path)
 	t.Run("4. Crear Unidad de Medida", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"proyecto_id":    proyectoID,
@@ -114,7 +115,7 @@ func TestFlujoCompleto(t *testing.T) {
 		}
 	})
 
-	// 5. EQUIPO
+	// 5. EQUIPO (Happy Path)
 	t.Run("5. Crear Equipo/Implemento", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"proyecto_id":    proyectoID,
@@ -131,7 +132,7 @@ func TestFlujoCompleto(t *testing.T) {
 		equipoID = 1
 	})
 
-	// 6. LABOR
+	// 6. LABOR (Happy Path)
 	t.Run("6. Crear Labor Agronómica", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"proyecto_id":    proyectoID,
@@ -146,7 +147,7 @@ func TestFlujoCompleto(t *testing.T) {
 		laborID = 1
 	})
 
-	// 7. MATERIAL
+	// 7. MATERIAL (Happy Path)
 	t.Run("7. Crear Material/Insumo", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"proyecto_id":    proyectoID,
@@ -162,18 +163,58 @@ func TestFlujoCompleto(t *testing.T) {
 			"admin_username": adminUsername,
 		}
 		w := performRequest(router, "POST", "/api/admin/create-material", payload, authToken)
-		// Aceptamos 200 o 201
 		if w.Code != http.StatusOK && w.Code != http.StatusCreated {
 			t.Errorf("Error creando material: %d - %s", w.Code, w.Body.String())
 		}
 	})
 
-	// HE ELIMINADO EL PASO 8 (ACTIVIDAD) y 9 (SEGURIDAD) QUE DABAN ERROR
+	// 9. SEGURIDAD NEGATIVA (Nuevo Test Agregado)
+	t.Run("9. Intento de borrado sin permisos", func(t *testing.T) {
+		// A. Registrar un usuario normal (el intruso)
+		intruderName := "pepe_intruso"
+		regPayload := map[string]string{
+			"username": intruderName,
+			"password": "password123",
+			"nombre":   "Pepe",
+			"apellido": "Intruso",
+			"cedula":   "V-999999",
+		}
+		performRequest(router, "POST", "/api/auth/register", regPayload, "")
+
+		// B. Login del intruso para obtener SU token
+		loginPayload := map[string]string{
+			"username": intruderName,
+			"password": "password123",
+		}
+		wLogin := performRequest(router, "POST", "/api/auth/login", loginPayload, "")
+
+		var resp models.LoginResponse
+		json.Unmarshal(wLogin.Body.Bytes(), &resp)
+		tokenIntruso := resp.Token
+
+		// C. Intentar borrar el Proyecto (Acción reservada para Admins)
+		// NOTA: No le damos update a 'admin' en la DB, así que es un simple mortal.
+		delPayload := map[string]interface{}{
+			"id":             proyectoID,
+			"admin_username": intruderName,
+		}
+
+		// Usamos el token del intruso
+		w := performRequest(router, "POST", "/api/admin/delete-proyecto", delPayload, tokenIntruso)
+
+		// D. Verificar que el sistema lo rechace
+		// Esperamos 403 Forbidden o 401 Unauthorized
+		if w.Code != http.StatusForbidden && w.Code != http.StatusUnauthorized {
+			t.Errorf("ALERTA DE SEGURIDAD: Usuario sin permisos pudo acceder a ruta protegida. Código: %d", w.Code)
+		} else {
+			t.Log("✅ Correcto: El sistema bloqueó el acceso no autorizado.")
+		}
+	})
 
 	time.Sleep(200 * time.Millisecond)
 }
 
-// Helper para realizar peticiones
+// Helper para realizar peticiones HTTP en el test
 func performRequest(r http.Handler, method, path string, payload interface{}, token string) *httptest.ResponseRecorder {
 	var reqBody []byte
 	if payload != nil {
