@@ -9,7 +9,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- QUERIES DE LABORES AGRONÓMICAS ---
+// QUERIES DE LABORES AGRONÓMICAS
 
 // GetLaboresByProyectoID obtiene todas las labores de un proyecto
 func GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
@@ -87,7 +87,7 @@ func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 	res, err := stmt.Exec(labor.ProyectoID, labor.CodigoLabor, labor.Descripcion, labor.Estado)
 	if err != nil {
 		log.Printf("Error en CreateLabor (Exec): %v", err)
-		// Verificamos si es un error de unicidad (aunque ya lo chequeamos, es una buena práctica)
+		// Verificamos si es un error de unicidad
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return 0, errors.New("el código de labor ya existe para este proyecto")
 		}
@@ -99,7 +99,6 @@ func CreateLabor(labor models.LaborAgronomica) (int64, error) {
 
 // UpdateLabor actualiza una labor existente
 func UpdateLabor(id int, codigoLabor, descripcion, estado string) (int64, error) {
-	// (Aquí deberíamos chequear la unicidad del código si cambia, omitido por brevedad)
 
 	stmt, err := DB.Prepare(`
         UPDATE labores_agronomicas 
@@ -142,8 +141,6 @@ func DeleteLabor(id int) (int64, error) {
 	return res.RowsAffected()
 }
 
-// ⭐️ --- INICIO: NUEVA FUNCIÓN AÑADIDA --- ⭐️
-
 // GetNextLaborCodigo calcula el siguiente código secuencial para un proyecto.
 // Trata el 'codigo_labor' como un número.
 func GetNextLaborCodigo(proyectoID int) (int, error) {
@@ -169,5 +166,3 @@ func GetNextLaborCodigo(proyectoID int) (int, error) {
 
 	return nextCodigo, nil
 }
-
-// ⭐️ --- FIN: NUEVA FUNCIÓN AÑADIDA --- ⭐️

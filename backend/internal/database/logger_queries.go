@@ -7,7 +7,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- QUERIES DEL LOGGER ---
+// QUERIES DEL LOGGER
 
 // InsertLog inserta un nuevo evento en la base de datos
 func InsertLog(logEntry models.EventLog) (int64, error) {
@@ -96,7 +96,6 @@ func GetLogs(filtros models.GetLogsRequest) ([]models.EventLogResponse, error) {
 	return logs, nil
 }
 
-// ⭐️ ESTA ES LA FUNCIÓN QUE FALTABA ⭐️
 // DeleteLog elimina un log específico por ID
 func DeleteLog(id int) error {
 	stmt, err := DB.Prepare("DELETE FROM event_logs WHERE id = ?")

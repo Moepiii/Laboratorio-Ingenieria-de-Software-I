@@ -10,14 +10,14 @@ import (
 	"proyecto/internal/proyectos"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---
+// 1. EL STRUCT DEL HANDLER
 type ProyectoHandler struct {
 	authSvc     auth.AuthService
 	proyectoSvc proyectos.ProyectoService
 	loggerSvc   logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR ---
+// 2. EL CONSTRUCTOR
 func NewProyectoHandler(as auth.AuthService, ps proyectos.ProyectoService, ls logger.LoggerService) *ProyectoHandler {
 	return &ProyectoHandler{
 		authSvc:     as,
@@ -26,11 +26,11 @@ func NewProyectoHandler(as auth.AuthService, ps proyectos.ProyectoService, ls lo
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---
+//  3. LOS MÉTODOS (Handlers)
 
 // GetProyectosHandler: Obtiene la lista de proyectos
 func (h *ProyectoHandler) GetProyectosHandler(w http.ResponseWriter, r *http.Request) {
-	// (Opcional) Leer body para validar admin, aunque para listar a veces no se pide
+
 	var req models.AdminActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "formato JSON inválido")

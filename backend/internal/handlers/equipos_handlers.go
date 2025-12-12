@@ -5,19 +5,19 @@ import (
 	"net/http"
 
 	"proyecto/internal/auth"
-	"proyecto/internal/equipos" // Importamos el servicio de equipos
-	"proyecto/internal/logger"  // ⭐️ 1. IMPORTAMOS EL LOGGER
+	"proyecto/internal/equipos"
+	"proyecto/internal/logger"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---\
+// 1. EL STRUCT DEL HANDLER
 type EquipoHandler struct {
 	authSvc   auth.AuthService
 	equipoSvc equipos.EquipoService
-	loggerSvc logger.LoggerService // ⭐️ 2. AÑADIMOS EL SERVICIO DE LOGGER
+	loggerSvc logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+// 2. EL CONSTRUCTOR DEL HANDLER
 func NewEquipoHandler(as auth.AuthService, es equipos.EquipoService, logs logger.LoggerService) *EquipoHandler {
 	return &EquipoHandler{
 		authSvc:   as,
@@ -26,7 +26,7 @@ func NewEquipoHandler(as auth.AuthService, es equipos.EquipoService, logs logger
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---\
+// 3. LOS MÉTODOS (Handlers)
 
 func (h *EquipoHandler) GetEquiposHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetEquiposRequest
@@ -77,7 +77,6 @@ func (h *EquipoHandler) CreateEquipoHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	if nuevoEquipo != nil {
 		h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Equipos/Implementos", nuevoEquipo.ID)
 	}
@@ -112,7 +111,6 @@ func (h *EquipoHandler) UpdateEquipoHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Equipos/Implementos", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo actualizado."})
@@ -145,7 +143,6 @@ func (h *EquipoHandler) DeleteEquipoHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "ELIMINACIÓN", "Equipos/Implementos", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Equipo borrado."})

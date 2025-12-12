@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt" // Necesario para fmt.Sprintf
+	"fmt"
 	"net/http"
 
 	"proyecto/internal/auth"
@@ -10,13 +10,13 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---
+// 1. EL STRUCT DEL HANDLER
 type LoggerHandler struct {
 	authSvc   auth.AuthService
 	loggerSvc logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---
+// 2. EL CONSTRUCTOR DEL HANDLER
 func NewLoggerHandler(as auth.AuthService, ls logger.LoggerService) *LoggerHandler {
 	return &LoggerHandler{
 		authSvc:   as,
@@ -24,16 +24,16 @@ func NewLoggerHandler(as auth.AuthService, ls logger.LoggerService) *LoggerHandl
 	}
 }
 
-// --- 3. ESTRUCTURAS DE PETICIÓN (DTOs Locales) ---
+//  3. ESTRUCTURAS DE PETICIÓN (DTOs Locales)
 
 // Estructura para recibir el rango de fechas del Frontend
 type DeleteLogsRangeRequest struct {
 	AdminUsername string `json:"admin_username"`
-	FechaInicio   string `json:"fecha_inicio"` // YYYY-MM-DD
-	FechaFin      string `json:"fecha_fin"`    // YYYY-MM-DD
+	FechaInicio   string `json:"fecha_inicio"`
+	FechaFin      string `json:"fecha_fin"`
 }
 
-// --- 4. LOS MÉTODOS (Handlers) ---
+// 4. LOS MÉTODOS (Handlers)
 
 func (h *LoggerHandler) GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetLogsRequest
@@ -88,7 +88,6 @@ func (h *LoggerHandler) DeleteLogsHandler(w http.ResponseWriter, r *http.Request
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Logs eliminados correctamente"})
 }
 
-// ⭐️ HANDLER CORREGIDO ⭐️
 func (h *LoggerHandler) DeleteLogsRangeHandler(w http.ResponseWriter, r *http.Request) {
 	var req DeleteLogsRangeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -111,10 +110,9 @@ func (h *LoggerHandler) DeleteLogsRangeHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// 3. Auditoría
-	// Creamos el mensaje detallado
+
 	logMsg := fmt.Sprintf("ELIMINACIÓN MASIVA (%d eventos entre %s y %s)", cantidad, req.FechaInicio, req.FechaFin)
 
-	// ⭐️ AQUÍ ESTABA EL ERROR: Ahora pasamos logMsg en lugar de un string fijo
 	h.loggerSvc.Log(req.AdminUsername, "admin", logMsg, "Logs", 0)
 
 	// 4. Responder

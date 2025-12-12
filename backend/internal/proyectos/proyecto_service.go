@@ -2,7 +2,7 @@ package proyectos
 
 import (
 	"errors"
-	// "fmt"
+
 	"log"
 	"strings"
 
@@ -10,7 +10,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- 1. EL CONTRATO (Interface) ---
+// 1. EL CONTRATO (Interface)
 type ProyectoService interface {
 	GetAllProyectos() ([]models.Proyecto, error)
 	CreateProyecto(nombre, fechaInicio, fechaCierre string) (*models.Proyecto, error)
@@ -19,17 +19,17 @@ type ProyectoService interface {
 	SetProyectoEstado(id int, estado string) (int64, error)
 }
 
-// --- 2. LA IMPLEMENTACIÓN (Struct) ---
+// 2. LA IMPLEMENTACIÓN (Struct)
 type proyectoService struct {
 	// (Dependencias futuras, como repositorios)
 }
 
-// --- 3. EL CONSTRUCTOR ---
+// 3. EL CONSTRUCTOR
 func NewProyectoService() ProyectoService {
 	return &proyectoService{}
 }
 
-// --- 4. LOS MÉTODOS (Lógica de Negocio) ---
+//  4. LOS MÉTODOS (Lógica de Negocio)
 
 func (s *proyectoService) GetAllProyectos() ([]models.Proyecto, error) {
 	proyectos, err := database.GetAllProyectos()
@@ -55,7 +55,7 @@ func (s *proyectoService) CreateProyecto(nombre, fechaInicio, fechaCierre string
 	}
 
 	// Devolvemos el proyecto recién creado
-	proyecto, err := database.GetProjectByID(id) // Asumiendo que GetProjectByID existe
+	proyecto, err := database.GetProjectByID(id)
 	if err != nil {
 		log.Printf("Error al obtener proyecto recién creado (ID: %d): %v", id, err)
 		return nil, errors.New("Proyecto creado con éxito, pero no se pudo recuperar.")
@@ -100,7 +100,6 @@ func (s *proyectoService) DeleteProyecto(id int) (int64, error) {
 	return affected, nil
 }
 
-// ⭐️ CORRECCIÓN AQUÍ ⭐️
 func (s *proyectoService) SetProyectoEstado(id int, estado string) (int64, error) {
 	if id == 0 {
 		return 0, errors.New("ID de proyecto requerido.")
@@ -109,7 +108,6 @@ func (s *proyectoService) SetProyectoEstado(id int, estado string) (int64, error
 		return 0, errors.New("Estado requerido.")
 	}
 
-	// El error era un typo. La función se llama 'SetProyectoEstado'
 	affected, err := database.SetProyectoEstado(id, estado)
 	if err != nil {
 		log.Printf("Error en proyectoService.SetProyectoEstado (ID: %d): %v", id, err)

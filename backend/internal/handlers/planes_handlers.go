@@ -75,11 +75,9 @@ func (h *PlanHandler) GetPlanesHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"planes": planes})
 }
 
-// ⭐️ NUEVO: UPDATE PLAN
+// UPDATE PLAN
 func (h *PlanHandler) UpdatePlanHandler(w http.ResponseWriter, r *http.Request) {
-	// Reusamos el struct pero añadimos ID manualmente o creamos uno nuevo.
-	// Usaremos un map para flexibilidad o el mismo struct CreatePlanRequest asumiendo que el ID viene aparte o en URL,
-	// pero lo mejor es definir un UpdateRequest.
+
 	type UpdatePlanRequest struct {
 		ID            int     `json:"id"`
 		Actividad     string  `json:"actividad"`
@@ -121,7 +119,7 @@ func (h *PlanHandler) UpdatePlanHandler(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Plan actualizado"})
 }
 
-// ⭐️ NUEVO: DELETE PLAN
+// DELETE PLAN
 func (h *PlanHandler) DeletePlanHandler(w http.ResponseWriter, r *http.Request) {
 	type DeletePlanRequest struct {
 		ID            int    `json:"id"`

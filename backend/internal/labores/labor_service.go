@@ -3,14 +3,14 @@ package labores
 import (
 	"errors"
 	"log"
-	"strconv" // ⭐️ 1. IMPORTAMOS strconv
+	"strconv"
 	"strings"
 
 	"proyecto/internal/database"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL CONTRATO (Interface) ---
+// 1. EL CONTRATO (Interface)
 type LaborService interface {
 	GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error)
 	CreateLabor(req models.CreateLaborRequest) (*models.LaborAgronomica, error)
@@ -18,17 +18,17 @@ type LaborService interface {
 	DeleteLabor(id int) (int64, error)
 }
 
-// --- 2. LA IMPLEMENTACIÓN (Struct) ---
+// 2. LA IMPLEMENTACIÓN (Struct)
 type laborService struct {
 	// (Dependencias futuras, como repositorios)
 }
 
-// --- 3. EL CONSTRUCTOR ---
+// 3. EL CONSTRUCTOR
 func NewLaborService() LaborService {
 	return &laborService{}
 }
 
-// --- 4. LOS MÉTODOS (Lógica de Negocio) ---
+//  4. LOS MÉTODOS (Lógica de Negocio)
 
 func (s *laborService) GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgronomica, error) {
 	if proyectoID == 0 {
@@ -42,44 +42,37 @@ func (s *laborService) GetLaboresByProyectoID(proyectoID int) ([]models.LaborAgr
 	return labores, nil
 }
 
-// ⭐️ --- INICIO: FUNCIÓN CreateLabor MODIFICADA --- ⭐️
 func (s *laborService) CreateLabor(req models.CreateLaborRequest) (*models.LaborAgronomica, error) {
-	// 1. Validación (ya no se valida CodigoLabor)
+
 	if req.ProyectoID == 0 || req.Descripcion == "" {
 		return nil, errors.New("ProyectoID y Descripcion son requeridos")
 	}
 
-	// 2. LÓGICA NUEVA: Obtener el siguiente código
 	nextCodigoInt, err := database.GetNextLaborCodigo(req.ProyectoID)
 	if err != nil {
 		log.Printf("Error en laborService.CreateLabor (GetNextLaborCodigo): %v", err)
 		return nil, errors.New("error al generar el código de labor")
 	}
 
-	// 3. Convertir el número (ej: 1, 2, 3) a un string ("1", "2", "3")
 	nextCodigoStr := strconv.Itoa(nextCodigoInt)
 
-	// 4. Construir el struct LaborAgronomica completo
-	// El servicio es ahora responsable de asignar el código.
 	labor := models.LaborAgronomica{
 		ProyectoID:  req.ProyectoID,
-		CodigoLabor: nextCodigoStr, // ⬅️ Asignamos el nuevo código
+		CodigoLabor: nextCodigoStr,
 		Descripcion: req.Descripcion,
 		Estado:      req.Estado,
 	}
 
-	// 5. Llamada a la base de datos (esta función no cambia)
 	laborID, err := database.CreateLabor(labor)
 	if err != nil {
 		log.Printf("Error en laborService.CreateLabor (CreateLabor): %v", err)
-		// Este error es menos probable ahora, pero lo mantenemos por si acaso
+
 		if strings.Contains(err.Error(), "ya existe") {
 			return nil, errors.New("el código de labor ya existe")
 		}
 		return nil, errors.New("error al crear la labor")
 	}
 
-	// 6. Devolver el objeto creado
 	nuevaLabor, err := database.GetLaborByID(int(laborID))
 	if err != nil {
 		log.Printf("Error al obtener labor recién creada (ID: %d): %v", laborID, err)
@@ -88,8 +81,6 @@ func (s *laborService) CreateLabor(req models.CreateLaborRequest) (*models.Labor
 
 	return nuevaLabor, nil
 }
-
-// ⭐️ --- FIN: FUNCIÓN CreateLabor MODIFICADA --- ⭐️
 
 func (s *laborService) UpdateLabor(req models.UpdateLaborRequest) (int64, error) {
 	if req.ID == 0 || req.CodigoLabor == "" || req.Descripcion == "" || req.Estado == "" {

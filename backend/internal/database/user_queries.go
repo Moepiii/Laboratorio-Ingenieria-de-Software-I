@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// --- QUERIES DE USUARIOS ---
+//  QUERIES DE USUARIOS
 
 func RegisterUser(username, password, nombre, apellido, cedula string) (int64, error) {
 	// Hashear la contraseña
@@ -21,14 +21,13 @@ func RegisterUser(username, password, nombre, apellido, cedula string) (int64, e
 		return 0, fmt.Errorf("error al hashear password: %w", err)
 	}
 
-	// ⭐️ MODIFICADO: Añadido 'nombre', 'apellido' y 'cedula'
+	// Añadido 'nombre', 'apellido' y 'cedula'
 	stmt, err := DB.Prepare("INSERT INTO users (username, password, role, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error al preparar inserción: %w", err)
 	}
 	defer stmt.Close()
 
-	// ⭐️ MODIFICADO: Añadido 'nombre', 'apellido' y 'cedula'
 	// Por defecto, el rol es 'user'
 	res, err := stmt.Exec(username, string(hashedPassword), "user", nombre, apellido, cedula)
 	if err != nil {
@@ -59,9 +58,9 @@ func GetUserByUsername(username string) (*models.UserDB, error) {
 		&user.Username,
 		&user.HashedPassword,
 		&user.Role,
-		&user.Nombre,   // ⭐️ NUEVO
-		&user.Apellido, // ⭐️ NUEVO
-		&user.Cedula,   // ⭐️ NUEVO
+		&user.Nombre,
+		&user.Apellido,
+		&user.Cedula,
 		&user.ProyectoID,
 	)
 	if err != nil {
@@ -88,8 +87,7 @@ func GetUserRole(username string) (string, error) {
 }
 
 func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
-	// ⭐️ MODIFICADO: Se usa LEFT JOIN para incluir usuarios sin proyecto
-	// ⭐️ MODIFICADO: Se seleccionan los campos nuevos (nombre, apellido, cedula)
+
 	rows, err := DB.Query(`
         SELECT u.id, u.username, u.role, u.nombre, u.apellido, u.cedula, u.proyecto_id, p.nombre 
         FROM users u 
@@ -108,7 +106,7 @@ func GetAllUsersWithProjectNames() ([]models.UserListResponse, error) {
 		var proyectoID sql.NullInt64      // Usamos sql.NullInt64 para proyecto_id
 		var proyectoNombre sql.NullString // Usamos sql.NullString para p.nombre
 
-		// ⭐️ MODIFICADO: Se escanean los campos nuevos
+		// Se escanean los campos nuevos
 		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Nombre, &user.Apellido, &user.Cedula, &proyectoID, &proyectoNombre); err != nil {
 			log.Printf("Error en GetAllUsersWithProjectNames (Scan): %v", err)
 			continue
@@ -143,17 +141,15 @@ func AddUser(user models.User, defaultRole string) (int64, error) {
 	// Asignar rol por defecto si no se especifica
 	role := defaultRole
 	if role == "" {
-		role = "user" // O "encargado" si lo prefieres
+		role = "user"
 	}
 
-	// ⭐️ MODIFICADO: Añadido 'nombre', 'apellido' y 'cedula'
 	stmt, err := DB.Prepare("INSERT INTO users (username, password, role, nombre, apellido, cedula) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("error al preparar inserción (AddUser): %w", err)
 	}
 	defer stmt.Close()
 
-	// ⭐️ MODIFICADO: Añadido 'nombre', 'apellido' y 'cedula'
 	res, err := stmt.Exec(user.Username, string(hashedPassword), role, user.Nombre, user.Apellido, user.Cedula)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
@@ -270,8 +266,7 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	// 2. Obtener los detalles del proyecto
 	var proyecto models.Proyecto
 	projID := proyectoID.Int64
-	// ⭐️ AQUI ESTABA UNO DE LOS ERRORES (Falta 'FechaCreacion') ⭐️
-	//     Asegúrate de haber añadido FechaCreacion a la struct Proyecto en models.go
+
 	err = DB.QueryRow("SELECT id, nombre, fecha_inicio, fecha_cierre, estado, fecha_creacion FROM proyectos WHERE id = ?", projID).Scan(
 		&proyecto.ID, &proyecto.Nombre, &proyecto.FechaInicio, &proyecto.FechaCierre, &proyecto.Estado, &proyecto.FechaCreacion,
 	)
@@ -281,8 +276,8 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	}
 
 	// 3. Obtener los "gerentes" de ese proyecto
-	// ⭐️ INICIO DE LA CORRECCIÓN DE TIPO ⭐️
-	var gerentes []models.ProjectMember // <- ANTES ERA: models.UserSimple
+
+	var gerentes []models.ProjectMember
 	rows, err := DB.Query("SELECT id, username, nombre, apellido FROM users WHERE proyecto_id = ? AND role = 'gerente'", projID)
 	if err != nil {
 		log.Printf("Error obteniendo gerentes del proyecto %d: %v", projID, err)
@@ -290,7 +285,7 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var u models.ProjectMember // <- ANTES ERA: models.UserSimple
+		var u models.ProjectMember
 		if err := rows.Scan(&u.ID, &u.Username, &u.Nombre, &u.Apellido); err != nil {
 			log.Printf("Error escaneando gerente: %v", err)
 			continue
@@ -299,7 +294,7 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	}
 
 	// 4. Obtener los "miembros" (users) de ese proyecto (excluyendo al usuario actual)
-	var miembros []models.ProjectMember // <- ANTES ERA: models.UserSimple
+	var miembros []models.ProjectMember
 	rowsMiembros, err := DB.Query("SELECT id, username, nombre, apellido FROM users WHERE proyecto_id = ? AND role = 'user' AND id != ?", projID, userID)
 	if err != nil {
 		log.Printf("Error obteniendo miembros del proyecto %d: %v", projID, err)
@@ -307,14 +302,13 @@ func GetProjectDetailsForUser(userID int) (*models.UserProjectDetailsResponse, e
 	}
 	defer rowsMiembros.Close()
 	for rowsMiembros.Next() {
-		var u models.ProjectMember // <- ANTES ERA: models.UserSimple
+		var u models.ProjectMember
 		if err := rowsMiembros.Scan(&u.ID, &u.Username, &u.Nombre, &u.Apellido); err != nil {
 			log.Printf("Error escaneando miembro: %v", err)
 			continue
 		}
 		miembros = append(miembros, u)
 	}
-	// ⭐️ FIN DE LA CORRECCIÓN DE TIPO ⭐️
 
 	// 5. Construir la respuesta
 	response := &models.UserProjectDetailsResponse{

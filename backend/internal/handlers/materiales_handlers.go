@@ -48,7 +48,7 @@ func (h *MaterialHandler) CreateMaterialHandler(w http.ResponseWriter, r *http.R
 
 // READ (GetMateriales)
 func (h *MaterialHandler) GetMaterialesHandler(w http.ResponseWriter, r *http.Request) {
-	// CORRECCIÓN 1: Usar la struct correcta que acabamos de agregar a models
+
 	var req models.GetMaterialesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
@@ -62,10 +62,9 @@ func (h *MaterialHandler) GetMaterialesHandler(w http.ResponseWriter, r *http.Re
 	}
 	defer rows.Close()
 
-	// CORRECCIÓN 2: Usar models.MaterialInsumo en lugar de models.Material
 	var materiales []models.MaterialInsumo
 	for rows.Next() {
-		// CORRECCIÓN 3: Usar models.MaterialInsumo aquí también
+
 		var m models.MaterialInsumo
 		if err := rows.Scan(&m.ID, &m.Actividad, &m.Accion, &m.Categoria, &m.Responsable, &m.Nombre, &m.Unidad, &m.Cantidad, &m.CostoUnitario, &m.Monto); err != nil {
 			respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -75,7 +74,7 @@ func (h *MaterialHandler) GetMaterialesHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if materiales == nil {
-		// CORRECCIÓN 4: Inicializar slice vacío del tipo correcto
+
 		materiales = []models.MaterialInsumo{}
 	}
 

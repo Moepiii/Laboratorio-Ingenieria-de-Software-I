@@ -20,7 +20,7 @@ func NewUnidadHandler(as auth.AuthService, us unidades.UnidadService, ls logger.
 }
 
 func (h *UnidadHandler) GetUnidadesHandler(w http.ResponseWriter, r *http.Request) {
-	// ⭐️ Leemos el body para sacar el proyecto_id (igual que en Labores)
+
 	var req models.GetUnidadesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "JSON inválido")
@@ -42,7 +42,7 @@ func (h *UnidadHandler) GetUnidadesHandler(w http.ResponseWriter, r *http.Reques
 	respondWithJSON(w, http.StatusOK, unidades)
 }
 
-// CreateUnidadHandler (Igual, pero asegúrate de que el servicio use req.ProyectoID)
+// CreateUnidadHandler
 func (h *UnidadHandler) CreateUnidadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateUnidadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -63,20 +63,42 @@ func (h *UnidadHandler) CreateUnidadHandler(w http.ResponseWriter, r *http.Reque
 	respondWithJSON(w, http.StatusCreated, nueva)
 }
 
-// Update y Delete Handler se mantienen igual...
+// Update y Delete Handler
 func (h *UnidadHandler) UpdateUnidadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateUnidadRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil { respondWithError(w, http.StatusBadRequest, "JSON inválido"); return }
-	perm, _ := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente"); if !perm { respondWithError(w, http.StatusForbidden, "No autorizado"); return }
-	_, err := h.unidadSvc.UpdateUnidad(req); if err != nil { respondWithError(w, http.StatusInternalServerError, err.Error()); return }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "JSON inválido")
+		return
+	}
+	perm, _ := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if !perm {
+		respondWithError(w, http.StatusForbidden, "No autorizado")
+		return
+	}
+	_, err := h.unidadSvc.UpdateUnidad(req)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	h.loggerSvc.Log(req.AdminUsername, "admin", "MODIFICACIÓN", "Unidades Medida", req.ID)
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Actualizado"})
 }
 func (h *UnidadHandler) DeleteUnidadHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteUnidadRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil { respondWithError(w, http.StatusBadRequest, "JSON inválido"); return }
-	perm, _ := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente"); if !perm { respondWithError(w, http.StatusForbidden, "No autorizado"); return }
-	_, err := h.unidadSvc.DeleteUnidad(req.ID); if err != nil { respondWithError(w, http.StatusInternalServerError, err.Error()); return }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "JSON inválido")
+		return
+	}
+	perm, _ := h.authSvc.CheckPermission(req.AdminUsername, "admin", "gerente")
+	if !perm {
+		respondWithError(w, http.StatusForbidden, "No autorizado")
+		return
+	}
+	_, err := h.unidadSvc.DeleteUnidad(req.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	h.loggerSvc.Log(req.AdminUsername, "admin", "ELIMINACIÓN", "Unidades Medida", req.ID)
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Eliminado"})
 }

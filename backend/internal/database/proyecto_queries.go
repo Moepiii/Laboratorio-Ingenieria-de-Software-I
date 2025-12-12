@@ -10,7 +10,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- QUERIES DE PROYECTOS ---
+// QUERIES DE PROYECTOS
 
 func GetAllProyectos() ([]models.Proyecto, error) {
 	rows, err := DB.Query("SELECT id, nombre, fecha_inicio, fecha_cierre, estado, fecha_creacion FROM proyectos ORDER BY id ASC")

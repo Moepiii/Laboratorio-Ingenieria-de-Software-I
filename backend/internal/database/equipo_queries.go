@@ -9,7 +9,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- QUERIES DE EQUIPOS E IMPLEMENTOS ---
+// QUERIES DE EQUIPOS E IMPLEMENTOS
 
 // GetEquiposByProyectoID obtiene todos los equipos de un proyecto
 func GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
@@ -139,9 +139,7 @@ func DeleteEquipo(id int) (int64, error) {
 	return res.RowsAffected()
 }
 
-// ⭐️ --- INICIO: NUEVA FUNCIÓN AÑADIDA --- ⭐️
-
-// GetNextEquipoCodigo calcula el siguiente código secuencial para un proyecto.
+// GetNextEquipoCodigo calcula el siguiente código secuencial.
 // Trata el 'codigo_equipo' como un número.
 func GetNextEquipoCodigo(proyectoID int) (int, error) {
 	var nextCodigo int
@@ -162,5 +160,3 @@ func GetNextEquipoCodigo(proyectoID int) (int, error) {
 
 	return nextCodigo, nil
 }
-
-// ⭐️ --- FIN: NUEVA FUNCIÓN AÑADIDA --- ⭐️

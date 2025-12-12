@@ -5,28 +5,28 @@ import (
 	"net/http"
 
 	"proyecto/internal/auth"
-	"proyecto/internal/labores" // Importamos el servicio de labores
-	"proyecto/internal/logger"  // ⭐️ 1. IMPORTAMOS EL LOGGER
+	"proyecto/internal/labores"
+	"proyecto/internal/logger"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---\
+// 1. EL STRUCT DEL HANDLER
 type LaborHandler struct {
 	authSvc   auth.AuthService
 	laborSvc  labores.LaborService
-	loggerSvc logger.LoggerService // ⭐️ 2. AÑADIMOS EL SERVICIO DE LOGGER
+	loggerSvc logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+// 2. EL CONSTRUCTOR DEL HANDLER
 func NewLaborHandler(as auth.AuthService, ls labores.LaborService, logs logger.LoggerService) *LaborHandler {
 	return &LaborHandler{
 		authSvc:   as,
 		laborSvc:  ls,
-		loggerSvc: logs, // ⭐️ 3. INYECTAMOS EL SERVICIO
+		loggerSvc: logs,
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---\
+//  3. LOS MÉTODOS (Handlers)
 
 func (h *LaborHandler) GetLaboresHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetLaboresRequest
@@ -77,7 +77,6 @@ func (h *LaborHandler) CreateLaborHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	if nuevaLabor != nil {
 		h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN", "Labores", nuevaLabor.ID)
 	}
@@ -112,7 +111,6 @@ func (h *LaborHandler) UpdateLaborHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Labores", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor actualizada."})
@@ -145,7 +143,6 @@ func (h *LaborHandler) DeleteLaborHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ⭐️ 4. REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "ELIMINACIÓN", "Labores", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Labor borrada."})

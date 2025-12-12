@@ -7,7 +7,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- QUERIES DE ACTIVIDADES ---
+// QUERIES DE ACTIVIDADES
 
 func CreateActividad(act models.Actividad) (int64, error) {
 	stmt, err := DB.Prepare(`
@@ -36,11 +36,9 @@ func CreateActividad(act models.Actividad) (int64, error) {
 	return id, nil
 }
 
-// GetActividadesByProyectoID (Función compleja que trae todo)
+// GetActividadesByProyectoID
 func GetActividadesByProyectoID(proyectoID int) ([]models.ActividadResponse, error) {
-	// ⭐️ MODIFICADO: Se usan LEFT JOINs para que no se rompa si un ID es NULL
-	// ⭐️ MODIFICADO: Se usa COALESCE para que los campos NULL devuelvan un string vacío "" en lugar de NULL
-	// ⭐️ MODIFICADO: Se usa u.nombre || ' ' || u.apellido para el nombre del encargado
+
 	query := `
 		SELECT 
 			a.id, a.proyecto_id, a.actividad, a.labor_agronomica_id, a.equipo_implemento_id,

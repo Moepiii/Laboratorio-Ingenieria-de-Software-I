@@ -38,12 +38,11 @@ func InitDB(dbPath string) {
 	createEquiposTable()
 	createActividadesTable()
 
-	// ⭐️ 1. LLAMADA A LA NUEVA FUNCIÓN
 	createEventLogsTable()
 
 	createPlanesTable()
 	createRecursosTable()
-	createMaterialesTable() // <--- AGREGA ESTO
+	createMaterialesTable()
 
 	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
@@ -51,7 +50,7 @@ func InitDB(dbPath string) {
 	}
 }
 
-// --- CREACIÓN DE TABLAS ---
+//  CREACIÓN DE TABLAS
 
 func createUsersTable() {
 	_, err := DB.Exec(`
@@ -165,7 +164,6 @@ func createActividadesTable() {
 	}
 }
 
-// ⭐️ 2. FUNCIÓN DE LA NUEVA TABLA AÑADIDA (AL FINAL DEL ARCHIVO)
 func createEventLogsTable() {
 	_, err := DB.Exec(`
     CREATE TABLE IF NOT EXISTS event_logs (
@@ -184,7 +182,7 @@ func createEventLogsTable() {
 }
 
 func createUnidadesTable() {
-	// ⭐️ AÑADIDO: proyecto_id y su FOREIGN KEY
+
 	_, err := DB.Exec(`
     CREATE TABLE IF NOT EXISTS unidades_medida (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -6,7 +6,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// --- ESTRUCTURAS DE DATOS ---
+//  ESTRUCTURAS DE DATOS
 
 type User struct {
 	Username string `json:"username"`
@@ -60,7 +60,7 @@ type DeleteUserRequest struct {
 
 type AssignProjectRequest struct {
 	UserID        int    `json:"user_id"`
-	ProyectoID    int    `json:"proyecto_id"` // 0 para desasignar
+	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`
 }
 
@@ -118,7 +118,6 @@ type SetProyectoEstadoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Labores Agronómicas ---
 type LaborAgronomica struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
@@ -153,13 +152,12 @@ type DeleteLaborRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Equipos e Implementos ---
 type EquipoImplemento struct {
 	ID            int    `json:"id"`
 	ProyectoID    int    `json:"proyecto_id"`
 	CodigoEquipo  string `json:"codigo_equipo"`
 	Nombre        string `json:"nombre"`
-	Tipo          string `json:"tipo"` // "Equipo" o "Implemento"
+	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
 	FechaCreacion string `json:"fecha_creacion"`
 }
@@ -169,18 +167,13 @@ type GetEquiposRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// ⭐️ --- INICIO DEL CAMBIO --- ⭐️
-// Este es el struct que hemos modificado
 type CreateEquipoRequest struct {
-	ProyectoID int `json:"proyecto_id"`
-	// CodigoEquipo  string `json:"codigo_equipo"` // CAMPO ELIMINADO
+	ProyectoID    int    `json:"proyecto_id"`
 	Nombre        string `json:"nombre"`
 	Tipo          string `json:"tipo"`
 	Estado        string `json:"estado"`
 	AdminUsername string `json:"admin_username"`
 }
-
-// ⭐️ --- FIN DEL CAMBIO --- ⭐️
 
 type UpdateEquipoRequest struct {
 	ID            int    `json:"id"`
@@ -196,17 +189,16 @@ type DeleteEquipoRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Actividades ---
 type Actividad struct {
 	ID                 int
 	ProyectoID         int
 	Actividad          string
-	LaborAgronomicaID  sql.NullInt64 // Clave foránea opcional
-	EquipoImplementoID sql.NullInt64 // Clave foránea opcional
-	EncargadoID        sql.NullInt64 // Clave foránea opcional
+	LaborAgronomicaID  sql.NullInt64
+	EquipoImplementoID sql.NullInt64
+	EncargadoID        sql.NullInt64
 	RecursoHumano      int
 	Costo              float64
-	Observaciones      sql.NullString // Texto opcional
+	Observaciones      sql.NullString
 	FechaCreacion      string
 }
 
@@ -221,9 +213,9 @@ type ActividadResponse struct {
 	Costo              float64        `json:"costo"`
 	Observaciones      sql.NullString `json:"observaciones"`
 	FechaCreacion      string         `json:"fecha_creacion"`
-	LaborDescripcion   sql.NullString `json:"labor_descripcion"` // Nombre/Descripción de la labor
-	EquipoNombre       sql.NullString `json:"equipo_nombre"`     // Nombre del equipo
-	EncargadoNombre    sql.NullString `json:"encargado_nombre"`  // Nombre del encargado
+	LaborDescripcion   sql.NullString `json:"labor_descripcion"`
+	EquipoNombre       sql.NullString `json:"equipo_nombre"`
+	EncargadoNombre    sql.NullString `json:"encargado_nombre"`
 }
 
 type EncargadoResponse struct {
@@ -268,7 +260,6 @@ type DeleteActividadRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Autenticación ---
 type Claims struct {
 	UserID int    `json:"user_id"`
 	Role   string `json:"role"`
@@ -289,13 +280,11 @@ type UserDetails struct {
 	Cedula   string `json:"cedula"`
 }
 
-// --- Respuestas Genéricas ---
 type SimpleResponse struct {
 	Mensaje string `json:"mensaje,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
 
-// --- Logger ---
 type EventLog struct {
 	ID              int
 	Timestamp       string
@@ -325,19 +314,18 @@ type GetLogsRequest struct {
 	Entidad         string `json:"entidad"`
 }
 
-// --- Unidades de Medida ---
 type UnidadMedida struct {
 	ID            int     `json:"id"`
 	ProyectoID    int     `json:"proyecto_id"`
 	Nombre        string  `json:"nombre"`
 	Abreviatura   string  `json:"abreviatura"`
-	Tipo          string  `json:"tipo"` // Peso, Líquido, Longitud
+	Tipo          string  `json:"tipo"`
 	Dimension     float64 `json:"dimension"`
 	FechaCreacion string  `json:"fecha_creacion"`
 }
 
 type CreateUnidadRequest struct {
-	ProyectoID    int     `json:"proyecto_id"` //
+	ProyectoID    int     `json:"proyecto_id"`
 	Nombre        string  `json:"nombre"`
 	Abreviatura   string  `json:"abreviatura"`
 	Tipo          string  `json:"tipo"`
@@ -350,7 +338,7 @@ type UpdateUnidadRequest struct {
 	Nombre        string  `json:"nombre"`
 	Abreviatura   string  `json:"abreviatura"`
 	Tipo          string  `json:"tipo"`
-	Dimension     float64 `json:"dimension"` //
+	Dimension     float64 `json:"dimension"`
 	AdminUsername string  `json:"admin_username"`
 }
 
@@ -364,11 +352,9 @@ type GetUnidadesRequest struct {
 }
 
 type DeleteLogsRequest struct {
-	IDs           []int  `json:"ids"` // Lista de IDs a borrar
+	IDs           []int  `json:"ids"`
 	AdminUsername string `json:"admin_username"`
 }
-
-// --- models.go (Agrega esto al final) ---
 
 type PlanAccion struct {
 	ID            int     `json:"id"`
@@ -401,18 +387,17 @@ type GetPlanesRequest struct {
 	AdminUsername string `json:"admin_username"`
 }
 
-// --- Recurso Humano ---
 type RecursoHumano struct {
 	ID            int     `json:"id"`
 	ProyectoID    int     `json:"proyecto_id"`
 	Actividad     string  `json:"actividad"`
-	Accion        string  `json:"accion"` // Viene de Labores
-	Nombre        string  `json:"nombre"` // Responsable
+	Accion        string  `json:"accion"`
+	Nombre        string  `json:"nombre"`
 	Cedula        string  `json:"cedula"`
-	Tiempo        float64 `json:"tiempo"`   // Días u Horas
-	Cantidad      float64 `json:"cantidad"` // Cantidad de personas
+	Tiempo        float64 `json:"tiempo"`
+	Cantidad      float64 `json:"cantidad"`
 	CostoUnitario float64 `json:"costo_unitario"`
-	Monto         float64 `json:"monto"` // Calculado
+	Monto         float64 `json:"monto"`
 }
 
 type CreateRecursoRequest struct {
@@ -428,19 +413,18 @@ type CreateRecursoRequest struct {
 	AdminUsername string  `json:"admin_username"`
 }
 
-// --- Materiales e Insumos ---
 type MaterialInsumo struct {
 	ID            int     `json:"id"`
 	ProyectoID    int     `json:"proyecto_id"`
 	Actividad     string  `json:"actividad"`
-	Accion        string  `json:"accion"`    // Viene de Labores
-	Categoria     string  `json:"categoria"` // ⭐️ NUEVO (Herbicida, Fertilizante, etc.)
+	Accion        string  `json:"accion"`
+	Categoria     string  `json:"categoria"`
 	Responsable   string  `json:"responsable"`
-	Nombre        string  `json:"nombre"`    // Nombre del producto
-	Unidad        string  `json:"unidad"`    // Lts, Kg, Saco
+	Nombre        string  `json:"nombre"`
+	Unidad        string  `json:"unidad"`
 	Cantidad      float64 `json:"cantidad"`
 	CostoUnitario float64 `json:"costo_unitario"`
-	Monto         float64 `json:"monto"` // Calculado
+	Monto         float64 `json:"monto"`
 }
 
 type CreateMaterialRequest struct {
@@ -457,7 +441,6 @@ type CreateMaterialRequest struct {
 	AdminUsername string  `json:"admin_username"`
 }
 
-// ⭐️ AGREGA ESTA ESTRUCTURA QUE FALTABA
 type GetMaterialesRequest struct {
 	ProyectoID    int    `json:"proyecto_id"`
 	AdminUsername string `json:"admin_username"`

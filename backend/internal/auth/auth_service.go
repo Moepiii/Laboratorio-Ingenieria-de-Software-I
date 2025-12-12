@@ -3,7 +3,7 @@ package auth
 import (
 	"errors"
 	"log"
-	"strings" // ⭐️ 1. IMPORTAMOS "strings"
+	"strings"
 	"time"
 
 	"proyecto/internal/database"
@@ -16,24 +16,24 @@ import (
 // jwtKey se mueve del handler al servicio.
 var jwtKey = []byte("mi_llave_secreta_super_segura_12345")
 
-// --- 1. EL CONTRATO (Interface) ---
+// 1. EL CONTRATO (Interface)
 type AuthService interface {
 	Register(user models.User) (int64, error)
 	Login(username, password string) (*models.LoginResponse, error)
 	CheckPermission(username string, roles ...string) (bool, error)
 }
 
-// --- 2. LA IMPLEMENTACIÓN (Struct) ---
+// 2. LA IMPLEMENTACIÓN (Struct)
 type authService struct {
 	// (En el futuro, aquí irán dependencias como un UserRepository)
 }
 
-// --- 3. EL CONSTRUCTOR ---
+// 3. EL CONSTRUCTOR
 func NewAuthService() AuthService {
 	return &authService{}
 }
 
-// --- 4. LOS MÉTODOS (Lógica de Negocio) ---
+//  4. LOS MÉTODOS
 
 func (s *authService) Register(user models.User) (int64, error) {
 	if user.Username == "" || user.Password == "" || user.Nombre == "" || user.Apellido == "" || user.Cedula == "" {
@@ -69,7 +69,7 @@ func (s *authService) Login(username, password string) (*models.LoginResponse, e
 		return nil, errors.New("credenciales inválidas")
 	}
 
-	// --- Si la contraseña es correcta, genera el token ---
+	//  Si la contraseña es correcta, genera el token
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &models.Claims{
 		UserID: user.ID,
@@ -103,28 +103,19 @@ func (s *authService) Login(username, password string) (*models.LoginResponse, e
 	return response, nil
 }
 
-// CheckPermission - Lógica movida de tu auth.go
-// ⭐️ --- INICIO DE LA CORRECCIÓN --- ⭐️
+// CheckPermission
 func (s *authService) CheckPermission(username string, requiredRoles ...string) (bool, error) {
 	role, err := database.GetUserRole(username)
 	if err != nil {
-		// Si el error es "Usuario no encontrado", no es un error 500.
-		// Es un simple "no tiene permiso".
-		// Comparamos contra el string de error que definimos en user_queries.go
 		if strings.Contains(err.Error(), "Usuario no encontrado") {
 			log.Printf("CheckPermission: Usuario no encontrado '%s'", username)
-			return false, nil // ⬅️ Devolvemos (false, nil)
+			return false, nil //  Devolvemos (false, nil)
 		}
 
-		// (Tu log original de sql.ErrNoRows ya no era necesario porque
-		// GetUserRole devuelve un error personalizado)
-
-		// Otro error (ej. DB desconectada) SÍ es un 500.
 		log.Printf("CheckPermission: Error al obtener rol de '%s': %v", username, err)
-		return false, err // ⬅️ Devolvemos (false, err)
+		return false, err //  Devolvemos (false, err)
 	}
 
-	// (El resto de la función es idéntica)
 	for _, reqRole := range requiredRoles {
 		if strings.EqualFold(role, reqRole) {
 			return true, nil // El usuario tiene el rol
@@ -134,5 +125,3 @@ func (s *authService) CheckPermission(username string, requiredRoles ...string) 
 	log.Printf("CheckPermission: Acceso denegado. Usuario '%s' (Rol: '%s') no tiene rol requerido (%v)", username, role, requiredRoles)
 	return false, nil // No se encontró el rol
 }
-
-// ⭐️ --- FIN DE LA CORRECCIÓN --- ⭐️

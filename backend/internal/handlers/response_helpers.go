@@ -7,7 +7,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- UTILIDADES ---
+// UTILIDADES
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, models.SimpleResponse{Error: message})
 }

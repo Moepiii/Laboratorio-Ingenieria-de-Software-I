@@ -23,17 +23,15 @@ var (
 
 func TestMain(m *testing.M) {
 	testDB := "./test_integration.db"
-	// Limpieza previa por si quedó basura de una ejecución anterior
+
 	os.Remove(testDB)
 	os.Remove(testDB + "-wal")
 	os.Remove(testDB + "-shm")
 
 	database.InitDB(testDB)
-	database.DB.SetMaxOpenConns(1) // Vital para SQLite en tests
-
+	database.DB.SetMaxOpenConns(1)
 	code := m.Run()
 
-	// Limpieza al finalizar
 	database.DB.Close()
 	os.Remove(testDB)
 	os.Remove(testDB + "-wal")
@@ -76,7 +74,6 @@ func TestFlujoCompleto(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		authToken = resp.Token
 
-		// TRUCO: Promover a Admin manualmente en DB para tener permisos totales
 		_, err := database.DB.Exec("UPDATE users SET role = 'admin' WHERE username = ?", adminUsername)
 		if err != nil {
 			t.Fatalf("No se pudo promover usuario a admin: %v", err)
@@ -96,7 +93,7 @@ func TestFlujoCompleto(t *testing.T) {
 		if w.Code != http.StatusCreated {
 			t.Errorf("Error creando proyecto: %d - %s", w.Code, w.Body.String())
 		}
-		proyectoID = 1 // Asumimos ID 1 en DB limpia
+		proyectoID = 1
 	})
 
 	// 4. UNIDAD (Happy Path)
@@ -168,7 +165,7 @@ func TestFlujoCompleto(t *testing.T) {
 		}
 	})
 
-	// 9. SEGURIDAD NEGATIVA (Nuevo Test Agregado)
+	// 8. SEGURIDAD NEGATIVA (Nuevo Test Agregado)
 	t.Run("9. Intento de borrado sin permisos", func(t *testing.T) {
 		// A. Registrar un usuario normal (el intruso)
 		intruderName := "pepe_intruso"
@@ -193,7 +190,7 @@ func TestFlujoCompleto(t *testing.T) {
 		tokenIntruso := resp.Token
 
 		// C. Intentar borrar el Proyecto (Acción reservada para Admins)
-		// NOTA: No le damos update a 'admin' en la DB, así que es un simple mortal.
+
 		delPayload := map[string]interface{}{
 			"id":             proyectoID,
 			"admin_username": intruderName,

@@ -10,14 +10,14 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- 1. EL STRUCT DEL HANDLER ---\
+// 1. EL STRUCT DEL HANDLER
 type ActividadHandler struct {
 	authSvc      auth.AuthService
 	actividadSvc actividades.ActividadService
 	loggerSvc    logger.LoggerService
 }
 
-// --- 2. EL CONSTRUCTOR DEL HANDLER ---\
+// 2. EL CONSTRUCTOR DEL HANDLER
 func NewActividadHandler(as auth.AuthService, acs actividades.ActividadService, ls logger.LoggerService) *ActividadHandler {
 	return &ActividadHandler{
 		authSvc:      as,
@@ -26,7 +26,7 @@ func NewActividadHandler(as auth.AuthService, acs actividades.ActividadService, 
 	}
 }
 
-// --- 3. LOS MÉTODOS (Handlers) ---\
+//  3. LOS MÉTODOS (Handlers)
 
 func (h *ActividadHandler) GetDatosProyectoHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.GetDatosProyectoRequest
@@ -77,10 +77,8 @@ func (h *ActividadHandler) CreateActividadHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// ⭐️ REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "CREACIÓN (Actividad)", "Proyectos", req.ProyectoID)
 
-	// Devolvemos la lista actualizada
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
 }
 
@@ -107,11 +105,8 @@ func (h *ActividadHandler) UpdateActividadHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// ⭐️ REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "MODIFICACIÓN", "Actividades", req.ID)
 
-	// ⭐️ CORRECCIÓN: Eliminamos el 'if err != nil' redundante
-	// Simplemente respondemos con la lista actualizada.
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"actividades": actividades})
 }
 
@@ -142,7 +137,6 @@ func (h *ActividadHandler) DeleteActividadHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// ⭐️ REGISTRAMOS EL EVENTO
 	h.loggerSvc.Log(req.AdminUsername, "admin/gerente", "ELIMINACIÓN", "Actividades", req.ID)
 
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Actividad borrada."})

@@ -25,7 +25,7 @@ func NewUserHandler(as auth.AuthService, us users.UserService, ls logger.LoggerS
 	}
 }
 
-// --- AdminUsersHandler: Listar usuarios ---
+// AdminUsersHandler: Listar usuarios
 func (h *UserHandler) AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AdminActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,9 +52,9 @@ func (h *UserHandler) AdminUsersHandler(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"users": usersList})
 }
 
-// --- AdminAddUserHandler: Crear usuario (desde admin) ---
+// AdminAddUserHandler: Crear usuario (desde admin)
 func (h *UserHandler) AdminAddUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Definimos una estructura auxiliar para recibir el JSON complejo { user: {...}, admin_username: "..." }
+
 	type AdminAddUserRequest struct {
 		User          models.User `json:"user"`
 		AdminUsername string      `json:"admin_username"`
@@ -83,7 +83,7 @@ func (h *UserHandler) AdminAddUserHandler(w http.ResponseWriter, r *http.Request
 	respondWithJSON(w, http.StatusCreated, models.SimpleResponse{Mensaje: "Usuario creado exitosamente"})
 }
 
-// --- AdminDeleteUserHandler: Borrar usuario ---
+// AdminDeleteUserHandler: Borrar usuario
 func (h *UserHandler) AdminDeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -108,7 +108,7 @@ func (h *UserHandler) AdminDeleteUserHandler(w http.ResponseWriter, r *http.Requ
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Usuario eliminado"})
 }
 
-// --- AdminUpdateUserRoleHandler: Actualizar rol de usuario ---
+// AdminUpdateUserRoleHandler: Actualizar rol de usuario
 func (h *UserHandler) AdminUpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -133,7 +133,7 @@ func (h *UserHandler) AdminUpdateUserRoleHandler(w http.ResponseWriter, r *http.
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Rol actualizado"})
 }
 
-// --- AdminAssignProjectToUserHandler: Asignar usuario a proyecto ---
+// AdminAssignProjectToUserHandler: Asignar usuario a proyecto
 func (h *UserHandler) AdminAssignProjectToUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.AssignProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -159,7 +159,7 @@ func (h *UserHandler) AdminAssignProjectToUserHandler(w http.ResponseWriter, r *
 	respondWithJSON(w, http.StatusOK, models.SimpleResponse{Mensaje: "Asignación actualizada"})
 }
 
-// --- UserProjectDetailsHandler: Dashboard de usuario ---
+// UserProjectDetailsHandler: Dashboard de usuario
 func (h *UserHandler) UserProjectDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.UserProjectDetailsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

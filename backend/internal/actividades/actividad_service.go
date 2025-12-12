@@ -9,7 +9,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// --- 1. EL CONTRATO (Interface) ---
+//  1. EL CONTRATO
 
 // GetDatosProyectoResponse es un struct para agrupar la respuesta
 type GetDatosProyectoResponse struct {
@@ -26,19 +26,18 @@ type ActividadService interface {
 	DeleteActividad(id int) (int64, error)
 }
 
-// --- 2. LA IMPLEMENTACIÓN (Struct) ---
+// 2. LA IMPLEMENTACIÓN (Struct)
 type actividadService struct {
 	// (Dependencias futuras)
 }
 
-// --- 3. EL CONSTRUCTOR ---
+// 3. EL CONSTRUCTOR
 func NewActividadService() ActividadService {
 	return &actividadService{}
 }
 
-// --- 4. LOS MÉTODOS (Lógica de Negocio) ---
+//  4. LOS MÉTODOS (Lógica de Negocio)
 
-// ⭐️ CORRECCIÓN AQUÍ ⭐️
 func (s *actividadService) GetDatosProyecto(proyectoID int) (*GetDatosProyectoResponse, error) {
 	labores, err := database.GetLaboresByProyectoID(proyectoID)
 	if err != nil {
@@ -52,7 +51,6 @@ func (s *actividadService) GetDatosProyecto(proyectoID int) (*GetDatosProyectoRe
 		return nil, errors.New("Error al obtener equipos.")
 	}
 
-	// El error estaba aquí. La función es 'GetEncargados' (sin ID de proyecto)
 	encargados, err := database.GetEncargados()
 	if err != nil {
 		log.Printf("Error en GetDatosProyecto (GetEncargados): %v", err)

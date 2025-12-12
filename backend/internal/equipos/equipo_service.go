@@ -3,14 +3,14 @@ package equipos
 import (
 	"errors"
 	"log"
-	"strconv" // ⭐️ 1. IMPORTAMOS strconv
+	"strconv"
 	"strings"
 
 	"proyecto/internal/database"
 	"proyecto/internal/models"
 )
 
-// --- 1. EL CONTRATO (Interface) ---
+// 1. EL CONTRATO (Interface)
 type EquipoService interface {
 	GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error)
 	CreateEquipo(req models.CreateEquipoRequest) (*models.EquipoImplemento, error)
@@ -18,17 +18,17 @@ type EquipoService interface {
 	DeleteEquipo(id int) (int64, error)
 }
 
-// --- 2. LA IMPLEMENTACIÓN (Struct) ---
+// 2. LA IMPLEMENTACIÓN (Struct)
 type equipoService struct {
 	// (Dependencias futuras, como repositorios)
 }
 
-// --- 3. EL CONSTRUCTOR ---
+// 3. EL CONSTRUCTOR
 func NewEquipoService() EquipoService {
 	return &equipoService{}
 }
 
-// --- 4. LOS MÉTODOS (Lógica de Negocio) ---
+//  4. LOS MÉTODOS (Lógica de Negocion)
 
 func (s *equipoService) GetEquiposByProyectoID(proyectoID int) ([]models.EquipoImplemento, error) {
 	if proyectoID == 0 {
@@ -42,9 +42,8 @@ func (s *equipoService) GetEquiposByProyectoID(proyectoID int) ([]models.EquipoI
 	return equipos, nil
 }
 
-// ⭐️ --- INICIO: FUNCIÓN CreateEquipo MODIFICADA --- ⭐️
 func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.EquipoImplemento, error) {
-	// 1. Validación (ya no se valida CodigoEquipo)
+	// 1. Validación
 	if req.ProyectoID == 0 || req.Nombre == "" || req.Tipo == "" {
 		return nil, errors.New("ProyectoID, Nombre y Tipo son requeridos")
 	}
@@ -63,7 +62,7 @@ func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.Eq
 	// El servicio es ahora responsable de asignar el código.
 	equipo := models.EquipoImplemento{
 		ProyectoID:   req.ProyectoID,
-		CodigoEquipo: nextCodigoStr, // ⬅️ Asignamos el nuevo código
+		CodigoEquipo: nextCodigoStr,
 		Nombre:       req.Nombre,
 		Tipo:         req.Tipo,
 		Estado:       req.Estado,
@@ -88,8 +87,6 @@ func (s *equipoService) CreateEquipo(req models.CreateEquipoRequest) (*models.Eq
 
 	return nuevoEquipo, nil
 }
-
-// ⭐️ --- FIN: FUNCIÓN CreateEquipo MODIFICADA --- ⭐️
 
 func (s *equipoService) UpdateEquipo(req models.UpdateEquipoRequest) (int64, error) {
 	if req.ID == 0 || req.CodigoEquipo == "" || req.Nombre == "" || req.Tipo == "" || req.Estado == "" {

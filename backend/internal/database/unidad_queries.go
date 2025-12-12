@@ -4,7 +4,7 @@ import (
 	"proyecto/internal/models"
 )
 
-// ⭐️ CAMBIO: Recibe proyectoID
+// Recibe proyectoID
 func GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error) {
 	rows, err := DB.Query("SELECT id, proyecto_id, nombre, abreviatura, tipo, dimension, fecha_creacion FROM unidades_medida WHERE proyecto_id = ? ORDER BY fecha_creacion DESC", proyectoID)
 	if err != nil {
@@ -34,7 +34,7 @@ func GetUnidadByID(id int) (*models.UnidadMedida, error) {
 }
 
 func CreateUnidad(u models.UnidadMedida) (int64, error) {
-	// ⭐️ AÑADIDO: proyecto_id
+	// proyecto_id
 	stmt, err := DB.Prepare("INSERT INTO unidades_medida (proyecto_id, nombre, abreviatura, tipo, dimension) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, err
@@ -56,12 +56,16 @@ func UpdateUnidad(id int, nombre, abreviatura, tipo string, dimension float64) (
 	}
 	defer stmt.Close()
 	res, err := stmt.Exec(nombre, abreviatura, tipo, dimension, id)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return res.RowsAffected()
 }
 
 func DeleteUnidad(id int) (int64, error) {
 	res, err := DB.Exec("DELETE FROM unidades_medida WHERE id = ?", id)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return res.RowsAffected()
 }

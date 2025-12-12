@@ -8,7 +8,7 @@ import (
 )
 
 type UnidadService interface {
-	GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error) // ⭐️ Nombre cambiado
+	GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error)
 	CreateUnidad(req models.CreateUnidadRequest) (*models.UnidadMedida, error)
 	UpdateUnidad(req models.UpdateUnidadRequest) (int64, error)
 	DeleteUnidad(id int) (int64, error)
@@ -20,7 +20,7 @@ func NewUnidadService() UnidadService {
 	return &unidadService{}
 }
 
-// ⭐️ Acepta ID de proyecto
+// Acepta ID de proyecto
 func (s *unidadService) GetUnidadesByProyectoID(proyectoID int) ([]models.UnidadMedida, error) {
 	if proyectoID == 0 {
 		return nil, errors.New("ID de proyecto requerido")
@@ -37,11 +37,11 @@ func (s *unidadService) CreateUnidad(req models.CreateUnidadRequest) (*models.Un
 	}
 
 	id, err := database.CreateUnidad(models.UnidadMedida{
-		ProyectoID:  req.ProyectoID, // ⭐️ Guardamos el ID
+		ProyectoID:  req.ProyectoID, // Guardamos el ID
 		Nombre:      req.Nombre,
 		Abreviatura: req.Abreviatura,
 		Tipo:        req.Tipo,
-		Dimension:   req.Dimension, 
+		Dimension:   req.Dimension,
 	})
 	if err != nil {
 		log.Printf("Error creando unidad: %v", err)
@@ -50,9 +50,11 @@ func (s *unidadService) CreateUnidad(req models.CreateUnidadRequest) (*models.Un
 
 	return database.GetUnidadByID(int(id))
 }
-// Update y Delete quedan igual...
+
 func (s *unidadService) UpdateUnidad(req models.UpdateUnidadRequest) (int64, error) {
-	if req.ID == 0 || req.Nombre == "" || req.Abreviatura == "" { return 0, errors.New("datos incompletos") }
+	if req.ID == 0 || req.Nombre == "" || req.Abreviatura == "" {
+		return 0, errors.New("datos incompletos")
+	}
 	return database.UpdateUnidad(req.ID, req.Nombre, req.Abreviatura, req.Tipo, req.Dimension)
 }
 func (s *unidadService) DeleteUnidad(id int) (int64, error) { return database.DeleteUnidad(id) }
