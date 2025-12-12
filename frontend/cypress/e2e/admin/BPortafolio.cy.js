@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 
 describe('Portafolio de Proyectos (Historia B)', () => {
 
@@ -50,19 +49,15 @@ describe('Portafolio de Proyectos (Historia B)', () => {
         cy.contains('label', 'Fecha Cierre').next('input').type('2025-12-31');
         cy.contains('button', /^Guardar$/).click();
 
-        // ⭐️ --- 2. VERIFICAR ESTADO "Activo" (POR DEFECTO) --- ⭐️
-        // Buscamos el 'span' de estado dentro de la fila del nuevo proyecto.
-        // Aquí usamos "Activo" (con 'A' mayúscula), que es lo que la app muestra.
+
         cy.contains('tr', nombreProyecto)
             .find('span')
-            .should('contain.text', 'Activo'); // ⬅️ ¡CAMBIO HECHO AQUÍ!
+            .should('contain.text', 'Activo'); // 
 
         // --- 3. PROBAR BOTÓN "CERRAR" ---
         cy.contains('tr', nombreProyecto).find('input[type="radio"]').click();
 
-        // La lógica de 'Portafolio.js' usa "habilitado" para deshabilitar el botón.
-        // Como el estado es "Activo", el botón "Habilitar" NO estará deshabilitado.
-        // ¡Esto es un bug que la prueba confirma!
+
         cy.contains('button', /^Habilitar$/).should('not.be.disabled');
         cy.contains('button', /^Cerrar$/).should('not.be.disabled');
 
@@ -74,8 +69,7 @@ describe('Portafolio de Proyectos (Historia B)', () => {
             .find('span')
             .should('contain.text', 'cerrado');
 
-        // --- 5. PROBAR BOTÓN "HABILITAR" ---
-        // Ahora "Habilitar" debe estar enabled y "Cerrar" disabled.
+
         cy.contains('button', /^Habilitar$/).should('not.be.disabled');
         cy.contains('button', /^Cerrar$/).should('be.disabled');
 
@@ -86,7 +80,7 @@ describe('Portafolio de Proyectos (Historia B)', () => {
         // El botón "Habilitar" setea el estado a "habilitado" (minúscula)
         cy.contains('tr', nombreProyecto)
             .find('span')
-            .should('contain.text', 'habilitado'); // ⬅️ Aquí SÍ es "habilitado"
+            .should('contain.text', 'habilitado'); 
     });
 
 });

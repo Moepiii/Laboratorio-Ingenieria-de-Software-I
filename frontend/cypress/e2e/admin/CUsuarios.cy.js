@@ -30,17 +30,13 @@ describe('Gestión de Usuarios (Historia C)', () => {
     cy.contains('Perfiles de usuarios').click();
     cy.url().should('include', '/admin/usuarios');
 
-    // ⭐️ CLAVE: Esperamos a que el botón "Agregar Usuario" sea visible 
-    // Esto garantiza que el formulario ya cargó antes de buscar los inputs
+
     cy.contains('button', 'Agregar Usuario').should('be.visible');
   });
 
   // --- PRUEBA 1: Crear un Nuevo Usuario ---
   it('C.1 Debería crear un nuevo usuario exitosamente', () => {
 
-    // 1. Llenar el formulario (Haciendo click primero como pediste)
-    // Usamos selectores por 'name' que son más robustos que el placeholder, 
-    // pero si prefieres placeholder, asegúrate que esté escrito idéntico.
 
     // Username
     cy.get('input[name="username"]')

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-// ⭐️ Importamos la nueva función deleteLogsByRange
+
 import { getLogs, deleteLogs, deleteLogsByRange } from '../services/loggerService';
-// ⭐️ Importamos el Modal
+
 import Modal from '../components/auth/Modal';
 
 const styles = {
@@ -44,7 +44,7 @@ const LoggerEventos = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // ⭐️ ESTADOS PARA EL BORRADO MASIVO
+
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteMode, setDeleteMode] = useState('month'); // 'month', 'quarter', 'year'
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -103,7 +103,7 @@ const LoggerEventos = () => {
         }
     };
 
-    // ⭐️ LÓGICA DE BORRADO MASIVO POR FECHAS
+
     const handleBulkDelete = async (e) => {
         e.preventDefault();
 
@@ -215,7 +215,7 @@ const LoggerEventos = () => {
                     🗑️ Eliminar Seleccionados ({selectedIds.length})
                 </button>
 
-                {/* ⭐️ BOTÓN NUEVO PARA BORRADO MASIVO */}
+                {/**/}
                 <button
                     onClick={() => setIsDeleteModalOpen(true)}
                     style={{ ...styles.button, backgroundColor: '#dc2626' }}
@@ -276,7 +276,7 @@ const LoggerEventos = () => {
                 </table>
             </div>
 
-            {/* ⭐️ MODAL DE BORRADO MASIVO POR FECHAS ⭐️ */}
+            {/*  */}
             <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Eliminación de Historial por Periodo">
                 <form onSubmit={handleBulkDelete} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '4px', fontSize: '0.9rem' }}>

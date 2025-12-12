@@ -44,9 +44,7 @@ const styles = {
     }
 };
 
-/**
- * Un componente Modal simple y reutilizable.
- */
+
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) {
         return null;

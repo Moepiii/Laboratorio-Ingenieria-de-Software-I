@@ -12,7 +12,7 @@ const styles = {
     h3: { fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginTop: '0', marginBottom: '1rem' },
     input: { width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' },
     button: { padding: '0.75rem 1.5rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '1rem' },
-    // ⭐️ CAMBIO: El grid ahora es de 1 sola columna
+    // 
     formGrid: { display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
     th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600' },
@@ -34,7 +34,7 @@ const LaboresAgronomicas = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // ⭐️ CAMBIO: Se elimina el estado 'newLaborCodigo'
+    // 
     const [newLaborDesc, setNewLaborDesc] = useState('');
 
     const [editingId, setEditingId] = useState(null);
@@ -65,14 +65,14 @@ const LaboresAgronomicas = () => {
     // Handlers CRUD
     const handleCreateLabor = async (e) => {
         e.preventDefault();
-        // ⭐️ CAMBIO: Ya no se valida el código
+        // 
         if (newLaborDesc.trim() === '') {
             setError('La Descripción no puede estar vacía.');
             return;
         }
         setError('');
 
-        // ⭐️ CAMBIO: 'codigo_labor' eliminado de 'laborData'
+        // 
         const laborData = {
             proyecto_id: proyectoIdNum,
             descripcion: newLaborDesc,
@@ -80,7 +80,7 @@ const LaboresAgronomicas = () => {
         };
 
         try {
-            // El 'laborService' (archivo anterior) ya está listo para esto
+            // 
             const nuevaLabor = await createLabor(token, laborData, adminUsername);
             setLabores([nuevaLabor, ...labores]);
             setNewLaborDesc(''); // Limpia solo la descripción
@@ -155,10 +155,10 @@ const LaboresAgronomicas = () => {
             <div style={styles.formContainer}>
                 <h3 style={styles.h3}>Nueva Labor</h3>
                 <form onSubmit={handleCreateLabor}>
-                    {/* ⭐️ CAMBIO: Formulario en grid de 1 columna */}
+                    {/*  */}
                     <div style={styles.formGrid}>
 
-                        {/* ⭐️ CAMBIO: Input de Código ELIMINADO */}
+                        {/*  */}
 
                         <div>
                             <label htmlFor="descripcion" style={{ display: 'block', marginBottom: '0.5rem' }}>Descripción</label>

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getUnidades, createUnidad, updateUnidad, deleteUnidad } from '../services/unidadService';
 import Modal from '../components/auth/Modal';
 
-// (Tus estilos 'styles' se mantienen IGUALES, los omito para ahorrar espacio...)
+
 const styles = {
     container: { padding: '2rem', color: '#333', fontFamily: 'Inter, sans-serif' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '2rem' },
@@ -29,7 +29,7 @@ const styles = {
 
 const UnidadesMedida = () => {
     const { token, currentUser } = useAuth();
-    const { id } = useParams(); // ⭐️ OBTENEMOS EL PROYECTO ID DE LA URL
+    const { id } = useParams(); 
     const proyectoId = parseInt(id);
 
     const [unidades, setUnidades] = useState([]);
@@ -39,7 +39,6 @@ const UnidadesMedida = () => {
 
     const fetchUnidades = useCallback(async () => {
         try {
-            // ⭐️ Pasamos proyectoId al obtener
             const res = await getUnidades(token, proyectoId, currentUser.username);
             setUnidades(res || []); 
         } catch (error) {
@@ -86,7 +85,7 @@ const UnidadesMedida = () => {
 
         try {
             if (currentUnidad) {
-                // Update no necesita proyecto_id explícito porque va ligado al ID de la unidad, pero no daña enviarlo
+                
                 await updateUnidad(token, { ...dataToSend, id: currentUnidad.id }, currentUser.username);
             } else {
                 await createUnidad(token, dataToSend, currentUser.username);

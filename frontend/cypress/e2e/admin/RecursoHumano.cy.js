@@ -1,9 +1,8 @@
-/* eslint-disable no-undef */
+
 
 describe('Módulo: Recurso Humano', () => {
 
-    // 1. Datos simulados para la TABLA
-    // Total esperado: 500 + 300 = 800
+
     const mockRecursos = [
         {
             id: 1,
@@ -52,7 +51,7 @@ describe('Módulo: Recurso Humano', () => {
         cy.wait('@loginRequest').its('response.statusCode').should('eq', 200);
         cy.url({ timeout: 10000 }).should('include', '/admin');
 
-        // Navegar a la ruta de Recursos Humanos (Proyecto ID 15 simulado)
+
         cy.visit('/admin/planes-accion/proyecto/15/recursos');
 
         // Esperar cargas
@@ -69,8 +68,7 @@ describe('Módulo: Recurso Humano', () => {
         cy.get('table tbody tr').first().should('contain', 'Cosecha');
         cy.get('table tbody tr').first().should('contain', 'Juan Perez');
 
-        // ⭐️ VERIFICAR TOTAL EN EL PIE DE PÁGINA (500 + 300 = 800)
-        // Buscamos la celda que contiene "800.00"
+
         cy.contains('td', '800.00').should('be.visible');
 
         // Verificar etiqueta del total

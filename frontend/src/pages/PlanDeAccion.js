@@ -167,14 +167,14 @@ const PlanDeAccion = () => {
                         <tr>
                             <th style={styles.th}>ID</th>
                             <th style={styles.th}>Actividad</th>
-                            {/* ⭐️ CAMBIO: Solo 'Acción' */}
+                            {/*  */}
                             <th style={styles.th}>Acción</th>
                             <th style={styles.th}>Fecha Inicio</th>
                             <th style={styles.th}>Fecha Cierre</th>
-                            {/* ⭐️ CAMBIO: 'Cantidad Horas' */}
+                            {/*  */}
                             <th style={styles.th}>Cantidad Horas</th>
                             <th style={styles.th}>Responsable</th>
-                            {/* Recordar: Dinero ($) fue eliminado antes, si lo quieres de vuelta avísame */}
+                            {/*  */}
                             <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
@@ -233,7 +233,7 @@ const PlanDeAccion = () => {
                     </div>
 
                     <div style={styles.formGroup}>
-                        {/* ⭐️ CAMBIO: Solo 'Acción' */}
+                        {/*  */}
                         <label style={styles.label}>Acción</label>
                         <select name="accion" value={formData.accion} onChange={handleInputChange} required style={styles.select}>
                             <option value="">-- Seleccione --</option>
@@ -256,7 +256,7 @@ const PlanDeAccion = () => {
 
                     <div style={styles.rowGroup}>
                         <div style={{ ...styles.formGroup, flex: 1 }}>
-                            {/* ⭐️ CAMBIO: 'Cantidad Horas' */}
+                            {/*  */}
                             <label style={styles.label}>Cantidad Horas</label>
                             <input type="number" name="horas" value={formData.horas} onChange={handleInputChange} required style={styles.input} placeholder="0" />
                         </div>

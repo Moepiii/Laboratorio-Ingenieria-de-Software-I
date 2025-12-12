@@ -36,12 +36,11 @@ const styles = {
         borderBottom: '1px solid #e5e7eb',
         verticalAlign: 'middle',
     },
-    // ⭐️ --- (INICIO) NUEVO ESTILO --- ⭐️
     colCedula: {
-        minWidth: '130px',      // Le damos un ancho mínimo de 130px
-        whiteSpace: 'nowrap',   // Evita que el texto se parta en dos líneas
+        minWidth: '130px',     
+        whiteSpace: 'nowrap',   
     },
-    // ⭐️ --- (FIN) NUEVO ESTILO --- ⭐️
+
     trHover: {
         cursor: 'pointer',
         backgroundColor: '#f9fafb', // Fondo suave al pasar el mouse
@@ -117,7 +116,7 @@ const EncargadoSearchModal = ({ isOpen, onClose, onSelect, encargadosList, selec
                     <thead style={styles.thead}>
                         <tr>
                             <th style={styles.th}>Opciones</th>
-                            {/* ⭐️ CAMBIO: Aplicamos el nuevo estilo a la cabecera */}
+                            {/*  */}
                             <th style={{ ...styles.th, ...styles.colCedula }}>Cédula</th>
                             <th style={styles.th}>Nombre</th>
                             <th style={styles.th}>Apellido</th>
@@ -142,7 +141,7 @@ const EncargadoSearchModal = ({ isOpen, onClose, onSelect, encargadosList, selec
                                                 {isSelected && <div style={styles.radioInner}></div>}
                                             </div>
                                         </td>
-                                        {/* ⭐️ CAMBIO: Aplicamos el nuevo estilo a la celda */}
+                                        {/*  */}
                                         <td style={{ ...styles.td, ...styles.colCedula }}>{enc.cedula}</td>
                                         <td style={styles.td}>{enc.nombre}</td>
                                         <td style={styles.td}>{enc.apellido}</td>

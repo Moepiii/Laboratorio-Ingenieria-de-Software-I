@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext'; // Ajusta la ruta si es necesario
 
-// (Los estilos 'styles' se mantienen igual, así que los omito aquí por brevedad)
-// ... (asumimos que tu objeto 'styles' está aquí)
+
 
 const styles = {
     card: {
@@ -25,26 +24,26 @@ const styles = {
 
 
 const AuthForm = () => {
-    // ⭐️ MODIFICADO: Añadimos los estados para los nuevos campos
+
     const [isRegisterMode, setIsRegisterMode] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [nombre, setNombre] = useState('');
     const [apellido, setApellido] = useState('');
-    const [cedula, setCedula] = useState(''); // ⭐️ NUEVO
+    const [cedula, setCedula] = useState(''); 
 
     const { login, register, loading, error, successMessage, setError, setSuccessMessage } = useAuth();
 
     const handleSwitchMode = () => {
         setIsRegisterMode(!isRegisterMode);
-        // Limpia todos los campos y mensajes al cambiar de modo
+ 
         setUsername('');
         setPassword('');
         setConfirmPassword('');
         setNombre('');
         setApellido('');
-        setCedula(''); // ⭐️ NUEVO: Limpia la cédula
+        setCedula(''); 
         setError('');
         setSuccessMessage('');
     };
@@ -60,7 +59,7 @@ const AuthForm = () => {
                 setError('Las contraseñas no coinciden.');
                 return;
             }
-            // ⭐️ MODIFICADO: Pasa la 'cedula' a la función register del contexto
+
             await register(username, password, nombre, apellido, cedula);
 
         } else {
@@ -91,7 +90,7 @@ const AuthForm = () => {
                             <label htmlFor="apellido" style={styles.label}>Apellido</label>
                             <input id="apellido" type="text" value={apellido} onChange={(e) => setApellido(e.target.value)} required style={styles.input} />
                         </div>
-                        {/* ⭐️ NUEVO: Campo de Cédula */}
+                        {/*  */}
                         <div style={styles.inputGroup}>
                             <label htmlFor="cedula" style={styles.label}>Cédula</label>
                             <input id="cedula" type="text" value={cedula} onChange={(e) => setCedula(e.target.value)} required style={styles.input} placeholder="V-12345678" />

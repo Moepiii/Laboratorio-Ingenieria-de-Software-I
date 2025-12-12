@@ -106,7 +106,7 @@ const Sidebar = () => {
         </div>
       )}
 
-      {/* ⭐️ RESTAURADO: Logger de eventos (Solo Admin) ⭐️ */}
+      {/*  RESTAURADO: Logger de eventos (Solo Admin) */}
       {userRole === 'admin' && (
         <Link
           to="/admin/logs"

@@ -3,7 +3,6 @@ import { apiCall } from './authService';
 // --- Funciones para el Dashboard de Usuario ---
 
 export const getUserDashboardData = (token, userId) => {
-    // Coincide con json:"user_id" en models.go
     return apiCall('/user/project-details', 'POST', { user_id: userId }, token);
 };
 
@@ -21,19 +20,17 @@ export const getGerentes = async (token, adminUsername) => {
 };
 
 
-// ⭐️ INICIO DE LA CORRECCIÓN ⭐️
+
 export const adminAddUser = (token, userData, adminUsername) => {
 
-    // 'userData' es el objeto {username, password, ...}
-    // El backend espera { user: {...}, admin_username: "..." }
     const body = {
-        user: userData, // ⬅️ En lugar de "...userData"
+        user: userData, 
         admin_username: adminUsername
     };
 
     return apiCall('/admin/add-user', 'POST', body, token);
 };
-// ⭐️ FIN DE LA CORRECCIÓN ⭐️
+
 
 
 export const adminDeleteUser = (token, userId, adminUsername) => {
@@ -62,7 +59,6 @@ export const adminAssignProjectToUser = (token, userId, projectId, adminUsername
     return apiCall('/admin/assign-project', 'POST', body, token);
 };
 
-// Obtiene la data del dashboard de un usuario (para el rol 'user')
 export const getProjectDetailsForUser = (token, userId) => {
     const body = {
         user_id: userId

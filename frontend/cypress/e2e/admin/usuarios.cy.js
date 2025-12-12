@@ -1,15 +1,11 @@
-/**
- * cypress/e2e/admin/usuarios.cy.js
- * Pruebas para la página de gestión de perfiles de usuario.
- */
+
 describe('Gestión de Usuarios (Página Admin)', () => {
 
   beforeEach(() => {
-    // --- PASO 1: Iniciar sesión como Admin ---
+
     cy.loginAsAdmin();
 
-    // --- PASO 2: Interceptar las APIs de CARGA INICIAL ---
-    // ⭐️ CORRECCIÓN: Usamos '**' para un "matching" de ruta más robusto
+
     
     cy.intercept('POST', '**/api/admin/users', {
       statusCode: 200,
@@ -18,7 +14,7 @@ describe('Gestión de Usuarios (Página Admin)', () => {
 
     cy.intercept('POST', '**/api/admin/get-proyectos', {
       statusCode: 200,
-      fixture: 'admin-projects.json' // (Este fixture DEBE tener el formato {"projects": [...]})
+      fixture: 'admin-projects.json' 
     }).as('getProjects');
   });
 
@@ -45,7 +41,7 @@ describe('Gestión de Usuarios (Página Admin)', () => {
   
   it('debe permitir a un admin agregar un nuevo usuario (Happy Path)', () => {
     
-    // ⭐️ CORRECCIÓN: Usamos '**' para un "matching" de ruta más robusto
+
     cy.intercept('POST', '**/api/admin/add-user', {
       statusCode: 201,
       fixture: 'admin-users-updated.json'
@@ -64,17 +60,15 @@ describe('Gestión de Usuarios (Página Admin)', () => {
     
     cy.get('select[name="role"]').select('user');
 
-    // (Esta es la línea que fallaba)
-    // Ahora esperará a que el fixture con formato correcto
-    // sea renderizado por React.
+
     cy.get('select[name="proyecto_id"]')
       .find('option[value="2"]')
       .should('exist');
 
-    // Ahora que sabemos que la opción existe, la seleccionamos
+
     cy.get('select[name="proyecto_id"]').select('2'); 
 
-    // Enviar el formulario
+
     cy.get('form').contains('button', 'Agregar Usuario').click();
 
     // Verificar los resultados
@@ -82,7 +76,7 @@ describe('Gestión de Usuarios (Página Admin)', () => {
     cy.contains('Usuario agregado con éxito').should('be.visible');
     cy.get('input[name="username"]').should('have.value', '');
     
-    // Verificar que el NUEVO usuario está AHORA en la tabla
+
     cy.contains('td', 'usuario_prueba').should('be.visible');
   });
 

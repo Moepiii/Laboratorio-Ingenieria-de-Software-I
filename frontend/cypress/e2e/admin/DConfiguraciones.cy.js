@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+
 
 describe('Módulo de Configuraciones (Historia D)', () => {
 
@@ -54,7 +54,7 @@ describe('Módulo de Configuraciones (Historia D)', () => {
         cy.contains('tr', nuevaUnidad.nombre).should('be.visible');
     });
 
-    // --- ⭐️ PRUEBA 2: NAVEGACIÓN DEL MENÚ LATERAL ⭐️ ---
+
     it('D.2 Debería navegar correctamente entre los submódulos del menú', () => {
 
         // 1. Ir a Labores Agronómicas

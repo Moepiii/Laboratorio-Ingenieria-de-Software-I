@@ -1,7 +1,7 @@
 import { apiCall } from './authService';
 
 /**
- * Llama al endpoint del backend para obtener la bitácora de eventos.
+ * 
  *
  * @param {string} token - El token JWT del admin.
  * @param {string} adminUsername - El username del admin.
@@ -9,8 +9,6 @@ import { apiCall } from './authService';
  * @returns {Promise<Array>} - Una promesa que resuelve a la lista de logs.
  */
 export const getLogs = (token, adminUsername, filters = {}) => {
-    // El cuerpo de la solicitud incluye el admin (para permisos)
-    // y el objeto de filtros.
     const body = {
         admin_username: adminUsername,
         ...filters
@@ -31,10 +29,7 @@ export const deleteLogs = (token, logIds, adminUsername) => {
     return apiCall('/admin/delete-logs', 'POST', body, token);
 };
 
-/**
- * ⭐️ NUEVA FUNCIÓN: Elimina logs por rango de fechas (Masivo)
- * Llama a: /api/admin/delete-logs-range
- */
+
 export const deleteLogsByRange = (token, startDate, endDate, adminUsername) => {
     const body = {
         fecha_inicio: startDate, // YYYY-MM-DD

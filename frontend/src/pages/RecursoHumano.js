@@ -186,7 +186,7 @@ const RecursoHumano = () => {
                             <th style={styles.th}>Tiempo</th>
                             <th style={styles.th}>Cantidad</th>
                             <th style={styles.th}>Responsable</th>
-                            {/* ⭐️ COLUMNA DE COSTO ELIMINADA DE AQUÍ */}
+                            {/*  COLUMNA DE COSTO ELIMINADA DE AQUÍ */}
                             <th style={styles.th}>Monto ($)</th>
                             <th style={styles.th}>Acciones</th>
                         </tr>
@@ -200,7 +200,7 @@ const RecursoHumano = () => {
                                 <td style={styles.td}>{rec.tiempo}</td>
                                 <td style={styles.td}>{rec.cantidad}</td>
                                 <td style={styles.td}>{rec.nombre}</td>
-                                {/* ⭐️ CELDA DE COSTO ELIMINADA DE AQUÍ */}
+                                {/*  CELDA DE COSTO ELIMINADA DE AQUÍ */}
                                 <td style={{ ...styles.td, fontWeight: 'bold' }}>{rec.monto}</td>
                                 <td style={styles.td}>
                                     <button style={{ ...styles.actionButton, ...styles.editButton }} onClick={() => handleEditClick(rec)}>Editar</button>
@@ -216,7 +216,7 @@ const RecursoHumano = () => {
                     {recursos.length > 0 && (
                         <tfoot>
                             <tr>
-                                {/* ⭐️ COLSPAN AJUSTADO A 6 (ID, Act, Acc, Tiem, Cant, Resp) para alinear con Monto */}
+                                {/* COLSPAN AJUSTADO A 6 (ID, Act, Acc, Tiem, Cant, Resp) para alinear con Monto */}
                                 <td colSpan="6" style={{ ...styles.footerTd, textAlign: 'right' }}>
                                     Monto Total Talento Humano ($):
                                 </td>

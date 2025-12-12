@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+
 
 describe('Módulo: Plan de Acción', () => {
 
@@ -48,10 +48,10 @@ describe('Módulo: Plan de Acción', () => {
     it('2. Calcula automáticamente el Monto al ingresar Horas y Dinero', () => {
         cy.contains('button', '+ Añadir').click();
 
-        // Seleccionar Actividad para habilitar flujo (aunque no es estrictamente necesario para el cálculo, es más real)
+
         cy.contains('label', 'Actividad').next('select').select('Poda');
 
-        // ⭐️ AQUÍ ESTABA EL ERROR: Corregido a "Cantidad Horas"
+
         cy.contains('label', 'Cantidad Horas').parent().find('input').type('5');
 
         // Ingresar Dinero ($)

@@ -9,7 +9,7 @@ import {
   setProjectState
 } from '../services/projectService';
 
-// ⭐️ --- (INICIO) COMPONENTE INTERNO LISTA PROYECTOS --- ⭐️
+
 const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, searchTerm, showToolbar, navigate, location }) => {
 
   const filteredProyectos = useMemo(() => {
@@ -23,7 +23,7 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
     if (!showToolbar) {
         const currentPath = location.pathname;
 
-        // ⭐️ LÓGICA INTELIGENTE DE REDIRECCIÓN ⭐️
+        
         if (currentPath.includes('/configuraciones')) {
             // Si venimos de Configuraciones -> Vamos a Labores
             navigate(`/admin/configuraciones/proyecto/${proyecto.id}/labores`);
@@ -84,7 +84,7 @@ const ListaProyectos = ({ proyectos, selectedProyectoId, setSelectedProyectoId, 
     </div>
   );
 };
-// ⭐️ --- (FIN) COMPONENTE INTERNO LISTA PROYECTOS --- ⭐️
+
 
 
 // --- Componente Principal Portafolio ---
@@ -151,7 +151,7 @@ const Portafolio = () => {
     };
 
     try {
-      if (selectedProyectoId) { // Actualizar
+      if (selectedProyectoId) { 
         const updated = await updateProject(token, { ...proyectoData, id: selectedProyectoId });
         setProyectos(proyectos.map(p => p.id === selectedProyectoId ? updated : p));
       } else { // Crear
@@ -196,7 +196,7 @@ const Portafolio = () => {
   return (
     <div style={styles.container}>
       {showForm ? (
-        // ⭐️ --- (INICIO) FORMULARIO MODIFICADO --- ⭐️
+        // 
         <div style={styles.adminFormContainer}>
           <form onSubmit={handleSubmit}>
 
@@ -239,7 +239,7 @@ const Portafolio = () => {
 
           </form>
         </div>
-        // ⭐️ --- (FIN) FORMULARIO MODIFICADO --- ⭐️
+        // 
       ) : (
         <>
           <h2 style={styles.h2}>{showToolbar ? 'Portafolio de Proyectos' : 'Configuraciones'}</h2>
@@ -317,7 +317,7 @@ const styles = {
   inputGroup: { marginBottom: '1.25rem' },
   label: { display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' },
 
-  // ⭐️ --- (INICIO) ESTILOS MODIFICADOS PARA EL FORMULARIO --- ⭐️
+  // 
   formHeader: {
     // Ya no es 'flex', solo un bloque normal
     marginBottom: '1.5rem', // Espacio después del título
@@ -335,7 +335,7 @@ const styles = {
     gap: '0.75rem', // Espacio entre botones
     marginBottom: '1.5rem' // Espacio ANTES del primer campo "Nombre del Proyecto"
   },
-  // ⭐️ --- (FIN) ESTILOS MODIFICADOS PARA EL FORMULARIO --- ⭐️
+  // 
 
   button: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', display: 'inline-flex', alignItems: 'center' },
   buttonSuccess: { padding: '0.6rem 1.2rem', fontSize: '1rem', fontWeight: '600', borderRadius: '8px', color: 'white', backgroundColor: '#22c55e', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', display: 'inline-flex', alignItems: 'center' },

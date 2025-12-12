@@ -1,7 +1,7 @@
 import React from 'react';
 import AuthForm from '../components/auth/AuthForm';
 
-// Estilos que antes estaban en App.js para centrar el formulario
+
 const styles = {
     container: {
         minHeight: '100vh',

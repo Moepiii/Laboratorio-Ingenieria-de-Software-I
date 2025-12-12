@@ -1,9 +1,7 @@
-// La URL base de tu API
+
 const API_BASE_URL = 'http://localhost:8080/api';
 
-/**
- * Función apiCall robusta (Versión Final)
- */
+
 export const apiCall = async (endpoint, method, body = null, token = null) => {
     const url = `${API_BASE_URL}${endpoint}`;
 
@@ -67,13 +65,13 @@ export const apiCall = async (endpoint, method, body = null, token = null) => {
 
 // --- Funciones de Autenticación ---
 
-// ⭐️ CORRECCIÓN AQUÍ ⭐️
+
 export const loginUser = (username, password) => {
-    // Añadimos '/auth/'
+
     return apiCall('/auth/login', 'POST', { username: username, password: password });
 };
 
-// ⭐️ CORRECCIÓN AQUÍ ⭐️
+
 export const registerUser = (username, password, nombre, apellido, cedula) => {
     const user = {
         username: username,
@@ -82,6 +80,6 @@ export const registerUser = (username, password, nombre, apellido, cedula) => {
         apellido: apellido,
         cedula: cedula
     };
-    // Añadimos '/auth/'
+
     return apiCall('/auth/register', 'POST', user);
 };

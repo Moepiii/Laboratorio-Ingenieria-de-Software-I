@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+
 
 describe('Módulo: Materiales e Insumos', () => {
 
@@ -18,9 +18,7 @@ describe('Módulo: Materiales e Insumos', () => {
             accion: 'Química',
             categoria: 'Insumos',
             nombre: 'Glifosato',
-            // --- CORRECCIÓN AQUÍ ---
-            // Cambiamos 'Carlos Ruiz' por 'Carlos' para que coincida con la opción
-            // disponible en el <select> del frontend.
+
             responsable: 'Carlos', 
             unidad: 'Lts',
             cantidad: 10,
@@ -122,9 +120,7 @@ describe('Módulo: Materiales e Insumos', () => {
 
         cy.get('input[name="costo_unitario"]').clear().type('25');
         
-        // --- CORRECCIÓN AQUÍ ---
-        // Cambiamos 'Actualizar' por 'Guardar', ya que es probable que el botón
-        // conserve el mismo nombre que en la creación.
+
         cy.contains('button', 'Guardar').click(); 
 
         cy.wait('@updateMaterial');

@@ -144,8 +144,7 @@ const MaterialesInsumos = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // CORRECCIÓN CRÍTICA: Convertir tipos antes de enviar
-            // Esto evita el Error 400 en Go
+
             const payload = {
                 ...formData,
                 proyecto_id: parseInt(id), // ID del proyecto como entero

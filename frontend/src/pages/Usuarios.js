@@ -24,7 +24,7 @@ const styles = {
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '0.75rem 1rem', textAlign: 'left', backgroundColor: '#f3f4f6', borderBottom: '2px solid #e5e7eb', color: '#374151', fontWeight: '600', fontSize: '0.875rem' },
   td: { padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', verticalAlign: 'middle' },
-  // ⭐️ MODIFICACIÓN: Nuevo estilo para la columna Cédula ⭐️
+
   tdCedula: { minWidth: '150px' },
   // -----------------------------------------------------------
   roleSelect: { padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', minWidth: '120px' },
@@ -42,9 +42,9 @@ const PerfilesUsuarios = () => {
     password: '',
     nombre: '',
     apellido: '',
-    cedula: '', // Nuevo campo
+    cedula: '', 
     role: 'user',
-    proyecto_id: '' // Para la asignación inicial
+    proyecto_id: '' 
   });
   const [selectedRoles, setSelectedRoles] = useState({});
   const [selectedProjects, setSelectedProjects] = useState({});
@@ -245,7 +245,7 @@ const PerfilesUsuarios = () => {
                 <th style={styles.th}>Usuario</th>
                 <th style={styles.th}>Nombre</th>
                 <th style={styles.th}>Apellido</th>
-                {/* ⭐️ APLICACIÓN DEL ESTILO AL ENCABEZADO ⭐️ */}
+                {/*  APLICACIÓN DEL ESTILO AL ENCABEZADO  */}
                 <th style={{ ...styles.th, ...styles.tdCedula }}>Cédula</th>
                 <th style={styles.th}>Rol</th>
                 <th style={styles.th}>Proyecto Asignado</th>
@@ -261,7 +261,7 @@ const PerfilesUsuarios = () => {
                     <td style={styles.td}>{user.username}</td>
                     <td style={styles.td}>{user.nombre}</td>
                     <td style={styles.td}>{user.apellido}</td>
-                    {/* ⭐️ APLICACIÓN DEL ESTILO A LA CELDA DE DATOS ⭐️ */}
+                    {/*  APLICACIÓN DEL ESTILO A LA CELDA DE DATOS  */}
                     <td style={{ ...styles.td, ...styles.tdCedula }}>{user.cedula}</td>
                     <td style={styles.td}>
                       <select

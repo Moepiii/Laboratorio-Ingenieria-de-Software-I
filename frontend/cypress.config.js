@@ -9,9 +9,7 @@ module.exports = defineConfig({
     viewportHeight: 720,
     video: false,
     setupNodeEvents(on, config) {
-      // implement node event listeners here
     },
   },
 
-  // (El bloque 'component' se puede borrar)
 });

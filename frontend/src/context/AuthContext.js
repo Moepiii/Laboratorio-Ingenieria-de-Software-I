@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-// ⭐️ MODIFICADO: Importamos la función actualizada de authService
+
 import { loginUser, registerUser } from '../services/authService';
 
 const AuthContext = createContext();
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ⭐️ MODIFICADO: La función 'register' ahora acepta y pasa la 'cedula'
+
     const register = async (username, password, nombre, apellido, cedula) => {
         setLoading(true);
         setError('');

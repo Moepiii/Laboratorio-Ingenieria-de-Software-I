@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getUserDashboardData } from '../services/userService';
 
-// (Estilos - sin cambios)
+
 const styles = {
     container: { padding: '2rem', backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', width: '100%', maxWidth: '800px', margin: '2rem auto', fontFamily: 'Inter, sans-serif' },
     header: { fontSize: '1.875rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.75rem' },
@@ -83,7 +83,7 @@ const UserDashboard = () => {
     if (loading || !currentUser) { // Muestra cargando si falta user o loading está activo
         return <div style={styles.container}><p>Cargando dashboard...</p></div>;
     }
-    if (error) { /* ... (renderizado de error sin cambios) ... */
+    if (error) { /*  */
         return (
             <div style={styles.container}>
                 <h1 style={styles.header}> Bienvenido, {currentUser?.nombre || 'Usuario'} </h1>
@@ -92,7 +92,7 @@ const UserDashboard = () => {
             </div>
         );
     }
-    if (!projectData) { /* ... (renderizado sin proyecto sin cambios) ... */
+    if (!projectData) { /*  */
         return (
             <div style={styles.container}>
                 <h1 style={styles.header}> Bienvenido, {currentUser?.nombre || 'Usuario'} </h1>
@@ -102,7 +102,6 @@ const UserDashboard = () => {
         );
     }
 
-    // --- Renderizado Principal (projectData existe) ---
     const { proyecto, gerentes, miembros } = projectData;
 
     return (
@@ -115,9 +114,9 @@ const UserDashboard = () => {
                     <h2 style={styles.sectionTitle}>Detalles de tu Proyecto </h2>
                     <div style={styles.infoGrid}>
                         <div style={styles.infoItem}><span style={styles.infoLabel}>Nombre</span> {proyecto.nombre || 'N/A'}</div>
-                        {/* ⭐️ ARREGLO: Llama a formatDate */}
+                        {/*  */}
                         <div style={styles.infoItem}><span style={styles.infoLabel}>Fecha Inicio</span> {formatDate(proyecto.fecha_inicio)}</div>
-                        {/* ⭐️ ARREGLO: Llama a formatDate */}
+                        {/*  */}
                         <div style={styles.infoItem}><span style={styles.infoLabel}>Fecha Cierre</span> {formatDate(proyecto.fecha_cierre)}</div>
                         <div style={styles.infoItem}>
                             <span style={styles.infoLabel}>Estado</span>

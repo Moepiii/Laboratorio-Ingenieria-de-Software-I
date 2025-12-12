@@ -1,16 +1,12 @@
-/* eslint-disable no-undef */
+
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
-// ⭐️ NOTA: La ruta ahora es '../../src/...' para salir de 'cypress/component'
-// y entrar a 'src'
+
 import { AuthContext } from '../../src/context/AuthContext';
 import Sidebar from '../../src/Sidebar';
 
-/**
- * Función de ayuda (wrapper) para montar el componente
- * con todos los proveedores que necesita.
- */
+
 const mountWithProviders = (
     component,
     authValue,

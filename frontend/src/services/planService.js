@@ -19,7 +19,6 @@ export const createPlan = (token, planData, adminUsername) => {
     return apiCall('/admin/create-plan', 'POST', body, token);
 };
 
-// ⭐️ NUEVO: Actualizar
 export const updatePlan = (token, planData, adminUsername) => {
     const body = {
         ...planData,
@@ -32,7 +31,7 @@ export const updatePlan = (token, planData, adminUsername) => {
     return apiCall('/admin/update-plan', 'POST', body, token);
 };
 
-// ⭐️ NUEVO: Borrar
+
 export const deletePlan = (token, planId, adminUsername) => {
     const body = {
         id: parseInt(planId),

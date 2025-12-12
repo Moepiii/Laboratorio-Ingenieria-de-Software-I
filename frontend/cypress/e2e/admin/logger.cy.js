@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+
 
 describe('Módulo: Logger de Eventos', () => {
 
@@ -55,12 +55,10 @@ describe('Módulo: Logger de Eventos', () => {
         cy.wait('@deleteReq');
         cy.wait('@reloadTableEmpty');
 
-        // ⭐️ CORRECCIÓN AQUÍ ⭐️
-        // Verificamos que NO existan filas de datos (checkboxes)
+
         cy.get('table tbody tr input[type="checkbox"]').should('not.exist');
 
-        // Y si verificamos texto, lo hacemos SOLO dentro de la tabla (tbody)
-        // (Porque la palabra "Proyectos" existe en el menú lateral)
+
         cy.get('table tbody').should('not.contain', 'Proyectos');
     });
 

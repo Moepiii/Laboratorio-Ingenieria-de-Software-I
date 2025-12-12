@@ -9,11 +9,10 @@ import {
     deleteActividad
 } from '../services/actividadService';
 
-// ⭐️ --- (INICIO) CORRECCIÓN DE RUTAS --- ⭐️
-// Estas son las rutas correctas basadas en tu Screenshot_199.png
+
 import Modal from '../components/auth/Modal';
 import EncargadoSearchModal from '../components/auth/EncargadoSearchModal';
-// ⭐️ --- (FIN) CORRECCIÓN DE RUTAS --- ⭐️
+
 
 // Estilos
 const styles = {
@@ -145,7 +144,7 @@ const DatosProyecto = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false); // ⭐️ AÑADIDO
+    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false); // 
 
     // Estado del formulario
     const [currentActividad, setCurrentActividad] = useState(null);
@@ -226,7 +225,7 @@ const DatosProyecto = () => {
         setFormData(prev => ({ ...prev, [name]: val }));
     };
 
-    // --- ⭐️ AÑADIDO: Manejo del Modal de Búsqueda de Encargado ---
+
     const handleOpenSearchModal = () => setIsSearchModalOpen(true);
     const handleCloseSearchModal = () => setIsSearchModalOpen(false);
 
@@ -235,7 +234,7 @@ const DatosProyecto = () => {
         handleCloseSearchModal();
     };
 
-    // ⭐️ AÑADIDO: Deriva la cédula a mostrar a partir del ID en el formulario
+
     const selectedEncargadoCedula = useMemo(() => {
         if (formData.encargado_id === 0) {
             return '';
@@ -399,7 +398,7 @@ const DatosProyecto = () => {
                         </div>
                     </div>
 
-                    {/* ⭐️ CAMBIO: Fila 3 (Encargado) ⭐️ */}
+                    {/*  */}
                     <div style={styles.formGridTriple}>
                         <div style={styles.formGroup}>
                             <label htmlFor="encargado_id" style={styles.label}>Encargado</label>
@@ -473,7 +472,7 @@ const DatosProyecto = () => {
                 </form>
             </Modal>
 
-            {/* ⭐️ AÑADIDO: Pasa el ID seleccionado al modal de búsqueda ⭐️ */}
+            {/* */}
             <EncargadoSearchModal
                 isOpen={isSearchModalOpen}
                 onClose={handleCloseSearchModal}
