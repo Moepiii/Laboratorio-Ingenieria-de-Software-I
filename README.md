@@ -496,18 +496,13 @@ Este proyecto es parte de un trabajo académico para la materia CI3715.
 
 ## 👤 Autor
 
-Desarrollado como parte del Laboratorio de CI3715.
+Este proyecto es parte de un trabajo académico para la materia **CI3715**, desarrollado como parte del **Laboratorio de CI3715**.
 
+| Nombre               | Correo electrónico         | Rol              |
+|----------------------|----------------------------|------------------|
+| Jean Carlos Guzmán   | jguzman106@gmail.com       | Agile Coach      |
+| David Pereira        | 18-10245@usb.ve            | Miembro del Equipo |
+| Rafael Valera        | 16-11202@usb.ve            | Miembro del Equipo |
 
-Persona                         Contacto                   Rol 
-
-Jean Carlos Guzmán      jguzman106@gmail.com           Agile Coach 
-
-David Pereira            18-10245@usb.ve            Miembro del Equipo  
-
-Rafael Valera            16-11202@usb.ve            Miembro del Equipo  
-
-
-
-Para más información o soporte, contacta al equipo de desarrollo.
+📬 Para más información o soporte, contacta al equipo de desarrollo.
 
